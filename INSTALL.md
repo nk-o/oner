@@ -13,7 +13,7 @@ If this file is not already inside a clone, clone the repository. The default lo
 git clone https://github.com/nk-o/oner.git ~/.oner
 ```
 
-Never clone into `~/.agents`: Codex, Cursor, and several other agents read `~/.agents/skills` on
+Never clone into `~/.agents`. Codex, Cursor, and several other agents read `~/.agents/skills` on
 their own, and would load the raw sources next to the built copies. The build refuses to run
 from there.
 
