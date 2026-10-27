@@ -27,7 +27,7 @@ If it cannot do something, say so and fix the script.
 | Repair copied launch settings without bootstrap | `wt.sh ports [<name>]` |
 | Develop and verify | project's own dev server, started from `.claude/launch.json` |
 | Open the PR | run the repo's checks, then the `pr` skill, then `gh pr create` |
-| Handle CI and review | the `pr-feedback` skill |
+| Wait for CI and review | the `pr-wait` skill |
 | Finish | `wt.sh finish` |
 
 `wt.sh status` prints every worktree with its branch, uncommitted changes, commits
@@ -47,7 +47,7 @@ then re-run with `--yes`. Never pass `--yes` on the first call. An oneshot serie
 authorized at its gate counts as that yes for its own finished stages.
 
 **Never finish a red PR.** If `status` shows `checks:FAIL` or `checks:running`,
-say so and stop. Use the `pr-feedback` skill on failures instead.
+say so and stop. Use the `pr-wait` skill instead.
 
 **A shell inside the worktree cannot delete it.** `finish` detects this, does
 everything except removing the directory, and says so. Sweep it later with

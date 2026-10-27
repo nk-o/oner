@@ -4,7 +4,8 @@ description: >-
   Works a pull request's own feedback. Pulls the unresolved threads, comments, and failing
   checks from GitHub, verifies each claim, fixes what is real, and writes a ready-to-paste reply
   for what is not. Use for a red build or unresolved review threads on the current branch's pull
-  request. When the review output is already in hand, use `resolve-review` instead.
+  request. When the review output is already in hand, use `resolve-review` instead. To wait on
+  a pull request until it is ready, use `pr-wait`.
 allowed-tools: Bash("{{skills_dir_abs}}/pr-feedback/context.sh"), Bash(gh pr view*), Bash(gh pr checks*), Bash(gh pr diff*), Bash(gh run view*), Bash(gh run list*), Bash(git status*), Bash(git log*), Bash(git diff*), Bash(git show*), Bash(git grep*)
 ---
 

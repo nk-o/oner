@@ -62,8 +62,8 @@ skills also use `jq`, `lsof`, and the GitHub CLI `gh`.
 
 `oneshot` reads the code, then stops once to ask the decisions that are yours to make. Everything
 after that runs without asking: the spec, the implementation, the project's checks, verification
-in the running product, review by several models, fixes for what the review proves, and the pull
-request. It does not merge.
+in the running product, review by several models, fixes for what the review proves, the pull
+request, and a watch on it until checks and review bots are through. It does not merge.
 
 Work too large for one pull request becomes a series. With your authorization, each stage is
 merged, deployed, and checked in production before the next one lands.
@@ -81,7 +81,7 @@ The same work, one step at a time, for when you want to see each stage:
 | Write it down | `/spec` | `plan.md`, plus `spec.md` when the work is big, each approved before the next |
 | Build it | `/implement` | `plan.md` worked task by task, with each acceptance criterion checked in the product |
 | Open the PR | `/pr`, then `gh pr create` | a title and body written for a person |
-| Answer CI and review | `/pr-feedback` | each claim checked against the code, real defects fixed, the rest refuted |
+| Wait for CI and review | `/pr-wait` | the PR watched until it is ready, real defects fixed, every thread answered |
 | Ship | `wt finish` | the PR merged, the dev server stopped, the branch and worktree removed |
 
 A one-file fix needs only `wt new`, the edit, `/pr`, and `wt finish`.
@@ -120,7 +120,9 @@ a new project.
 | Ship | `/oneshot` | one task from idea to open pull request |
 | | `/commit-message` | a Conventional Commits message for the staged change |
 | | `/pr` | a pull request title and body written for a person |
-| | `/pr-feedback` | works through a PR's unresolved threads and failing checks |
+| | `/pr-feedback` | works through a PR's unresolved threads and failing checks once |
+| | `/pr-wait` | watches a PR until checks and review bots are through, fixing and answering on the way |
+| | `/stale-pr` | decides whether an old PR should be updated, reworked, or closed, and updates it |
 | | `/issue-tracker` | keeps the tracker issue's status and checklist in step with the work |
 | Upkeep | `/configure` | changes the language, agents, reviewers, or disabled skills, and applies updates |
 | | `/worktree` | creates, tracks, and removes feature worktrees with their own ports |
@@ -160,6 +162,7 @@ the rules in `AGENTS.md`.
 | [pstack](https://github.com/cursor/plugins/tree/main/pstack) | `blast-radius` and the evidence rungs in `AGENTS.md`; the **Shaping code** principles in `AGENTS.md`; `reflect`; the `verify-<app>` skill `worktree-setup` writes, from `create-verification-skill`, with its CLI and feature map from Lauren Tan's Control Glass; **Mistakes that recur** in `AGENTS.md` and `gardener`, from the same talk; the multi-model review in `external-review`, from `interrogate`; four technical-prose patterns in `humanizer`, from `unslop` |
 | [blader/humanizer](https://github.com/blader/humanizer) | `humanizer`, built on Wikipedia's "Signs of AI writing" |
 | [emilkowalski/skills](https://github.com/emilkowalski/skills) | `prototype`; the field map, catalog, and failure signatures in `break-ui` |
+| [t3dotgg/tstack](https://github.com/t3dotgg/tstack) | `pr-wait`, from `babysit-pr` and its `pr-wait` script; `stale-pr`, from `modernize`; the extra review round for security, access, data loss, and concurrency in `oneshot`, from `sol-loop`; the secrets check in `pr`, from `file-pr` |
 | [anthropics/skills](https://github.com/anthropics/skills) | `frontend-design`, extended with a branch for screens inside an existing product; the fresh-reader check in `docs`, from `doc-coauthoring` |
 | [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | `refine` and its five directions; `break-api` and the cases in `break-ui`, from its `harden`; the product UI rules, templated habits, and bounded screenshot rounds in `frontend-design` |
 | [juliusbrussee/caveman](https://github.com/juliusbrussee/caveman) | `commit-message`, from `caveman-commit` |

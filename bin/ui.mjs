@@ -42,6 +42,7 @@ function merge(raw, body) {
     const r = body.reviewers?.[name];
     if (r && typeof r === 'object') next.externalReview[name] = { ...raw.externalReview?.[name], ...r };
   }
+  if (body.reviewBots && typeof body.reviewBots === 'object') next.reviewBots = { ...raw.reviewBots, ...body.reviewBots };
   return next;
 }
 

@@ -136,7 +136,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    | `start` | Cut the branch from the updated default branch: `{{skills_dir}}/worktree/wt.sh new <branch>` where the repository has `.claude/worktree.json`, else `git switch -c <branch> origin/<base>`. Open the stage run below there, and build it. |
    | `build` | Work the stage run until its pull request is open. |
    | `restart` | The branch was cut before a stage it needs was merged. Remove it and start again. |
-   | `fix` | A fresh delegate runs `pr-feedback` in the stage's checkout and pushes. |
+   | `fix` | A fresh delegate works what `next` names in the stage's checkout by `pr-wait`'s **Handle an event**, and pushes. It does not wait. |
    | `update` | Merge the default branch into the stage's branch, run `green-repo`, and push. `next` asks for this whenever the head lacks a stage merged since the branch was cut, whatever GitHub's own setting. |
    | `merge` | Run the printed `gh pr merge` command exactly, as a command of its own, then `next`. `--match-head-commit` lets the merge through only for the head whose checks `next` verified. |
    | `accept` | Record the production check the stage run wrote, with `series.mjs amend --stage <id> --accept "<command>"`, once its log shows the check failing on production as it is. When the stage run wrote none, a fresh delegate writes it. When no read-only check can see the stage, record `--waive-accept "<reason>"` instead. |

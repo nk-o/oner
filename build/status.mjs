@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { listSkills, loadConfig, readRawConfig } from './config.mjs';
-import { EFFORT_STAGES, PROVIDERS, TARGETS } from './targets.mjs';
+import { BOT_MODES, EFFORT_STAGES, PROVIDERS, REVIEW_BOTS, TARGETS } from './targets.mjs';
 
 const MANIFEST = '.agent-config-manifest.json';
 
@@ -50,6 +50,14 @@ export function status(repo) {
     level: config.effort[stage],
   }));
 
+  const reviewBots = Object.entries(REVIEW_BOTS).map(([name, spec]) => ({
+    name,
+    label: spec.label,
+    trigger: spec.trigger,
+    modes: BOT_MODES,
+    mode: config.reviewBots[name],
+  }));
+
   const disabled = new Set(config.disabledSkills);
   const skills = listSkills(repo).map((name) => ({
     name,
@@ -66,6 +74,7 @@ export function status(repo) {
     targets,
     effort,
     reviewers,
+    reviewBots,
     skills,
   };
 }

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { EFFORT_LEVELS, EFFORT_STAGES, PROVIDERS, TARGETS } from './targets.mjs';
+import { BOT_MODES, EFFORT_LEVELS, EFFORT_STAGES, PROVIDERS, REVIEW_BOTS, TARGETS } from './targets.mjs';
 
 export class BuildError extends Error {}
 // A refusal caused by what is in one agent's directory, not by the sources.
@@ -39,7 +39,7 @@ export function readRawConfig(repoDir) {
 
 // Returns the config with every default filled in and every dir absolute:
 // { language, disabledSkills, effort: { <stage>: <level> }, reviewers: { <provider>: { enabled, ... } },
-//   targets: { <name>: { enabled, dir } } }
+//   reviewBots: { <bot>: <mode> }, targets: { <name>: { enabled, dir } } }
 export function loadConfig(repoDir) {
   return validateConfig(readRawConfig(repoDir), repoDir);
 }
@@ -49,7 +49,7 @@ export function loadConfig(repoDir) {
 export function validateConfig(raw, repoDir) {
   const at = (path, msg) => new BuildError(`config.json ${path}: ${msg}`);
   if (!isObject(raw)) throw at('', 'must be an object');
-  onlyKeys(raw, ['$schema', 'language', 'skills', 'effort', 'externalReview', 'targets'], '', at);
+  onlyKeys(raw, ['$schema', 'language', 'skills', 'effort', 'externalReview', 'reviewBots', 'targets'], '', at);
 
   if (raw.language !== undefined && (typeof raw.language !== 'string' || !raw.language.trim())) {
     throw at('language', 'must be a language name, such as "English"');
@@ -93,6 +93,15 @@ export function validateConfig(raw, repoDir) {
     reviewers[name] = out;
   }
 
+  const botsIn = objectAt(raw.reviewBots, 'reviewBots', at);
+  onlyKeys(botsIn, Object.keys(REVIEW_BOTS), 'reviewBots', at);
+  const reviewBots = {};
+  for (const [name, spec] of Object.entries(REVIEW_BOTS)) {
+    const mode = botsIn[name] ?? spec.default;
+    if (!BOT_MODES.includes(mode)) throw at(`reviewBots.${name}`, `must be one of: ${BOT_MODES.join(', ')}`);
+    reviewBots[name] = mode;
+  }
+
   const targetsIn = objectAt(raw.targets, 'targets', at);
   onlyKeys(targetsIn, Object.keys(TARGETS), 'targets', at);
   const targets = {};
@@ -110,7 +119,7 @@ export function validateConfig(raw, repoDir) {
     targets[name] = { enabled: t.enabled ?? (spec.alwaysOn || existsSync(dir)), explicit: t.enabled !== undefined, dir };
   }
 
-  return { language: raw.language?.trim() ?? 'English', disabledSkills: disabled, effort, reviewers, targets };
+  return { language: raw.language?.trim() ?? 'English', disabledSkills: disabled, effort, reviewers, reviewBots, targets };
 }
 
 export function listSkills(repoDir) {

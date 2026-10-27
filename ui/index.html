@@ -292,6 +292,12 @@
       <div class="card" id="reviewers"></div>
     </section>
 
+    <section aria-labelledby="h-bots">
+      <h2 id="h-bots">Review bots</h2>
+      <p class="help">Bots that review a pull request on the repository's side. Wait holds a pull request until the bot finishes, once it shows up there. Request also asks it with a comment after each push. Their comments are answered in every mode.</p>
+      <div class="card" id="bots"></div>
+    </section>
+
     <section aria-labelledby="h-skills">
       <div class="skills-head">
         <div>
@@ -349,6 +355,7 @@ function draftFrom(s) {
     targets: Object.fromEntries(s.targets.map((t) => [t.name, t.enabled])),
     effort: Object.fromEntries(s.effort.map((e) => [e.stage, e.level])),
     reviewers: Object.fromEntries(s.reviewers.map((r) => [r.name, { enabled: r.enabled, model: r.model, ...(r.effort ? { effort: r.effort } : {}) }])),
+    reviewBots: Object.fromEntries(s.reviewBots.map((b) => [b.name, b.mode])),
     disabledSkills: s.skills.filter((k) => k.disabled).map((k) => k.name),
   };
 }
@@ -373,6 +380,9 @@ function changes() {
     for (const [key, value] of Object.entries(r)) {
       if (value !== base.reviewers[name][key]) ((out.reviewers ??= {})[name] ??= {})[key] = value;
     }
+  }
+  for (const [name, mode] of Object.entries(draft.reviewBots)) {
+    if (mode !== base.reviewBots[name]) (out.reviewBots ??= {})[name] = mode;
   }
   if (JSON.stringify(draft.disabledSkills) !== JSON.stringify(base.disabledSkills)) out.disabledSkills = draft.disabledSkills;
   return out;
@@ -435,6 +445,16 @@ function renderReviewers() {
   }));
 }
 
+function renderBots() {
+  $("bots").replaceChildren(...state.reviewBots.map((b) =>
+    el("div", { class: "row" },
+      el("div", {}, el("div", { class: "title" }, b.label),
+        el("div", { class: "sub" }, b.trigger)),
+      el("div", { class: "model" },
+        el("select", { "aria-label": `${b.label} review bot`, onchange: (e) => { draft.reviewBots[b.name] = e.target.value; refreshBar(); } },
+          b.modes.map((m) => el("option", { value: m, selected: m === draft.reviewBots[b.name] }, m)))))));
+}
+
 function renderEffort() {
   $("effort").replaceChildren(...state.effort.map((e) =>
     el("div", { class: "row" },
@@ -451,7 +471,7 @@ const STAGES = [
   ["Design", ["design-context", "frontend-design", "figma-design", "prototype", "refine", "motion-design", "design-review"]],
   ["Build", ["implement", "diagnose", "humanizer", "changelog", "docs", "product-video"]],
   ["Check", ["prod-review", "blast-radius", "break-api", "break-ui", "green-repo", "resolve-review", "external-review"]],
-  ["Ship", ["oneshot", "commit-message", "pr", "pr-feedback", "issue-tracker"]],
+  ["Ship", ["oneshot", "commit-message", "pr", "pr-feedback", "pr-wait", "stale-pr", "issue-tracker"]],
   ["Upkeep", ["configure", "dev-tidy", "worktree", "worktree-setup", "reflect", "gardener"]],
 ];
 const openStages = new Set();
@@ -501,6 +521,7 @@ function render() {
   renderAgents();
   renderEffort();
   renderReviewers();
+  renderBots();
   renderSkills();
   $("config-path").textContent = tilde(`${state.repo}/config.json`);
   const v = state.version;
