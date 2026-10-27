@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{repo_dir}}/bin/session-start.mjs\" json \"{{target_dir}}\" \"{{skills_dir}}\""
+          }
+        ]
+      }
+    ]
+  }
+}

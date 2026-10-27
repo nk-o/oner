@@ -1,0 +1,6 @@
+{
+  "name": "weekly-pace",
+  "version": "0.1.0",
+  "description": "Shows weekly limit usage under the prompt against how far today can spend it, and warns as the five-hour window nears its limit",
+  "types": "./types/index.d.ts"
+}

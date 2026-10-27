@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent config",
+  "description": "Per-user settings for bin/build.mjs. The configure skill and the settings page (node bin/ui.mjs) write this file; a missing file means every default below.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "language": {
+      "description": "The language the agent replies in. Code, commits, and pull requests stay in English.",
+      "type": "string",
+      "minLength": 1,
+      "default": "English"
+    },
+    "skills": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disabled": {
+          "description": "Skills under skills/ that the build leaves out.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "effort": {
+      "description": "Reasoning effort of Claude Code and Codex subagents. The main session keeps its own level.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "build": {
+          "description": "oneshot-worker, which writes one plan task.",
+          "enum": ["low", "medium", "high", "xhigh", "max"],
+          "default": "medium"
+        },
+        "review": {
+          "description": "oneshot-reviewer, which runs prod-review on the finished change.",
+          "enum": ["low", "medium", "high", "xhigh", "max"],
+          "default": "xhigh"
+        }
+      }
+    },
+    "externalReview": {
+      "description": "Voices the external-review skill runs. Each needs its CLI and a subscription. Enabling a voice is consent to send it sanitized code from any repository. The agent a target serves is always left out of its own review.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "model": {
+              "type": "string",
+              "default": "cursor-grok-4.6-low"
+            }
+          }
+        },
+        "codex": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "model": {
+              "type": "string",
+              "default": "gpt-6.1-sol"
+            },
+            "effort": {
+              "type": "string",
+              "default": "medium"
+            }
+          }
+        },
+        "claude": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "model": {
+              "type": "string",
+              "default": "opus"
+            },
+            "effort": {
+              "enum": ["low", "medium", "high", "xhigh", "max"],
+              "default": "high"
+            }
+          }
+        }
+      }
+    },
+    "targets": {
+      "description": "Which agent homes the build writes into.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "claude": {
+          "description": "Claude Code.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "dir": {
+              "type": "string",
+              "minLength": 1,
+              "default": "~/.claude"
+            }
+          }
+        },
+        "codex": {
+          "description": "Codex. On by default when its dir exists.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "dir": {
+              "type": "string",
+              "minLength": 1,
+              "default": "~/.codex"
+            }
+          }
+        },
+        "cursor": {
+          "description": "Cursor. On by default when its dir exists.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "dir": {
+              "type": "string",
+              "minLength": 1,
+              "default": "~/.cursor"
+            }
+          }
+        },
+        "gemini": {
+          "description": "Gemini CLI. On by default when its dir exists.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "dir": {
+              "type": "string",
+              "minLength": 1,
+              "default": "~/.gemini"
+            }
+          }
+        },
+        "copilot": {
+          "description": "GitHub Copilot CLI. On by default when its dir exists.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "dir": {
+              "type": "string",
+              "minLength": 1,
+              "default": "~/.copilot"
+            }
+          }
+        },
+        "opencode": {
+          "description": "OpenCode. Reads the Claude Code skills while that target is on, so it gets no copy of its own then. On by default when its dir exists.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "dir": {
+              "type": "string",
+              "minLength": 1,
+              "default": "~/.config/opencode"
+            }
+          }
+        },
+        "grok": {
+          "description": "Grok Build. Reads the Claude Code skills while that target is on, so it gets no copy of its own then. On by default when its dir exists.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "dir": {
+              "type": "string",
+              "minLength": 1,
+              "default": "~/.grok"
+            }
+          }
+        }
+      }
+    }
+  }
+}

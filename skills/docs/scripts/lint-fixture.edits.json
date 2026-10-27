@@ -1,0 +1,42 @@
+{
+ "id": 123,
+ "hash": "fixture",
+ "edits": [
+  {
+   "oldText": "Click on **Save**.",
+   "newText": "Select **Save**.\n\nThe hero is a stunning banner."
+  },
+  {
+   "oldText": "![Hero](hero.webp)",
+   "newText": "<Frame>\n![Editor with an arrow on Save](editor.webp)\n<Pointer x={40} y={40}>Save</Pointer>\n</Frame>"
+  },
+  {
+   "oldText": "A sentence with no replacement."
+  },
+  {
+   "oldText": "   ![Step image](https://example.test/a.webp)",
+   "newText": "![Step image](https://example.test/b.webp)"
+  },
+  {
+   "oldText": "<Spotlight x={5} y={5} w={30} h={30} />",
+   "newText": "<Spotlight x={5} y={5} w={30} h={30} />\n<Pointer x={40} y={40}>Menu</Pointer>"
+  },
+  {
+   "oldText": "\n\n   ![Old step image](https://x.test/a.webp)",
+   "newText": ""
+  }
+ ],
+ "meta": {
+  "title": "Hi",
+  "slug": "Hero_Section",
+  "seo_description": "Too short.",
+  "keywords": [
+   "hero",
+   "banner"
+  ],
+  "product_refs": [
+   "section:hero",
+   "hero"
+  ]
+ }
+}

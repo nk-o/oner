@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>oner settings</title>
+<style>
+  :root {
+    --bg: #eceef1;
+    --surface: #ffffff;
+    --ink: #161b22;
+    --muted: #5d6673;
+    --line: #d7dbe1;
+    --signal: #4b3fd1;
+    --signal-ink: #ffffff;
+    --signal-soft: #e7e5fb;
+    --ok: #17784f;
+    --warn: #9a5b07;
+    --error: #b42318;
+    --radius: 10px;
+    --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1318;
+      --surface: #171c23;
+      --ink: #e7ebf0;
+      --muted: #97a1ae;
+      --line: #28303a;
+      --signal: #8f86ff;
+      --signal-ink: #0f1318;
+      --signal-soft: #24223f;
+      --ok: #4cc08a;
+      --warn: #e0a24a;
+      --error: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 var(--sans);
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 56px 20px 140px; }
+  code, .mono { font-family: var(--mono); font-size: 12.5px; }
+  a { color: var(--signal); }
+  :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+
+  /* Overview */
+  .brand { font-weight: 700; letter-spacing: -0.01em; font-size: 15px; margin: 0 0 40px; }
+  .brand span { color: var(--muted); font-weight: 500; }
+  h1 {
+    font-size: clamp(30px, 5vw, 42px);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    font-weight: 750;
+    margin: 0 0 16px;
+    max-width: 17ch;
+  }
+  .lede { color: var(--muted); font-size: 16.5px; max-width: 60ch; margin: 0 0 28px; }
+  .solves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; margin: 0 0 44px; padding: 0; list-style: none; }
+  .solves b { display: block; font-weight: 650; margin-bottom: 2px; }
+  .solves span { color: var(--muted); font-size: 14px; }
+
+  /* The route: one config fanning out to every agent */
+  .route {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    gap: 0 18px;
+  }
+  .source {
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--signal-soft);
+    color: var(--signal);
+    white-space: nowrap;
+    position: relative;
+  }
+  .fan { display: grid; gap: 8px; position: relative; padding-left: 22px; }
+  .fan::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 18px; bottom: 18px;
+    border-left: 1.5px solid var(--line);
+  }
+  .node { display: flex; align-items: center; gap: 12px; position: relative; min-height: 36px; }
+  .node::before {
+    content: "";
+    position: absolute;
+    left: -22px; top: 50%;
+    width: 16px;
+    border-top: 1.5px solid var(--line);
+  }
+  .node.live::before { border-top-color: var(--signal); }
+  .node .name { font-weight: 600; min-width: 96px; }
+  .node .state { color: var(--muted); font-size: 13.5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+  .live .dot { background: var(--ok); }
+  .pending .dot { background: var(--warn); }
+  .notice {
+    margin: 14px 0 0;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--signal-soft);
+    font-size: 14px;
+  }
+
+  /* Settings */
+  section { margin-top: 48px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 650; margin: 0 0 6px; }
+  .help { color: var(--muted); font-size: 14px; margin: 0 0 14px; max-width: 62ch; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--line);
+  }
+  .row:first-child { border-top: 0; }
+  .row .title { font-weight: 600; }
+  .row .sub { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .row .aside { color: var(--muted); font-size: 13px; text-align: right; }
+  .row .aside.warn { color: var(--warn); }
+
+  input[type="text"], select {
+    font: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 10px;
+    min-width: 0;
+  }
+  input[type="text"]:focus, select:focus { outline: 2px solid var(--signal); outline-offset: 0; border-color: transparent; }
+  .model { display: flex; gap: 8px; justify-content: flex-end; }
+  .model input { width: 190px; font-family: var(--mono); font-size: 12.5px; }
+  .model select { min-width: 104px; }
+  .lang { display: flex; gap: 12px; align-items: center; padding: 14px 16px; flex-wrap: wrap; }
+  .lang input { width: 220px; }
+
+  /* Switch */
+  .switch { position: relative; width: 36px; height: 20px; flex: none; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .switch span {
+    position: absolute; inset: 0;
+    border-radius: 10px;
+    background: var(--line);
+    transition: background 160ms;
+    pointer-events: none;
+  }
+  .switch span::after {
+    content: "";
+    position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+    transition: transform 160ms;
+  }
+  .switch input:checked + span { background: var(--signal); }
+  .switch input:checked + span::after { transform: translateX(16px); }
+  .switch input:focus-visible + span { outline: 2px solid var(--signal); outline-offset: 2px; }
+  .switch input:disabled { cursor: not-allowed; }
+  .switch input:disabled + span { opacity: 0.45; }
+
+  .skills-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .skills-head input { width: 240px; }
+  .skill .sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .skill.off .title { color: var(--muted); }
+  .empty { padding: 18px 16px; color: var(--muted); font-size: 14px; }
+  .stages { display: grid; gap: 10px; }
+  .stage-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 14px; padding: 10px 16px; }
+  .stage-toggle { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; border: 0; border-radius: 4px; background: none; color: inherit; text-align: left; font-weight: 400; }
+  .stage-toggle .title { font-weight: 650; }
+  .stage-toggle .sub { color: var(--muted); font-size: 13px; }
+  .stage-toggle .chev { margin-left: auto; color: var(--muted); }
+  .stage-toggle:disabled { opacity: 1; cursor: default; }
+  .stage-toggle:disabled .chev { visibility: hidden; }
+  .stage-body { border-top: 1px solid var(--line); }
+
+  /* Save bar */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    transform: translateY(100%);
+    transition: transform 200ms ease;
+  }
+  .bar.show { transform: none; }
+  .bar-inner { max-width: 760px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .bar-inner p { margin: 0 auto 0 0; font-size: 14px; color: var(--muted); }
+  button {
+    font: inherit; font-size: 14px; font-weight: 600;
+    border-radius: 8px; padding: 9px 16px;
+    border: 1px solid var(--line); background: transparent; color: var(--ink);
+    cursor: pointer;
+  }
+  button.primary { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); }
+  button:disabled { opacity: 0.6; cursor: progress; }
+
+  .result { margin-top: 14px; border-radius: var(--radius); padding: 12px 14px; font-size: 14px; background: var(--surface); border: 1px solid var(--line); }
+  .result.error { border-color: var(--error); color: var(--error); }
+  .result pre { margin: 8px 0 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); }
+
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13.5px; }
+  footer p { margin: 0 0 6px; }
+
+  .loading { color: var(--muted); }
+  .also { color: var(--muted); font-size: 13.5px; margin: 4px 0 0; }
+  details.more { border-top: 1px solid var(--line); }
+  details.more summary { padding: 12px 16px; cursor: pointer; color: var(--muted); font-size: 14px; list-style-position: inside; }
+  details.more summary:hover { color: var(--ink); }
+  [hidden] { display: none !important; }
+
+  @media (max-width: 620px) {
+    main { padding-top: 32px; }
+    .solves { grid-template-columns: 1fr; }
+    .route { grid-template-columns: 1fr; gap: 14px; }
+    .source { justify-self: start; }
+    .row { grid-template-columns: auto minmax(0, 1fr); }
+    .row .aside, .row .model { grid-column: 2; justify-content: flex-start; text-align: left; }
+    .model input { flex: 1; width: auto; }
+    .skills-head input, .lang input { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="brand">oner <span>settings</span></p>
+
+  <h1>One setup for every coding agent you use</h1>
+  <p class="lede">oner keeps the rules and skills your coding agents work by in one place and installs them into each agent you use: Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot CLI, OpenCode, and Grok Build. You choose here. The shared files never change, so an update never collides with your choices.</p>
+  <ul class="solves">
+    <li><b>The same agent everywhere</b><span>One set of rules for how an agent talks, decides, edits, and checks its work, in every tool.</span></li>
+    <li><b>From task to pull request</b><span><code>/oneshot</code> takes a feature or a bug through spec, build, checks, and review, and stops once for your decisions.</span></li>
+    <li><b>Review by other models</b><span>A change is read by models other than the one that wrote it, before you see it.</span></li>
+    <li><b>Nothing to maintain by hand</b><span>A change here reaches every agent on its own. Updates arrive when you ask your agent for them.</span></li>
+  </ul>
+
+  <div class="route" aria-label="Where your settings go">
+    <div class="source">config.json</div>
+    <div class="fan" id="route"><p class="loading">Reading your setup…</p></div>
+  </div>
+  <p class="notice" id="update" hidden></p>
+
+  <div id="settings" hidden>
+    <section aria-labelledby="h-lang">
+      <h2 id="h-lang">Language</h2>
+      <p class="help">The language your agents reply in. Code, commit messages, and pull requests stay in English.</p>
+      <div class="card lang">
+        <label for="language">Reply in</label>
+        <input type="text" id="language" list="languages" autocomplete="off" spellcheck="false">
+        <datalist id="languages">
+          <option value="English"><option value="Russian"><option value="Ukrainian"><option value="German">
+          <option value="French"><option value="Spanish"><option value="Portuguese"><option value="Polish">
+          <option value="Italian"><option value="Turkish"><option value="Chinese"><option value="Japanese">
+        </datalist>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-agents">
+      <h2 id="h-agents">Agents</h2>
+      <p class="help">Which agents get the rules and skills. Turning one off removes what oner put there and leaves the rest of that agent's files alone.</p>
+      <div class="card" id="agents"></div>
+    </section>
+
+    <section aria-labelledby="h-effort">
+      <h2 id="h-effort">Effort by stage</h2>
+      <p class="help">How hard Claude Code and Codex think in the parts of a oneshot run they hand to a subagent. The rest of the run keeps the level you started the session at.</p>
+      <div class="card" id="effort"></div>
+    </section>
+
+    <section aria-labelledby="h-review">
+      <h2 id="h-review">External review</h2>
+      <p class="help">Models that review a change before you see it. Each needs its own CLI and subscription.</p>
+      <div class="card" id="reviewers"></div>
+    </section>
+
+    <section aria-labelledby="h-skills">
+      <div class="skills-head">
+        <div>
+          <h2 id="h-skills">Skills</h2>
+          <p class="help" id="skills-count" style="margin:0"></p>
+        </div>
+        <input type="text" id="filter" placeholder="Filter skills" aria-label="Filter skills" autocomplete="off">
+      </div>
+      <div class="stages" id="skills"></div>
+    </section>
+
+    <div id="result" hidden></div>
+
+    <footer>
+      <p>Settings are saved to <code id="config-path"></code>. For anything this page does not cover, ask your agent to configure oner.</p>
+      <p id="version"></p>
+    </footer>
+  </div>
+</main>
+
+<div class="bar" id="bar" role="region" aria-label="Unsaved changes">
+  <div class="bar-inner">
+    <p id="bar-text">You have unsaved changes.</p>
+    <button type="button" id="discard">Discard</button>
+    <button type="button" class="primary" id="save">Save and rebuild</button>
+  </div>
+</div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = (id) => document.getElementById(id);
+let state = null;
+let draft = null;
+
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v === true) n.setAttribute(k, "");
+    else if (v !== false && v != null) n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) n.append(kid);
+  return n;
+};
+
+const toggle = (id, checked, label, onchange, disabled = false) =>
+  el("label", { class: "switch" },
+    el("input", { type: "checkbox", role: "switch", id, checked, disabled, "aria-label": label, onchange }),
+    el("span"));
+
+function draftFrom(s) {
+  return {
+    language: s.language,
+    targets: Object.fromEntries(s.targets.map((t) => [t.name, t.enabled])),
+    effort: Object.fromEntries(s.effort.map((e) => [e.stage, e.level])),
+    reviewers: Object.fromEntries(s.reviewers.map((r) => [r.name, { enabled: r.enabled, model: r.model, ...(r.effort ? { effort: r.effort } : {}) }])),
+    disabledSkills: s.skills.filter((k) => k.disabled).map((k) => k.name),
+  };
+}
+
+const tilde = (p) => (p === state.home ? "~" : p.startsWith(state.home + "/") ? "~" + p.slice(state.home.length) : p);
+const present = (t) => t.enabled || t.cliFound || t.dirExists || t.installedFrom;
+const dirty = () => JSON.stringify(draft) !== JSON.stringify(draftFrom(state));
+
+// Only what the user changed is sent, so every setting they never touched keeps
+// following its default, such as an agent installed later.
+function changes() {
+  const base = draftFrom(state);
+  const out = {};
+  if (draft.language !== base.language) out.language = draft.language;
+  for (const [name, on] of Object.entries(draft.targets)) {
+    if (on !== base.targets[name]) (out.targets ??= {})[name] = on;
+  }
+  for (const [stage, level] of Object.entries(draft.effort)) {
+    if (level !== base.effort[stage]) (out.effort ??= {})[stage] = level;
+  }
+  for (const [name, r] of Object.entries(draft.reviewers)) {
+    for (const [key, value] of Object.entries(r)) {
+      if (value !== base.reviewers[name][key]) ((out.reviewers ??= {})[name] ??= {})[key] = value;
+    }
+  }
+  if (JSON.stringify(draft.disabledSkills) !== JSON.stringify(base.disabledSkills)) out.disabledSkills = draft.disabledSkills;
+  return out;
+}
+const refreshBar = () => $("bar").classList.toggle("show", dirty());
+
+function targetState(t) {
+  if (!t.enabled) return { cls: "", text: "Off" };
+  if (t.installedFrom === state.repo) return { cls: "live", text: `Installed · ${t.files} files` };
+  if (t.installedFrom) return { cls: "pending", text: "Installed from another copy of oner" };
+  return { cls: "pending", text: t.cliFound || t.dirExists ? "Not built yet. Save to build it." : "Not found on this machine" };
+}
+
+function renderRoute() {
+  const absent = state.targets.filter((t) => !present(t)).map((t) => t.label);
+  $("route").replaceChildren(...state.targets.filter(present).map((t) => {
+    const s = targetState(t);
+    return el("div", { class: `node ${s.cls}` }, el("span", { class: "dot", "aria-hidden": "true" }),
+      el("span", { class: "name" }, t.label), el("span", { class: "state" }, s.text));
+  }), ...(absent.length ? [el("p", { class: "also" }, `Not on this machine: ${absent.join(", ")}.`)] : []));
+  const v = state.version;
+  const update = $("update");
+  update.hidden = !v.behind;
+  if (v.behind) update.textContent = `${v.behind} update${v.behind === 1 ? " is" : "s are"} available. Ask your agent to update oner.`;
+}
+
+function agentRow(t) {
+  const s = targetState(t);
+  const note = t.cliFound || !t.enabled ? s.text : `${s.text} · CLI not found`;
+  return el("div", { class: "row" },
+    toggle(`t-${t.name}`, draft.targets[t.name], `Build for ${t.label}`, (e) => { draft.targets[t.name] = e.target.checked; refreshBar(); }),
+    el("div", {}, el("div", { class: "title" }, t.label), el("div", { class: "sub mono" }, tilde(t.dir))),
+    el("div", { class: "aside" }, note));
+}
+
+function renderAgents() {
+  const absent = state.targets.filter((t) => !present(t));
+  $("agents").replaceChildren(...state.targets.filter(present).map(agentRow),
+    ...(absent.length ? [el("details", { class: "more" },
+      el("summary", {}, `${absent.length} more agent${absent.length === 1 ? "" : "s"} oner supports, not found here`),
+      absent.map(agentRow))] : []));
+}
+
+function renderReviewers() {
+  $("reviewers").replaceChildren(...state.reviewers.map((r) => {
+    const d = draft.reviewers[r.name];
+    const model = el("input", { type: "text", value: d.model, "aria-label": `${r.label} model`, spellcheck: "false", autocomplete: "off",
+      oninput: (e) => { d.model = e.target.value.trim(); refreshBar(); } });
+    const controls = [model];
+    if (d.effort !== undefined) {
+      const sel = el("select", { "aria-label": `${r.label} reasoning effort`, onchange: (e) => { d.effort = e.target.value; refreshBar(); } },
+        r.efforts.map((x) => el("option", { value: x, selected: x === d.effort }, x)));
+      controls.push(sel);
+    }
+    return el("div", { class: "row" },
+      toggle(`r-${r.name}`, d.enabled, `Use ${r.label} as a reviewer`, (e) => { d.enabled = e.target.checked; refreshBar(); }),
+      el("div", {}, el("div", { class: "title" }, r.label),
+        el("div", { class: "sub" }, r.cliFound ? "CLI found" : "CLI not installed")),
+      el("div", { class: "model" }, controls));
+  }));
+}
+
+function renderEffort() {
+  $("effort").replaceChildren(...state.effort.map((e) =>
+    el("div", { class: "row" },
+      el("span"),
+      el("div", {}, el("div", { class: "title" }, e.label), el("div", { class: "sub mono" }, e.agent)),
+      el("div", { class: "model" },
+        el("select", { "aria-label": `${e.label} reasoning effort`, onchange: (ev) => { draft.effort[e.stage] = ev.target.value; refreshBar(); } },
+          ["low", "medium", "high", "xhigh", "max"].map((x) => el("option", { value: x, selected: x === draft.effort[e.stage] }, x)))))));
+}
+
+// The stage of work each skill belongs to. A skill missing here is listed under Other.
+const STAGES = [
+  ["Plan", ["brainstorm", "spec", "grilling", "codebase-design", "architecture-scan"]],
+  ["Design", ["design-context", "frontend-design", "figma-design", "prototype", "refine", "motion-design", "design-review"]],
+  ["Build", ["implement", "diagnose", "humanizer", "changelog", "docs", "product-video"]],
+  ["Check", ["prod-review", "blast-radius", "break-api", "break-ui", "green-repo", "resolve-review", "external-review"]],
+  ["Ship", ["oneshot", "commit-message", "pr", "pr-feedback", "issue-tracker"]],
+  ["Upkeep", ["configure", "dev-tidy", "worktree", "worktree-setup", "reflect", "gardener"]],
+];
+const openStages = new Set();
+
+function setSkills(names, on, focusId) {
+  const set = new Set(draft.disabledSkills);
+  for (const name of names) on ? set.delete(name) : set.add(name);
+  draft.disabledSkills = [...set].sort();
+  renderSkills();
+  $(focusId).focus();
+  refreshBar();
+}
+
+function renderSkills() {
+  const q = $("filter").value.trim().toLowerCase();
+  const off = new Set(draft.disabledSkills);
+  const byName = new Map(state.skills.map((k) => [k.name, k]));
+  const staged = new Set(STAGES.flatMap(([, names]) => names));
+  const groups = [...STAGES, ["Other", state.skills.map((k) => k.name).filter((name) => !staged.has(name))]];
+  $("skills-count").textContent = `${state.skills.length - off.size} of ${state.skills.length} on`;
+  const cards = groups.map(([stage, names]) => {
+    const all = names.map((name) => byName.get(name)).filter(Boolean);
+    const shown = all.filter((k) => !q || k.name.includes(q) || k.description.toLowerCase().includes(q));
+    if (!shown.length) return null;
+    const on = all.filter((k) => !off.has(k.name)).length;
+    const open = Boolean(q) || openStages.has(stage);
+    return el("div", { class: "card stage" },
+      el("div", { class: "stage-head" },
+        toggle(`g-${stage}`, on === all.length, `All ${stage} skills`, (e) => setSkills(all.map((k) => k.name), e.target.checked, `g-${stage}`)),
+        el("button", { type: "button", class: "stage-toggle", "aria-expanded": String(open), "aria-controls": `stage-${stage}`, disabled: Boolean(q),
+          onclick: () => { openStages.has(stage) ? openStages.delete(stage) : openStages.add(stage); renderSkills(); document.querySelector(`[aria-controls="stage-${stage}"]`).focus(); } },
+          el("span", { class: "title" }, stage),
+          el("span", { class: "sub" }, on === all.length ? `All ${all.length} on` : `${on} of ${all.length} on`),
+          el("span", { class: "chev", "aria-hidden": "true" }, open ? "−" : "+"))),
+      el("div", { class: "stage-body", id: `stage-${stage}`, hidden: !open }, shown.map((k) =>
+        el("div", { class: `row skill${off.has(k.name) ? " off" : ""}` },
+          toggle(`s-${k.name}`, !off.has(k.name), `Skill ${k.name}`, (e) => setSkills([k.name], e.target.checked, `s-${k.name}`)),
+          el("div", {}, el("div", { class: "title" }, k.name), el("div", { class: "sub", title: k.description }, k.description))))));
+  }).filter(Boolean);
+  $("skills").replaceChildren(...(cards.length ? cards
+    : [el("div", { class: "card empty" }, `No skill matches “${$("filter").value}”.`)]));
+}
+
+function render() {
+  $("language").value = draft.language;
+  renderRoute();
+  renderAgents();
+  renderEffort();
+  renderReviewers();
+  renderSkills();
+  $("config-path").textContent = tilde(`${state.repo}/config.json`);
+  const v = state.version;
+  $("version").textContent = v.commit ? `Version ${v.commit} from ${v.date}, branch ${v.branch}.` : "";
+  $("settings").hidden = false;
+  refreshBar();
+}
+
+function showResult(kind, title, lines = []) {
+  const r = $("result");
+  r.hidden = false;
+  r.className = `result${kind === "error" ? " error" : ""}`;
+  r.setAttribute("role", kind === "error" ? "alert" : "status");
+  r.replaceChildren(...[el("strong", {}, title), lines.length ? el("pre", {}, lines.join("\n")) : null].filter(Boolean));
+}
+
+async function load() {
+  try {
+    const res = await fetch("/api/state");
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    state = body;
+    draft = draftFrom(state);
+    render();
+  } catch (err) {
+    $("route").replaceChildren(el("p", { class: "loading", role: "alert" },
+      `Could not read your setup: ${err.message}. Check that node bin/ui.mjs is still running, then reload.`));
+  }
+}
+
+$("language").addEventListener("input", (e) => { draft.language = e.target.value.trim(); refreshBar(); });
+$("filter").addEventListener("input", renderSkills);
+$("discard").addEventListener("click", () => { draft = draftFrom(state); $("result").hidden = true; render(); });
+$("save").addEventListener("click", async () => {
+  const button = $("save");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  try {
+    const res = await fetch("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Token": TOKEN },
+      body: JSON.stringify(changes()),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    state = body.state;
+    draft = draftFrom(state);
+    render();
+    showResult("ok", "Saved and rebuilt. New sessions pick the changes up.",
+      body.lines.filter((l) => !/: off \(/.test(l)).map((l) => l.split(state.home).join("~")));
+  } catch (err) {
+    showResult("error", `Not saved: ${err.message}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save and rebuild";
+  }
+});
+
+load();
+</script>
+</body>
+</html>

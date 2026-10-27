@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node \"{{repo_dir}}/bin/session-start.mjs\" cursor \"{{target_dir}}\" \"{{skills_dir}}\"",
+        "timeout": 40
+      }
+    ]
+  }
+}

@@ -1,0 +1,1212 @@
+#!/usr/bin/env bash
+#
+# Reclaim what local development leaves behind, across every project on this
+# machine. Not tied to any repository — point it at a root and it walks the
+# git checkouts it finds.
+#
+# Four kinds of leftovers, in the order they cost the most:
+#
+#   worktrees  git worktrees whose pull request is already merged or closed,
+#              including the detached ones the editor creates. Each keeps a
+#              full node_modules tree, often several gigabytes.
+#   servers    dev servers and test watchers still running inside a worktree
+#              that is being removed, or inside one that is already gone. A
+#              forgotten one holds a port and a few hundred megabytes for as
+#              long as the machine stays up.
+#   branches   local branches whose pull request is merged or closed.
+#   wp-env     WordPress stacks whose plugin checkout is gone. Each one keeps six
+#              containers, four volumes, four images, and its own WordPress
+#              install under ~/.wp-env.
+#   turbo      Turborepo cache entries older than a week, in every checkout and
+#              worktree. All worktrees of a repository write into the primary
+#              checkout's cache, which grows by gigabytes a day.
+#   docker     untagged images, stale build cache, and superseded versions of
+#              images that are re-pulled on every CLI upgrade (supabase/*,
+#              postgres, redis and friends keep every version ever pulled).
+#
+# A worktree or branch is removed on any of three proofs. Its tip is exactly
+# the commit the pull request carried. Or it has commits of its own and every
+# file they touched is already byte-identical to the default branch, which is
+# what a squash merge leaves behind: the commits are rewritten so the tip never
+# matches again, but the content is in. Or every Claude app or Codex session
+# that worked in it is archived and its tip is on the default branch or on a
+# remote, so no commit is lost. A session still open keeps it whatever the
+# proofs say. Anything else is left alone, including a checkout that has
+# changed a file the default branch does not have.
+#
+# The second proof reads the default branch, so its ref is fetched once per
+# repository before the pass. Nothing else is fetched and nothing is pruned.
+#
+# Usage:
+#   dev-tidy [options]
+#
+# Options:
+#   --yes            Actually apply. Without it, only report.
+#   --ports-only     Stop completed-task servers and release launch reservations.
+#                    Keep every worktree, branch, and working file.
+#   --root PATH      Where to look for checkouts. Repeatable.
+#                    Default: whichever of ~/Work, ~/Projects, ~/Code,
+#                    ~/Developer, ~/dev, ~/src, ~/.codex/worktrees exist.
+#   --depth N        How deep below each root to search. Default: 4.
+#   --jobs N         Pull request indexes to fetch at once. Default: 8.
+#   --skip-docker    Leave Docker images and build cache alone.
+#   --skip-wp-env    Leave wp-env stacks alone.
+#   --skip-git       Leave worktrees, servers, and branches alone.
+#   --skip-turbo     Leave Turborepo caches alone.
+#   --keep PATH      Leave this worktree and its branch alone, whatever the
+#                    proofs say. Repeatable. For a checkout another tool uses.
+#   --kept          Also say what was left alone, and why.
+#   --quiet          Only print what changed. For scheduled runs.
+#   -h, --help       Show this help.
+#
+# One kept item at a time, after the pass above left it alone:
+#   --inspect PATH [BRANCH]
+#                    What a kept worktree (PATH) or branch (PATH is its checkout)
+#                    holds that the default branch does not: its commits, the
+#                    pull requests they cite and where those merged, and how
+#                    many of the lines it adds appear nowhere on the default
+#                    branch, counting uncommitted ones. Changes nothing.
+#   --against BRANCH Compare with origin/BRANCH instead of the default branch,
+#                    for work that merged into a long-lived branch.
+#   --drop PATH [BRANCH]
+#                    Remove one worktree and the branch it holds, or one branch
+#                    and the worktree it is checked out in, whatever the proofs
+#                    say. Stops the processes inside. Only with --yes.
+#
+# See dev-tidy.md next to this file for how to put it on PATH and how to run it
+# on a schedule with launchd.
+
+set -uo pipefail
+
+# Internal: bring one repository's default branch ref up to date. Deciding on a
+# refs/remotes copy that is a day old would hide this morning's merge.
+if [ "${1:-}" = "--fetch-main" ]; then
+  main_branch="$(git -C "$2" symbolic-ref --quiet --short \
+    refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
+  # No prompt: this also runs from launchd, where a credential question is not
+  # a question but a job that never ends.
+  [ -n "$main_branch" ] && GIT_TERMINAL_PROMPT=0 git -C "$2" fetch --quiet \
+    --no-tags origin \
+    "+refs/heads/$main_branch:refs/remotes/origin/$main_branch" 2>/dev/null
+  exit 0
+fi
+
+# Internal: fetch one repository's pull request index into the cache directory.
+# The parallel fetch below needs a subprocess it can hand to xargs, and this is
+# the only place the pull request query lives.
+if [ "${1:-}" = "--fetch-index" ]; then
+  gh pr list --repo "$2" --state all --limit 400 \
+    --json headRefName,headRefOid,state \
+    --jq '.[] | [.headRefName, .headRefOid, .state] | @tsv' \
+    > "$3/$(printf '%s' "$2" | tr '/' '%').tsv" 2>/dev/null || {
+      rm -f "$3/$(printf '%s' "$2" | tr '/' '%').tsv"
+      echo "Could not read pull requests for $2; keeping its checkouts and ports." >&2
+      exit 1
+    }
+  exit 0
+fi
+
+SELF="$(cd "$(dirname "$0")" 2>/dev/null && /bin/pwd -P)/$(basename "$0")"
+
+apply=false
+quiet=false
+show_kept=false
+skip_docker=false
+skip_wp_env=false
+skip_git=false
+skip_turbo=false
+ports_only=false
+ports_released=0
+had_errors=0
+depth=4
+jobs=8
+roots=()
+keep_dirs=""
+mode=""
+target=""
+target_ref=""
+against=""
+
+usage() { awk 'NR>1 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "$0"; }
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --yes) apply=true; shift ;;
+    --ports-only) ports_only=true; skip_docker=true; skip_wp_env=true; skip_turbo=true; shift ;;
+    --quiet) quiet=true; shift ;;
+    --kept) show_kept=true; shift ;;
+    --skip-docker) skip_docker=true; shift ;;
+    --skip-wp-env) skip_wp_env=true; shift ;;
+    --skip-git) skip_git=true; shift ;;
+    --skip-turbo) skip_turbo=true; shift ;;
+    --root)
+      [ -n "${2:-}" ] || { echo "--root requires a path." >&2; exit 1; }
+      roots+=("$2"); shift 2 ;;
+    --keep)
+      [ -n "${2:-}" ] || { echo "--keep requires a path." >&2; exit 1; }
+      keep="$(cd "$2" 2>/dev/null && /bin/pwd -P)" || { echo "No such directory: $2" >&2; exit 1; }
+      keep_dirs="${keep_dirs}${keep}
+"
+      shift 2 ;;
+    --depth)
+      [ -n "${2:-}" ] || { echo "--depth requires a number." >&2; exit 1; }
+      depth="$2"; shift 2 ;;
+    --jobs)
+      [ -n "${2:-}" ] || { echo "--jobs requires a number." >&2; exit 1; }
+      jobs="$2"; shift 2 ;;
+    --inspect | --drop)
+      [ -n "${2:-}" ] || { echo "$1 requires a path." >&2; exit 1; }
+      mode="${1#--}"; target="$2"; shift 2
+      if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then target_ref="$1"; shift; fi ;;
+    --against)
+      [ -n "${2:-}" ] || { echo "--against requires a branch." >&2; exit 1; }
+      against="$2"; shift 2 ;;
+    -h | --help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+if [ ${#roots[@]} -eq 0 ]; then
+  for d in Work Projects Code Developer dev src; do
+    [ -d "$HOME/$d" ] && roots+=("$HOME/$d")
+  done
+  [ -d "$HOME/.codex/worktrees" ] && roots+=("$HOME/.codex/worktrees")
+fi
+[ -n "$mode" ] && [ ${#roots[@]} -eq 0 ] && roots=("$target")
+if [ ${#roots[@]} -eq 0 ]; then
+  echo "No --root given, and none of ~/Work, ~/Projects, ~/Code, ~/Developer, ~/dev, ~/src exists." >&2
+  exit 1
+fi
+
+# git reports the path the filesystem really has. On a case-insensitive volume
+# ~/Work and ~/work are the same directory but not the same string, and every
+# comparison below would fail. /bin/pwd asks the kernel; the shell builtin would
+# hand back the spelling that was typed. The same folder named twice is walked once.
+real_roots=()
+for root in "${roots[@]}"; do
+  real="$(cd "$root" 2>/dev/null && /bin/pwd -P)" || real=""
+  real="${real:-$root}"
+  case " ${real_roots[*]-} " in *" $real "*) ;; *) real_roots+=("$real") ;; esac
+done
+roots=("${real_roots[@]}")
+
+worktrees_removed=0
+branches_removed=0
+servers_killed=0
+stacks_removed=0
+turbo_kb=0
+listener_pids=""
+
+# Worktrees this run takes away. A wp-env stack mounted from one of them dies
+# with it, and the dry run has to say so before the directory is actually gone.
+doomed_dirs=""
+
+# Long-lived branches are merged over and over and must survive every pass.
+# The repository's own default branch is added to this list at runtime.
+PROTECTED_BRANCHES='main master dev develop development staging stage
+production prod release next trunk canary beta alpha'
+
+say() { [ "$quiet" = true ] || echo "$@"; }
+# What was left behind, and the reason. The reasons are the whole point of a
+# report a person is going to act on.
+kept() { [ "$show_kept" = true ] && echo "  kept      $1  ($2)"; return 0; }
+changed() { echo "$@"; }
+
+is_protected() {
+  printf '%s\n' $PROTECTED_BRANCHES | grep -qxF "$1"
+}
+
+# An oneshot run whose log still reads running or waiting is resumed from this
+# worktree, and its log is ignored by git, so no proof above can see it.
+open_run_in() {
+  grep -qxE 'Status\. (running|waiting)' "$1"/.specs/*/oneshot.md 2>/dev/null
+}
+
+# Branches of the stages an open oneshot series has not finished, its fix
+# branches included. A stage is merged long before it is verified, and its
+# worktree holds its run log until series.mjs archives it. "*" without jq.
+series_branches() {
+  local program slug
+  for program in "$1"/.specs/*/program.json; do
+    [ -f "$program" ] || continue
+    command -v jq >/dev/null 2>&1 || { echo '*'; return 0; }
+    slug="$(basename "$(dirname "$program")" | sed -E 's/^[0-9]+-//')"
+    jq -r --arg slug "$slug" '
+      select((.status // "running") == "running" or .status == "waiting")
+      | .stages[]? | select(.state != "done")
+      | (.branch // "\($slug)-\(.id)"), (.history[]?.branch // empty)' "$program" 2>/dev/null
+  done
+}
+
+in_series() {
+  [ -n "$1" ] && [ "$1" != HEAD ] && printf '%s\n' "$series" | grep -qxF -e "$1" -e '*'
+}
+
+# --- processes ------------------------------------------------------------
+
+# A background daemon is started by launchd and can inherit any working directory,
+# so a deleted cwd says nothing about it. Nothing that ships inside an application
+# bundle is a dev server.
+is_bundled() {
+  case "$(ps -o comm= -p "$1" 2>/dev/null)" in *.app/Contents/*) return 0 ;; *) return 1 ;; esac
+}
+
+# A shell, a terminal multiplexer, or an agent CLI sitting in a checkout is someone's
+# session, not a server, and stopping it loses what is typed there. The claude CLI's
+# binary is named after its version, so it is recognized by its path.
+is_session() {
+  local comm
+  comm="$(ps -o comm= -p "$1" 2>/dev/null)"
+  case "${comm##*/}" in
+    -*|zsh|bash|sh|dash|fish|nu|tmux|screen|claude|codex|cursor-agent) return 0 ;;
+  esac
+  case "$(ps -o command= -p "$1" 2>/dev/null)" in
+    */claude/versions/*|*/cursor-agent/versions/*) return 0 ;;
+  esac
+  return 1
+}
+
+# A dev server is found by its working directory, not by its command line: a
+# Next or Vite process shows up as "next-server (v16.3.1)" with no path in it
+# at all, so matching argv finds nothing.
+proc_cwds=""
+self_chain=""
+
+load_procs() {
+  proc_cwds="$(lsof -a -d cwd -Fpn -u "$(id -un)" 2>/dev/null |
+    awk '/^p/{pid=substr($0,2)} /^n/{print pid"\t"substr($0,2)}')"
+  listener_pids="$(lsof -nP -tiTCP -sTCP:LISTEN 2>/dev/null | sort -u)"
+  local p=$$
+  self_chain=""
+  while [ -n "$p" ] && [ "$p" != "0" ] && [ "$p" != "1" ]; do
+    self_chain="${self_chain}${p}
+"
+    p="$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')"
+  done
+}
+
+# Never kill this script, the shell that launched it, or the editor above that.
+not_self() {
+  printf '%s' "$self_chain" | grep -qxF "$1" && return 1
+  return 0
+}
+
+pids_under() {
+  printf '%s\n' "$proc_cwds" |
+    awk -F'\t' -v d="$1/" 'substr($2, 1, length(d)) == d || $2 == substr(d, 1, length(d)-1) {print $1}' |
+    while IFS= read -r p; do
+      [ -n "$p" ] || continue
+      not_self "$p" || continue
+      is_bundled "$p" && continue
+      is_session "$p" && continue
+      local cwd
+      cwd="$(lsof -a -p "$p" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+      case "$cwd/" in "$1/"*) echo "$p" ;; esac
+    done
+}
+
+busy_under() {
+  local p command
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    command="$(ps -o command= -p "$p" 2>/dev/null)"
+    case "$command" in *build:watch*|*scripts/build.mjs\ --watch*) continue ;; esac
+    if printf '%s\n' "$command" | grep -Eq '(^|[ /])(install|ci|build|test|migrate|vitest|jest|tsc|bootstrap-worktree)([ :]|\.(mjs|cjs|js|sh)( |$)|$)'; then
+      return 0
+    fi
+  done < <(pids_under "$1")
+  return 1
+}
+
+server_pids_under() {
+  local p command
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    if printf '%s\n' "$listener_pids" | grep -qxF "$p"; then
+      echo "$p"
+      continue
+    fi
+    command="$(ps -o command= -p "$p" 2>/dev/null)"
+    if printf '%s\n' "$command" | grep -Eq 'next-server|next dev|vite([ /]|$)|shopify theme dev|npm (run )?(start|dev)|pnpm.*( dev| start)|build:watch|concurrently|\.next/dev/|esbuild --service'; then
+      echo "$p"
+    fi
+  done < <(pids_under "$1")
+}
+
+kill_pids() {
+  local pids="$1" label="$2" n pid identity survivors="" identities=""
+  [ -z "$pids" ] && return 0
+  n="$(printf '%s\n' $pids | wc -l | tr -d ' ')"
+  changed "  server    $n process(es) (pids $(echo $pids)) $label"
+  servers_killed=$((servers_killed + n))
+  [ "$apply" = true ] || return 0
+  for pid in $pids; do
+    identity="$(ps -o lstart= -p "$pid" 2>/dev/null)"
+    [ -n "$identity" ] || continue
+    identities="${identities}${pid}\t${identity}
+"
+    kill "$pid" 2>/dev/null || true
+  done
+  sleep 2
+  while IFS="$(printf '\t')" read -r pid identity; do
+    [ -n "$pid" ] && [ -n "$identity" ] || continue
+    [ "$(ps -o lstart= -p "$pid" 2>/dev/null)" = "$identity" ] || continue
+    kill -9 "$pid" 2>/dev/null || true
+  done < <(printf '%b' "$identities")
+  for pid in $pids; do
+    lsof -a -p "$pid" -iTCP -sTCP:LISTEN >/dev/null 2>&1 && survivors="$survivors $pid"
+  done
+  [ -z "$survivors" ] || { echo "Servers still listening:$survivors" >&2; return 1; }
+  return 0
+}
+
+# --root scopes this pass too: a process outside the roots was never this run's
+# to stop.
+under_a_root() {
+  local r
+  for r in "${roots[@]}"; do
+    case "$1" in "$r"/*) return 0 ;; esac
+  done
+  return 1
+}
+
+# Worktrees that were deleted without stopping what ran inside them. The cwd
+# keeps pointing at a directory that no longer exists, which is what makes this
+# safe to act on: nothing legitimate runs from a deleted checkout.
+# Find the checkout boundary, even when a server recreated its cache directory.
+orphan_checkout() {
+  local dir="$1" root
+  case "$dir" in
+    */.codex/worktrees/*/*)
+      root="${dir%%/.codex/worktrees/*}/.codex/worktrees/"
+      dir="${dir#"$root"}"
+      root="$root${dir%%/*}/"
+      dir="${dir#*/}"
+      root="$root${dir%%/*}"
+      ;;
+    */.claude/worktrees/*)
+      root="${dir%%/.claude/worktrees/*}/.claude/worktrees/"
+      dir="${dir#"$root"}"
+      root="$root${dir%%/*}"
+      ;;
+    */worktrees/*)
+      [ -d "$dir" ] && return 1
+      printf '%s' "$dir"
+      return 0
+      ;;
+    *) return 1 ;;
+  esac
+  [ -e "$root/.git" ] && return 1
+  # A grouping directory can contain live nested worktrees.
+  [ -n "$(find "$root" -maxdepth 3 -name .git -print -quit 2>/dev/null)" ] && return 1
+  printf '%s' "$root"
+}
+
+tidy_zombies() {
+  local dirs="" line pid dir root
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    pid="${line%%	*}"
+    dir="${line#*	}"
+    under_a_root "$dir" || continue
+    root="$(orphan_checkout "$dir")" || continue
+    printf '%s\n' "$dirs" | grep -qxF "$root" && continue
+    dirs="${dirs}${root}
+"
+    if busy_under "$root"; then
+      kept "servers in $root" "build, test, install, or migration running"
+      continue
+    fi
+    kill_pids "$(server_pids_under "$root")" "left over from deleted worktree $root"
+  done < <(printf '%s\n' "$proc_cwds")
+}
+
+# --- git ------------------------------------------------------------------
+
+# One API call per repository, already made in parallel before any of this ran.
+# Every pull request head with the commit it carried, so a local tip can be
+# compared against it without another call.
+PR_CACHE=""
+pr_index() { cat "$PR_CACHE/$(printf '%s' "$1" | tr '/' '%').tsv" 2>/dev/null; }
+
+repo_slug() {
+  local slug
+  slug="$(git -C "$1" remote get-url origin 2>/dev/null |
+    sed -E 's#(git@|https://)github\.com[:/]##; s#\.git$##')"
+  case "$slug" in */*) printf '%s' "$slug" ;; esac
+}
+
+prs=""
+
+# Sessions of the Claude app and of Codex, keyed by working directory and, for
+# the app, by branch. A worktree or branch every session of which is archived
+# is finished work; one with a session still open is someone's.
+CLAUDE_SESSIONS="${DEV_TIDY_CLAUDE_SESSIONS:-$HOME/Library/Application Support/Claude/claude-code-sessions}"
+CODEX_SESSIONS="${DEV_TIDY_CODEX_HOME:-${CODEX_HOME:-$HOME/.codex}}"
+
+index_sessions() {
+  local kind state
+  command -v jq >/dev/null 2>&1 || return 0
+  [ -d "$CLAUDE_SESSIONS" ] &&
+    find "$CLAUDE_SESSIONS" -name 'local_*.json' -print0 2>/dev/null |
+    xargs -0 jq -r 'select(.cwd) | (if .isArchived then "archived" else "open" end) as $s
+      | "cwd\t\(.cwd)\t\($s)", (select(.branch) | "branch\t\(.branch)\t\($s)")' 2>/dev/null
+  for kind in sessions archived_sessions; do
+    [ "$kind" = sessions ] && state=open || state=archived
+    [ -d "$CODEX_SESSIONS/$kind" ] || continue
+    find "$CODEX_SESSIONS/$kind" -name '*.jsonl' -print0 2>/dev/null |
+      xargs -0 awk 'FNR == 1' 2>/dev/null |
+      jq -r --arg s "$state" 'select(.type == "session_meta") | "cwd\t\(.payload.cwd)\t\($s)"' 2>/dev/null
+  done
+  return 0
+}
+
+# open, archived, or empty when no session names it. Any open session wins.
+# git reports /private/tmp where a session may have recorded /tmp.
+session_state() {
+  awk -F'\t' -v k="$1" -v p="$2" '
+    function bare(x) { sub(/^\/private\//, "/", x); return x }
+    $1 == k && bare($2) == bare(p) { s = (s == "open" || $3 == "open") ? "open" : "archived" }
+    END { print s }' "$PR_CACHE/sessions.tsv" 2>/dev/null
+}
+
+# Removing it loses no commit: it is on the default branch or on a remote.
+commits_kept() {
+  git -C "$repo" merge-base --is-ancestor "$1" "refs/remotes/origin/$default_branch" 2>/dev/null ||
+    [ -n "$(git -C "$repo" for-each-ref --contains "$1" --count=1 refs/remotes 2>/dev/null)" ]
+}
+
+# Newest pull request for a head, as "oid<TAB>state". gh lists newest first.
+pr_for() { printf '%s\n' "$prs" | awk -F'\t' -v n="$1" '$1==n {print $2"\t"$3; exit}'; }
+
+head_is_open() {
+  printf '%s\n' "$prs" |
+    awk -F'\t' -v n="$1" '$1==n && $3=="OPEN" {f=1} END {exit !f}'
+}
+
+# Detached worktrees carry no branch name, so the directory is all there is to
+# go on. The editor names it after the last segment of the branch. A guess is
+# only accepted when exactly one head matches, and the commit check below has
+# to agree with it as well.
+head_for_dirname() {
+  printf '%s\n' "$prs" | awk -F'\t' -v b="$1" '
+    { s = $1; L = length(b)
+      if (s == b || (length(s) > L && substr(s, length(s) - L) == "/" b))
+        if (!seen[s]++) names[++n] = s }
+    END { if (n == 1) print names[1] }'
+}
+
+# True when this head landed or was abandoned and the local tip still is the
+# exact commit the pull request carried.
+tip_is_settled() {
+  local head="$1" sha="$2" rec oid state
+  head_is_open "$head" && return 1
+  rec="$(pr_for "$head")"
+  [ -z "$rec" ] && return 1
+  oid="$(printf '%s' "$rec" | cut -f1)"
+  state="$(printf '%s' "$rec" | cut -f2)"
+  case "$state" in MERGED | CLOSED) : ;; *) return 1 ;; esac
+  [ "$sha" = "$oid" ]
+}
+
+# Why tip_is_settled said no. Only ever called on the skip path.
+why_kept() {
+  local head="$1" sha="$2" rec oid state
+  head_is_open "$head" && { echo "pull request still open"; return 0; }
+  rec="$(pr_for "$head")"
+  [ -z "$rec" ] && { echo "no pull request$(gap_note "$sha")"; return 0; }
+  oid="$(printf '%s' "$rec" | cut -f1)"
+  state="$(printf '%s' "$rec" | cut -f2)"
+  case "$state" in
+    MERGED | CLOSED) : ;;
+    *) echo "pull request is $state"; return 0 ;;
+  esac
+  echo "$(git -C "$repo" rev-list --count "$oid..$sha" 2>/dev/null || echo '?') commit(s) after the $(printf '%s' "$state" | tr 'A-Z' 'a-z') pull request$(gap_note "$sha")"
+}
+
+# The second proof. A squash merge rewrites every commit it lands, so the tip
+# never matches the pull request head again and the first proof can never let
+# go of the checkout. What survives the rewrite is the content: when every file
+# this checkout changed is byte-identical to the default branch, the work is in
+# and only the local commit objects would go with the directory.
+#
+# Commits of its own are required. A checkout sitting exactly on the default
+# branch has landed nothing; it is a worktree someone just made, and taking it
+# away would take the work that was about to happen in it.
+content_is_landed() {
+  local sha="$1" main list
+  [ -n "$default_branch" ] || return 1
+  main="refs/remotes/origin/$default_branch"
+  git -C "$repo" rev-parse --quiet --verify "$main" >/dev/null 2>&1 || return 1
+  [ "$(git -C "$repo" merge-base "$main" "$sha" 2>/dev/null)" = "$sha" ] && return 1
+
+  # Paths go through a file because a NUL-separated list cannot survive a shell
+  # variable, and a filename is allowed to contain anything but NUL.
+  list="$PR_CACHE/paths"
+  git -C "$repo" diff -z --name-only "$main...$sha" > "$list" 2>/dev/null
+  [ -s "$list" ] || return 1
+  # git diff --quiet exits 1 on a difference, and xargs turns that into 123
+  # however many batches the path list was split into.
+  xargs -0 git -C "$repo" diff --quiet "$main" "$sha" -- < "$list" 2>/dev/null
+}
+
+# What a checkout that failed the content proof still holds, counted in the
+# only unit worth acting on: files to open. A worktree that is merely behind
+# the default branch reads exactly like one holding work nobody else has until
+# this number is on the line.
+content_gap() {
+  local sha="$1" main list total gap
+  [ -n "$default_branch" ] || return 1
+  main="refs/remotes/origin/$default_branch"
+  git -C "$repo" rev-parse --quiet --verify "$main" >/dev/null 2>&1 || return 1
+  list="$PR_CACHE/paths"
+  git -C "$repo" diff -z --name-only "$main...$sha" > "$list" 2>/dev/null
+  [ -s "$list" ] || { printf 'nothing of its own'; return 0; }
+  total="$(tr '\0' '\n' < "$list" | grep -c .)"
+  gap="$(xargs -0 git -C "$repo" diff --name-only "$main" "$sha" -- < "$list" \
+    2>/dev/null | sort -u | grep -c .)"
+  printf '%s of %s changed files differ from %s' "$gap" "$total" "$default_branch"
+}
+
+# Silence rather than half a sentence when the default branch cannot be read at
+# all: a kept line is allowed to say less, never to say something untrue.
+gap_note() {
+  local g
+  g="$(content_gap "$1")"
+  [ -n "$g" ] && printf ', %s' "$g"
+  return 0
+}
+
+port_lock=""
+die() { echo "$*" >&2; exit 1; }
+release_port_lock() {
+  local attempt
+  [ -n "$port_lock" ] || return 0
+  if [ "$(cat "$port_lock/pid" 2>/dev/null)" = "$$" ]; then
+    rm -f "$port_lock/pid"
+    for ((attempt = 0; attempt < 100; attempt++)); do
+      rmdir "$port_lock" 2>/dev/null && break
+      [ -d "$port_lock" ] && [ ! -e "$port_lock/pid" ] || break
+      sleep 0.01
+    done
+  fi
+  port_lock=""
+}
+
+acquire_port_lock() {
+  local lock owner attempt cleanup_attempt
+  lock="$(git -C "$PRIMARY" rev-parse --path-format=absolute --git-common-dir)/worktree-ports.lock"
+  for ((attempt = 0; attempt < 300; attempt++)); do
+    if mkdir "$lock" 2>/dev/null; then
+      port_lock="$lock"
+      printf '%s\n' "$$" > "$lock/pid"
+      trap 'release_port_lock; [ -z "$PR_CACHE" ] || rm -rf "$PR_CACHE"' EXIT
+      trap 'exit 130' INT
+      trap 'exit 143' TERM
+      return 0
+    fi
+    owner="$(cat "$lock/pid" 2>/dev/null || true)"
+    if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null && mkdir "$lock/reap" 2>/dev/null; then
+      owner="$(cat "$lock/pid" 2>/dev/null || true)"
+      if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
+        rm -f "$lock/pid"
+      fi
+      rmdir "$lock/reap" 2>/dev/null || true
+      for ((cleanup_attempt = 0; cleanup_attempt < 100; cleanup_attempt++)); do
+        rmdir "$lock" 2>/dev/null && break
+        [ -d "$lock" ] && [ ! -e "$lock/pid" ] || break
+        sleep 0.01
+      done
+    fi
+    sleep 0.1
+  done
+  die "Port allocation is busy: $lock. Retry after the other bootstrap finishes."
+}
+
+release_ports() {
+  local dir="$1" PRIMARY="$2" gitdir source
+  source="$dir/.claude/launch.json"
+  [ -f "$source" ] || return 0
+  if busy_under "$dir"; then
+    kept "ports $dir" "build, test, install, or migration running"
+    return 0
+  fi
+  if [ "$apply" = true ]; then
+    acquire_port_lock || return 1
+    if ! kill_pids "$(server_pids_under "$dir")" "in completed task $dir"; then
+      release_port_lock
+      return 1
+    fi
+    gitdir="$(git -C "$dir" rev-parse --absolute-git-dir)" || { release_port_lock; return 1; }
+    if [ -f "$source" ]; then
+      mv "$source" "$gitdir/launch.released.json" || { release_port_lock; return 1; }
+    fi
+    release_port_lock
+  else
+    kill_pids "$(server_pids_under "$dir")" "in completed task $dir"
+  fi
+  ports_released=$((ports_released + 1))
+  changed "  ports     $dir (launch configuration saved in its git directory)"
+}
+
+tidy_repo() {
+  local repo="$1" slug="$2" primary default_branch current
+  local kept_branches="" series
+  primary="$(git -C "$repo" worktree list --porcelain 2>/dev/null |
+    awk '/^worktree /{print substr($0, 10); exit}')"
+  [ "$primary" = "$repo" ] || return 0
+  series="$(series_branches "$primary")"
+
+  [ -f "$PR_CACHE/$(printf '%s' "$slug" | tr '/' '%').tsv" ] || return 0
+  prs="$(pr_index "$slug")"
+
+  # git already knows the default branch. Asking GitHub costs another round
+  # trip per repository for something sitting in refs/remotes.
+  default_branch="$(git -C "$repo" symbolic-ref --quiet --short \
+    refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
+  [ -z "$default_branch" ] && default_branch="$(gh repo view "$slug" \
+    --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null)"
+
+  say "  ${repo/#$HOME/~}"
+
+  # Worktrees first: a branch cannot be deleted while a worktree is on it.
+  while IFS= read -r dir; do
+    [ "$dir" = "$primary" ] && continue
+    local name branch sha head label gitdir held why marker sessions
+    # Worktrees nest, so the basename alone is ambiguous — show the path below
+    # the checkout instead.
+    name="${dir#"$primary"/.claude/worktrees/}"
+    name="${name#"$primary"/}"
+    branch="$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
+    sha="$(git -C "$dir" rev-parse HEAD 2>/dev/null)"
+    [ -z "$sha" ] && continue
+
+    if [ "$branch" = "HEAD" ]; then
+      head="$(head_for_dirname "$(basename "$dir")")"
+    else
+      head="$branch"
+      [ "$branch" = "$default_branch" ] && continue
+      is_protected "$branch" && continue
+    fi
+
+    # A worktree kept for any reason still holds its branch, checked out or, while a rebase or
+    # bisect has detached HEAD, recorded in its own git dir, and git will not delete it.
+    gitdir="$(git -C "$dir" rev-parse --absolute-git-dir 2>/dev/null)"
+    held="$branch"
+    [ "$held" = HEAD ] && held="$(sed 's#^refs/heads/##' \
+      "$gitdir"/rebase-*/head-name "$gitdir/BISECT_START" 2>/dev/null | head -1)"
+
+    if [ "$ports_only" = true ]; then
+      marker=""
+      for why in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD BISECT_LOG; do
+        [ -e "$gitdir/$why" ] && marker="$why"
+      done
+      if [ -n "$marker" ]; then
+        kept "ports $name" "operation in progress"
+      elif [ -n "$head" ] && head_is_open "$head"; then
+        kept "ports $name" "pull request still open"
+      elif { [ -n "$head" ] && tip_is_settled "$head" "$sha"; } || content_is_landed "$sha"; then
+        release_ports "$dir" "$primary"
+      elif [ -f "$dir/.claude/launch.json" ]; then
+        kept "ports $name" "completion unconfirmed; reservation retained"
+      fi
+      continue
+    fi
+
+    # A rebase, merge, cherry-pick, revert or bisect keeps its state in this
+    # worktree's own git dir, which `worktree remove --force` throws away. Checked
+    # first: work that exists only here outranks every other reason to keep the
+    # worktree, so the report has to name it.
+    why=""
+    for marker in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD BISECT_LOG; do
+      [ -e "$gitdir/$marker" ] && why="operation in progress"
+    done
+    [ -z "$why" ] && [ -n "$(git -C "$dir" status --porcelain 2>/dev/null)" ] &&
+      why="uncommitted changes"
+    [ -z "$why" ] && printf '%s' "$keep_dirs" | grep -qxF "$dir" && why="kept by --keep"
+    [ -z "$why" ] && open_run_in "$dir" && why="open oneshot run"
+    [ -z "$why" ] && in_series "$held" && why="stage of an open oneshot series"
+
+    # The content proof alone would take a head that is still under review. It
+    # runs on a detached checkout no pull request claims as well: what the
+    # directory is called stops mattering once the commits in it are shown to be
+    # in the default branch.
+    sessions="$(session_state cwd "$dir")"
+    if [ -n "$why" ]; then
+      :
+    elif [ "$sessions" = open ]; then
+      why="session still open"
+    elif [ -n "$head" ] && head_is_open "$head"; then
+      why="pull request still open"
+    elif [ -n "$head" ] && tip_is_settled "$head" "$sha"; then
+      label="$head"
+    elif content_is_landed "$sha"; then
+      label="squashed into $default_branch"
+    elif [ "$sessions" = archived ] && commits_kept "$sha"; then
+      label="sessions archived"
+    elif [ -z "$head" ]; then
+      why="detached, no pull request matches the name$(gap_note "$sha")"
+    else
+      why="$(why_kept "$head" "$sha")"
+    fi
+    if [ -n "$why" ]; then
+      kept "worktree $name" "$why"
+      kept_branches="${kept_branches}${held}
+"
+      continue
+    fi
+
+    if busy_under "$dir"; then
+      kept "worktree $name" "build, test, install, or migration running"
+      kept_branches="${kept_branches}${held}
+"
+      continue
+    fi
+    changed "  worktree  $name  [$label]"
+    doomed_dirs="${doomed_dirs}${dir}
+"
+    # Outside the apply branch on purpose: kill_pids counts in both modes and
+    # only kills in one, and a dry run that hides a process it is going to stop
+    # is not the plan it claims to be.
+    kill_pids "$(pids_under "$dir")" "still running in $name"
+    if [ "$apply" = true ]; then
+      git -C "$repo" worktree remove --force "$dir" >/dev/null 2>&1 &&
+        worktrees_removed=$((worktrees_removed + 1))
+    else
+      worktrees_removed=$((worktrees_removed + 1))
+    fi
+  done < <(git -C "$repo" worktree list --porcelain |
+    awk '/^worktree /{print substr($0, 10)}')
+
+  [ "$ports_only" = true ] && return 0
+
+  [ "$apply" = true ] && git -C "$repo" worktree prune 2>/dev/null
+
+  # Directories left when a worktree was deleted without git. Worktrees nest
+  # (.claude/worktrees/<group>/<name>), so a directory is only orphaned when it
+  # holds no git metadata anywhere beneath it — otherwise the grouping level
+  # would be removed along with the live worktrees inside it.
+  if [ -d "$repo/.claude/worktrees" ]; then
+    for dir in "$repo"/.claude/worktrees/*; do
+      [ -d "$dir" ] || continue
+      [ -n "$(find "$dir" -maxdepth 3 -name .git -print -quit 2>/dev/null)" ] && continue
+      changed "  orphan    ${dir#"$repo"/}  (no git metadata)"
+      doomed_dirs="${doomed_dirs}${dir}
+"
+      kill_pids "$(pids_under "$dir")" "still running in ${dir##*/}"
+      [ "$apply" = true ] && rm -rf "$dir"
+    done
+  fi
+
+  # Then branches. A branch still checked out anywhere is skipped by git itself.
+  current="$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  while IFS= read -r branch; do
+    [ -z "$branch" ] && continue
+    [ "$branch" = "$current" ] && continue
+    [ "$branch" = "$default_branch" ] && continue
+    is_protected "$branch" && continue
+
+    local tip note sessions
+    tip="$(git -C "$repo" rev-parse "$branch" 2>/dev/null)"
+    [ -z "$tip" ] && continue
+    head_is_open "$branch" && { kept "branch   $branch" "pull request still open"; continue; }
+    in_series "$branch" && { kept "branch   $branch" "stage of an open oneshot series"; continue; }
+    sessions="$(session_state branch "$branch")"
+    [ "$sessions" = open ] && { kept "branch   $branch" "session still open"; continue; }
+    note="$slug"
+    if tip_is_settled "$branch" "$tip"; then
+      :
+    elif content_is_landed "$tip"; then
+      note="$slug, squashed"
+    elif [ "$sessions" = archived ] && commits_kept "$tip"; then
+      note="$slug, sessions archived"
+    else
+      kept "branch   $branch" "$(why_kept "$branch" "$tip")"
+      continue
+    fi
+    printf '%s' "$kept_branches" | grep -qxF "$branch" &&
+      { kept "branch   $branch" "checked out in a kept worktree"; continue; }
+
+    changed "  branch    $branch  (${note})"
+    if [ "$apply" = true ]; then
+      git -C "$repo" branch -D "$branch" >/dev/null 2>&1 &&
+        branches_removed=$((branches_removed + 1))
+    else
+      branches_removed=$((branches_removed + 1))
+    fi
+  done < <(git -C "$repo" branch --format='%(refname:short)')
+
+  return 0
+}
+
+# --- one kept item ----------------------------------------------------------
+
+# Sets repo, wt (a linked worktree, or empty), branch (or empty) and sha from
+# --inspect/--drop arguments. A branch name picks the worktree it is checked
+# out in; a worktree path picks the branch it holds.
+resolve_target() {
+  local dir line cur=""
+  dir="$(cd "$target" 2>/dev/null && /bin/pwd -P)" ||
+    { echo "No such directory: $target" >&2; exit 1; }
+  repo="$(git -C "$dir" worktree list --porcelain 2>/dev/null |
+    awk '/^worktree /{print substr($0, 10); exit}')"
+  [ -n "$repo" ] || { echo "Not a git checkout: $target" >&2; exit 1; }
+  wt="" branch=""
+  if [ -n "$target_ref" ]; then
+    branch="$target_ref"
+    sha="$(git -C "$repo" rev-parse --quiet --verify "refs/heads/$branch^{commit}")" ||
+      { echo "No branch $branch in $repo" >&2; exit 1; }
+    while IFS= read -r line; do
+      case "$line" in
+        "worktree "*) cur="${line#worktree }" ;;
+        "branch refs/heads/$branch") [ "$cur" != "$repo" ] && wt="$cur" ;;
+      esac
+    done < <(git -C "$repo" worktree list --porcelain)
+  else
+    wt="$(git -C "$dir" rev-parse --show-toplevel)"
+    [ "$wt" != "$repo" ] ||
+      { echo "$target is the main checkout. Name a branch, or a linked worktree." >&2; exit 1; }
+    sha="$(git -C "$wt" rev-parse HEAD)"
+    branch="$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null)"
+  fi
+  default_branch="$(git -C "$repo" symbolic-ref --quiet --short \
+    refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
+}
+
+# The file proof in content_gap counts a file as missing when the default
+# branch rewrote it after the merge, which is most files on a busy repository.
+# Lines are the finer unit: a line this checkout adds that appears nowhere in
+# the same file on the base (or in a file of the same name, when the base moved
+# it) is work the base does not have. Lockfiles and generated files say nothing.
+inspect_target() {
+  local base="${against:-$default_branch}" main mb ahead f added missing sample
+  local tmp n out
+  [ -n "$base" ] || { echo "No default branch known for $repo; pass --against." >&2; exit 1; }
+  GIT_TERMINAL_PROMPT=0 git -C "$repo" fetch --quiet --no-tags origin \
+    "+refs/heads/$base:refs/remotes/origin/$base" 2>/dev/null
+  main="refs/remotes/origin/$base"
+  git -C "$repo" rev-parse --quiet --verify "$main" >/dev/null ||
+    { echo "No origin/$base in $repo" >&2; exit 1; }
+  mb="$(git -C "$repo" merge-base "$main" "$sha")"
+  ahead="$(git -C "$repo" rev-list --count "$main..$sha")"
+  echo "${wt:-$repo}${branch:+ [$branch]}"
+  echo "  $ahead commit(s) not on $base, last $(git -C "$repo" log -1 --format=%ad --date=short "$sha")"
+  git -C "$repo" log --format='    %ad %s' --date=short "$main..$sha" | head -10
+
+  # Commits that cite a pull request: a merge into a branch other than the
+  # base explains every line below, and --against that branch is the next run.
+  git -C "$repo" log --format=%s "$main..$sha" | grep -oE '\(#[0-9]+\)$' |
+    tr -d '(#)' | sort -un | head -10 | while IFS= read -r n; do
+      gh pr view "$n" -R "$(repo_slug "$repo")" --json state,baseRefName \
+        --jq "\"\(.state | ascii_downcase) into \(.baseRefName)\t#$n\"" 2>/dev/null
+    done | awk -F'\t' '{ g[$1] = g[$1] " " $2 } END { for (k in g) print "  " k ":" g[k] }'
+
+  tmp="$(mktemp -d)"
+  if [ -n "$wt" ]; then
+    git -C "$wt" diff --name-only "$mb" > "$tmp/files"
+  else
+    git -C "$repo" diff --name-only "$mb" "$sha" > "$tmp/files"
+  fi
+  git -C "$repo" ls-tree -r --name-only "$main" > "$tmp/tree"
+  : > "$tmp/rows"
+  while IFS= read -r f; do
+    case "$f" in *lock.json | *lock.yaml | *.lock | *.generated.* | *-generated.*) continue ;; esac
+    if [ -n "$wt" ]; then
+      git -C "$wt" diff --no-color -U0 "$mb" -- "$f"
+    else
+      git -C "$repo" diff --no-color -U0 "$mb" "$sha" -- "$f"
+    fi | sed -n 's/^+\([^+]\)/\1/p' > "$tmp/added"
+    [ -s "$tmp/added" ] || continue
+    if grep -qxF "$f" "$tmp/tree"; then
+      git -C "$repo" show "$main:$f" 2>/dev/null
+    else
+      grep -E "(^|/)$(basename "$f" | sed 's/[][\.*^$+?(){}|]/\\&/g')\$" "$tmp/tree" |
+        while IFS= read -r g; do git -C "$repo" show "$main:$g" 2>/dev/null; done
+    fi > "$tmp/base"
+    awk -v f="$f" '
+      function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+      NR == FNR { have[trim($0)] = 1; next }
+      { t = trim($0); if (length(t) < 4) next; added++
+        if (!(t in have)) { missing++; if (sample == "") sample = substr(t, 1, 80) } }
+      END { if (added) printf "%d\t%d\t%s\t%s\n", missing, added, f, sample }
+    ' "$tmp/base" "$tmp/added" >> "$tmp/rows"
+  done < "$tmp/files"
+
+  read -r missing added < <(awk -F'\t' '{m += $1; a += $2} END {print m + 0, a + 0}' "$tmp/rows")
+  echo "  $missing of $added added lines are not on $base"
+  sort -t"$(printf '\t')" -k1,1nr "$tmp/rows" | awk -F'\t' '$1 > 0' | head -10 |
+    awk -F'\t' '{printf "    %4d/%-4d %s  e.g. %s\n", $1, $2, $3, $4}'
+  if [ -n "$wt" ]; then
+    out="$(git -C "$wt" status --porcelain | grep -vc '^??')"
+    n="$(git -C "$wt" status --porcelain | grep -c '^??')"
+    [ "$out" -gt 0 ] || [ "$n" -gt 0 ] &&
+      echo "  uncommitted: $out changed (counted above), $n untracked (not counted)"
+  fi
+  rm -rf "$tmp"
+}
+
+drop_target() {
+  if [ -n "$branch" ]; then
+    { [ "$branch" = "$default_branch" ] || is_protected "$branch"; } &&
+      { echo "Refusing to drop $branch: it is a long-lived branch." >&2; exit 1; }
+  fi
+  if [ -n "$wt" ]; then
+    load_procs
+    changed "  worktree  ${wt/#$HOME/~}  [dropped]"
+    kill_pids "$(pids_under "$wt")" "still running in ${wt##*/}"
+    if [ "$apply" = true ]; then
+      git -C "$repo" worktree remove --force --force "$wt" ||
+        { echo "Could not remove $wt" >&2; exit 1; }
+    fi
+  fi
+  if [ -n "$branch" ]; then
+    changed "  branch    $branch  [dropped]"
+    [ "$apply" = true ] && git -C "$repo" branch -D "$branch" >/dev/null
+  fi
+  [ "$apply" = true ] || say "Re-run with --yes to apply."
+  return 0
+}
+
+if [ -n "$mode" ]; then
+  resolve_target
+  case "$mode" in
+    inspect) inspect_target ;;
+    drop) drop_target ;;
+  esac
+  exit 0
+fi
+
+if [ "$skip_git" = false ]; then
+  if command -v gh >/dev/null 2>&1; then
+    load_procs
+    say "Checkouts"
+
+    PR_CACHE="$(mktemp -d)"
+    trap 'rm -rf "$PR_CACHE"' EXIT INT TERM
+    index_sessions > "$PR_CACHE/sessions.tsv"
+
+    # Discovery is all local and takes no time. Doing it first means every pull
+    # request index can be fetched at once, and the network is the whole cost of
+    # a run: one repository at a time is a minute, eight at a time is seconds.
+    pairs=""
+    for root in "${roots[@]}"; do
+      [ -d "$root" ] || continue
+      while IFS= read -r gitdir; do
+        repo="$(dirname "$gitdir")"
+        slug="$(repo_slug "$repo")"
+        [ -z "$slug" ] && continue
+        pairs="${pairs}${repo}	${slug}
+"
+      done < <(find "$root" -maxdepth "$depth" -name .git -type d 2>/dev/null)
+    done
+
+    printf '%s\n' "$pairs" | awk -F'\t' 'NF > 1 {print $2}' | sort -u > "$PR_CACHE/slugs"
+    if [ -s "$PR_CACHE/slugs" ]; then
+      xargs -P "$jobs" -I{} "$SELF" --fetch-index {} "$PR_CACHE" < "$PR_CACHE/slugs" || had_errors=1
+    fi
+
+    printf '%s\n' "$pairs" | awk -F'\t' 'NF > 1 {print $1}' | sort -u > "$PR_CACHE/repos"
+    [ -s "$PR_CACHE/repos" ] &&
+      xargs -P "$jobs" -I{} "$SELF" --fetch-main {} < "$PR_CACHE/repos"
+
+    # Everything that removes anything happens here, one repository at a time,
+    # in order. Only the reading above was parallel.
+    while IFS="$(printf '\t')" read -r repo slug; do
+      [ -n "$repo" ] && tidy_repo "$repo" "$slug"
+    done <<< "$pairs"
+
+    load_procs # the snapshot above predates every worktree just removed
+    tidy_zombies
+  else
+    echo "gh not found — skipping worktrees and branches." >&2
+    had_errors=1
+    load_procs
+    tidy_zombies
+  fi
+fi
+# --- wp-env ---------------------------------------------------------------
+
+# wp-env keeps a whole WordPress install, a compose file, and four built images
+# per project under ~/.wp-env, and mounts the plugin from the checkout it was
+# started in. That mount is the only link back to the checkout, and it is enough:
+# once the checkout is gone the stack can never be started again, so its database
+# is unreachable whatever we do with it.
+WP_ENV_HOME="${WP_ENV_HOME:-$HOME/.wp-env}"
+
+# The generator folds a long mount onto its own line and quotes a short one, so
+# strip the list marker and the quotes before looking for the mount point.
+wp_env_source() {
+  awk '
+    { line = $0
+      sub(/^[[:space:]]*-?[[:space:]]*/, "", line)
+      gsub(/^["\x27]|["\x27]$/, "", line)
+      i = index(line, ":/var/www/html/wp-content/plugins/")
+      if (i > 1 && substr(line, 1, 1) == "/") { print substr(line, 1, i - 1); exit } }
+  ' "$1/docker-compose.yml" 2>/dev/null
+}
+
+is_doomed() { printf '%s' "$doomed_dirs" | grep -qxF "$1"; }
+
+tidy_wp_env() {
+  [ -d "$WP_ENV_HOME" ] || return 0
+  local dir project src
+  for dir in "$WP_ENV_HOME"/*/; do
+    [ -d "$dir" ] || continue
+    dir="${dir%/}"
+    project="$(basename "$dir")"
+    src="$(wp_env_source "$dir")"
+    # No mount to read means no way to tell whose it is. Leave it.
+    [ -z "$src" ] && { kept "wp-env   $project" "no plugin mount in its compose file"; continue; }
+    [ -d "$src" ] && ! is_doomed "$src" &&
+      { kept "wp-env   $project" "checkout ${src/#$HOME/~} is still there"; continue; }
+
+    changed "  wp-env    $project  ($(du -sh "$dir" 2>/dev/null | cut -f1))  ${src/#$HOME/~}"
+    stacks_removed=$((stacks_removed + 1))
+    [ "$apply" = true ] || continue
+
+    # Every step reports what it could not do. A silent failure here leaves
+    # gigabytes behind and still counts the stack as gone.
+    drop_all "container" "$(docker ps -aq \
+      --filter "label=com.docker.compose.project=$project" 2>/dev/null)" \
+      docker rm -f
+    drop_all "volume" "$(docker volume ls -q 2>/dev/null |
+      grep "^${project}_")" docker volume rm
+    drop_all "image" "$(docker images --format '{{.Repository}} {{.ID}}' 2>/dev/null |
+      awk -v p="${project}-" 'index($1, p) == 1 {print $2}' | sort -u)" \
+      docker rmi -f
+    rm -rf "$dir" || changed "    ! could not remove $dir"
+  done
+}
+
+# Removes each id on its own so one failure cannot take the rest with it, and
+# says which ones refused.
+drop_all() {
+  local kind="$1" ids="$2"; shift 2
+  local id err failed=0
+  [ -z "$ids" ] && return 0
+  for id in $ids; do
+    err="$("$@" "$id" 2>&1 >/dev/null)" && continue
+    failed=$((failed + 1))
+    changed "    ! $kind $id: $(printf '%s' "$err" | head -1)"
+  done
+  [ "$failed" -eq 0 ] || return 1
+  return 0
+}
+
+if [ "$skip_wp_env" = false ] && command -v docker >/dev/null 2>&1; then
+  if docker info >/dev/null 2>&1; then
+    say
+    say "wp-env"
+    tidy_wp_env
+  else
+    say "Docker not running — wp-env skipped."
+  fi
+fi
+
+# --- turbo ----------------------------------------------------------------
+
+# An entry nobody wrote in a week costs one rebuild to restore, and keeping
+# every one costs tens of gigabytes on a busy repository.
+TURBO_DAYS=7
+
+if [ "$skip_turbo" = false ]; then
+  turbo_seen=""
+  for root in "${roots[@]}"; do
+    while IFS= read -r gitdir; do
+      while IFS= read -r dir; do
+        cache="$dir/.turbo/cache"
+        [ -d "$cache" ] || continue
+        printf '%s' "$turbo_seen" | grep -qxF "$cache" && continue
+        turbo_seen="${turbo_seen}${cache}
+"
+        kb="$(find "$cache" -type f -mtime +"$TURBO_DAYS" -exec du -k {} + 2>/dev/null | awk '{s += $1} END {print s + 0}')"
+        [ "$kb" -gt 0 ] || continue
+        [ "$turbo_kb" -eq 0 ] && { say; say "Turborepo"; }
+        changed "  turbo     ${cache/#$HOME/~}  ($((kb / 1024))M older than $TURBO_DAYS days)"
+        [ "$apply" = true ] && find "$cache" -type f -mtime +"$TURBO_DAYS" -delete 2>/dev/null
+        turbo_kb=$((turbo_kb + kb))
+      done < <(git -C "$(dirname "$gitdir")" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print substr($0, 10)}')
+    done < <(find "$root" -maxdepth "$depth" -name .git -type d 2>/dev/null)
+  done
+fi
+
+# --- docker ---------------------------------------------------------------
+
+# Images that are re-pulled under a new tag on every CLI or stack upgrade, and
+# whose older tags are never referenced again. Anything a container still uses
+# is protected by docker itself and cannot be removed here.
+STALE_IMAGE_PATTERN='supabase|postgres|mysql|mariadb|redis|elasticsearch|localstack|minio'
+
+if [ "$skip_docker" = false ] && command -v docker >/dev/null 2>&1; then
+  if docker info >/dev/null 2>&1; then
+    say
+    say "Docker"
+
+    before="$(docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null |
+      awk '/Images/{print $2}')"
+
+    # Every image some container still references, running or stopped. Docker
+    # refuses to delete one of these, so counting it announces a reclamation
+    # that never happens, on every run, for as long as the stack is up.
+    containers="$(docker ps -aq 2>/dev/null | tr '\n' ' ')"
+    in_use=""
+    [ -n "${containers// /}" ] &&
+      in_use="$(docker inspect --format '{{.Image}}' $containers 2>/dev/null |
+        sed 's#^sha256:##')"
+
+    # Superseded versions: keep the newest tag of every repository, drop the rest.
+    superseded="$(docker images --format '{{.Repository}}|{{.CreatedAt}}|{{.ID}}' 2>/dev/null |
+      grep -E "$STALE_IMAGE_PATTERN" |
+      grep -v '<none>' |
+      sort -t'|' -k1,1 -k2,2r |
+      awk -F'|' '{ if ($1 != prev) prev = $1; else print $3 }' |
+      while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        # The opening paren is not decoration: without it the one that closes
+        # the pattern also closes the command substitution around this loop.
+        case "$in_use" in (*"$id"*) continue ;; esac
+        echo "$id"
+      done)"
+
+    if [ -n "$superseded" ]; then
+      count="$(printf '%s\n' "$superseded" | wc -l | tr -d ' ')"
+      changed "  images    $count superseded version(s)"
+      [ "$apply" = true ] && printf '%s\n' "$superseded" | xargs docker rmi >/dev/null 2>&1
+    fi
+
+    dangling="$(docker images -f dangling=true -q 2>/dev/null | wc -l | tr -d ' ')"
+    if [ "$dangling" -gt 0 ]; then
+      changed "  images    $dangling untagged"
+      [ "$apply" = true ] && docker image prune -f >/dev/null 2>&1
+    fi
+
+    cache="$(docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null |
+      awk '/Build Cache/{print $3}')"
+    if [ -n "$cache" ] && [ "$cache" != "0B" ]; then
+      changed "  cache     $cache build cache"
+      [ "$apply" = true ] && docker builder prune -a -f >/dev/null 2>&1
+    fi
+
+    if [ "$apply" = true ]; then
+      after="$(docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null |
+        awk '/Images/{print $2}')"
+      [ -n "$before" ] && changed "  images    ${before} -> ${after}"
+    fi
+  else
+    say "Docker not running — skipped."
+  fi
+fi
+
+# --- summary --------------------------------------------------------------
+
+say
+if [ "$ports_only" = true ]; then
+  say "Released $ports_released launch reservation(s), stopped $servers_killed process(es). Apply: $apply."
+elif [ "$apply" = true ]; then
+  say "Removed ${worktrees_removed} worktree(s), ${branches_removed} branch(es), ${stacks_removed} wp-env stack(s), $((turbo_kb / 1024))M of Turborepo cache, stopped ${servers_killed} process(es)."
+else
+  say "Would remove ${worktrees_removed} worktree(s), ${branches_removed} branch(es), ${stacks_removed} wp-env stack(s), $((turbo_kb / 1024))M of Turborepo cache, stop ${servers_killed} process(es)."
+  say "Re-run with --yes to apply."
+fi
+
+exit "$had_errors"
