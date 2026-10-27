@@ -86,14 +86,18 @@ the run log for a review.
   findings that paid for it. Hardening against a case the boundary does not admit is what makes
   it go up.
 - **Round two.** If Resolve changed code, review the fix commits alone and resolve again,
-  scoped with `--base` set to the logged **Round 2 base**. Stop after round two unless
-  round two's own fixes introduced a regression, in which case review those fixes and stop
-  there. Record each round in the run log's **Review**.
+  scoped with `--base` set to the logged **Round 2 base**. Stop after round two, with two
+  exceptions, each worth one more round on the newest fixes and no more. Round two's own fixes
+  introduced a regression, or a `FIX` in security, access control, data loss, or concurrency is
+  still open with an input that shows it. Record each round in the run log's **Review**.
 - **Ship.** Run `pr`, push the branch, and open the PR with `gh pr create`, naming
   each screenshot and recording the body shows with `--attach`, as `pr` says. When
   the branch already has a pull request, push to it and leave its description alone unless the
   change made it wrong. When the run log names an issue, update it for the open pull request
-  per the `issue-tracker` skill. The run ends at the open PR. Do not merge, and do not
-  run `wt finish`. In a series stage, the series takes the PR from there, per
-  [`series.md`](series.md).
+  per the `issue-tracker` skill. Do not merge, and do not run `wt finish`.
+- **Watch.** Run `pr-wait` on the pull request until it is ready. Each fix it pushes runs
+  `green-repo` first, and a `DECIDE` from a comment follows the **Resolve** rule above. Before
+  a turn that ends to wait for the app's Auto-fix events, set `Status. waiting` in the run
+  log, and set it back to `running` when an event arrives. In a series stage, skip this step:
+  the series takes the PR from here, per [`series.md`](series.md).
 - **Report** per the skill's Report section.

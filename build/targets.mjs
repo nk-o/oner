@@ -112,6 +112,15 @@ export const PROVIDERS = {
   claude: { label: 'Claude', cli: 'claude', defaults: { model: 'opus', effort: 'high' }, efforts: EFFORT_LEVELS },
 };
 
+// Review bots a repository can run on its side, which pr-wait waits on (`wait`), also asks
+// for a review (`request`), or ignores (`off`).
+export const BOT_MODES = ['off', 'wait', 'request'];
+export const REVIEW_BOTS = {
+  claude: { label: 'Claude', trigger: '@claude review', default: 'wait' },
+  cursor: { label: 'Cursor', trigger: '@cursor review', default: 'off' },
+  codex: { label: 'Codex', trigger: '@codex review', default: 'off' },
+};
+
 // Stages of a oneshot run that a subagent carries. The agent's frontmatter holds
 // `effort: {{effort_<stage>}}`, which the build fills from config.json. Claude
 // Code reads that key; Codex receives model_reasoning_effort from the same value.

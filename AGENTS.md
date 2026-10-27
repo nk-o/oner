@@ -211,12 +211,8 @@ usually one small script that imports what the app ships and calls the function 
 - Use the pr skill before opening a pull request.
 - Run `gh pr merge` as a command of its own, with no `cd`, pipe, `&&` or `;` around it, and
   check the result in a second call. Only the bare command matches the allow rule.
-- When a task says to merge once the PR is ready, wait for CI yourself instead of using
-  auto-merge. Auto-merge, the app's switch included, waits only for required checks, merges
-  at once on a branch without them, and is dropped silently on a private Free-plan repository.
-  Run `gh pr checks <number> --watch` in the background, again if it exits before any check is
-  reported, then the bare `gh pr merge` once all pass. A failed check stops the merge. Fix it
-  when the task covers that, otherwise report it.
+- Use the pr-wait skill to wait on a pull request's checks and review, and to merge one once
+  it is ready. Never turn on auto-merge.
 
 ## Issue trackers
 

@@ -38,6 +38,12 @@ off revokes that consent. The build writes the enabled providers into each agent
 and into Codex's `auto_review.extra_policy`. It preserves personal policy and does not replace
 managed policy or grant filesystem or network permissions.
 
+## Review bots
+
+`reviewBots` sets how `pr-wait` treats each bot that reviews pull requests on the repository's
+side: `off`, `wait` (the default for `claude`), or `request`, which posts `@<bot> review` after
+each push and so spends that bot's quota.
+
 ## Update
 
 A session-start note says when the remote has commits this checkout does not. Offer the update

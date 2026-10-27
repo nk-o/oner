@@ -137,3 +137,7 @@ media, keep the files, and say where they are.
 
 Keep bullets to one level and bold the one thing the reviewer must not miss. No emoji headers,
 no checklists you ticked yourself.
+
+Before `gh pr create`, read the title, the body, and every attached file for secrets and private
+details: tokens, keys, internal hostnames, customer data, a screenshot showing either. Cut what
+you find. A pull request on a public repository is public the moment it opens.

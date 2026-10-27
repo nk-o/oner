@@ -7,6 +7,7 @@ is a modified version of the original. Those parts stay under the original proje
 | --- | --- | --- | --- |
 | [mattpocock/skills](https://github.com/mattpocock/skills) | MIT | Copyright (c) 2026 Matt Pocock | `architecture-scan`, `codebase-design`, `diagnose`, `grilling`, `prototype`, `reflect`, `pr`, `.claude/skills/writing-for-agents` |
 | [pstack](https://github.com/cursor/plugins/tree/main/pstack) | MIT | Copyright (c) 2026 Lauren Tan | `blast-radius`, `reflect`, `gardener`, `external-review`, `worktree-setup`, `humanizer`, `AGENTS.md` |
+| [t3dotgg/tstack](https://github.com/t3dotgg/tstack) | MIT | Copyright (c) 2026 Theo Browne | `pr-wait`, `stale-pr`, `oneshot`, `pr` |
 | [blader/humanizer](https://github.com/blader/humanizer) | MIT | Copyright (c) 2025 Siqi Chen | `humanizer` |
 | [emilkowalski/skills](https://github.com/emilkowalski/skills) | MIT | Copyright (c) 2026 Emil Kowalski | `prototype`, `break-ui` |
 | [anthropics/skills](https://github.com/anthropics/skills) | Apache-2.0 | Anthropic | `frontend-design`, `docs` |

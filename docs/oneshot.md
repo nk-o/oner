@@ -7,8 +7,9 @@
 `oneshot` carries one task from idea to an open pull request. It stops once, at the gate right
 after the analysis, to settle the decisions that are yours. Everything after the gate runs without
 asking: the spec, the implementation, the checks, verification against the running product, review
-by several models from different vendors, the fixes the review proves, and `gh pr create`. It does
-not merge, unless the work becomes a series and you authorize its release.
+by several models from different vendors, the fixes the review proves, `gh pr create`, and
+`pr-wait` on the pull request until its checks and review bots are through. It does not merge,
+unless the work becomes a series and you authorize its release.
 
 You start it by name. An agent starts it on its own only when you hand over a whole task and ask
 for it carried through to a pull request.

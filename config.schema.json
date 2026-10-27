@@ -102,6 +102,25 @@
         }
       }
     },
+    "reviewBots": {
+      "description": "Review bots that run on the repository's side, as the pr-wait skill treats them. off ignores the bot, wait waits for it once it shows up on a pull request, request also posts its review comment after each push. Their comments are handled in every mode.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "claude": {
+          "enum": ["off", "wait", "request"],
+          "default": "wait"
+        },
+        "cursor": {
+          "enum": ["off", "wait", "request"],
+          "default": "off"
+        },
+        "codex": {
+          "enum": ["off", "wait", "request"],
+          "default": "off"
+        }
+      }
+    },
     "targets": {
       "description": "Which agent homes the build writes into.",
       "type": "object",

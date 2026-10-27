@@ -3,7 +3,8 @@ name: oneshot
 description: >-
   Carries one task from idea to open pull request in one run. Stops once, early, to settle the
   decisions that are the user's, then builds, checks, reviews with several models from different
-  vendors, fixes what the review proves, and opens the PR without stopping again. Work too
+  vendors, fixes what the review proves, opens the PR, and watches it until checks and review
+  bots are through, without stopping again. Work too
   large for one PR becomes a series of PRs, each merged, deployed, and verified in production
   once the user authorizes that release at the gate. The user starts it by name. Start it
   yourself only when the user hands over a whole feature or bug and asks for it carried through
@@ -37,7 +38,7 @@ user objects, a list of decisions none of which blocks the rest (take each and l
 status note goes in the same message as the next tool call. The turns that do end are the
 gate's questions, a hard stop, a conflict with the spec or a gate decision that `implement` or
 `spec` stops on, a login or credential only the user can supply, a wait on background work
-this run started, and the final Report. A server or watcher started in the background never
+this run started or on the pull request's events, and the final Report. A server or watcher started in the background never
 ends, so stop it once the step that needed it is done. Before a turn that waits on the user,
 set `Status. waiting` in the run log, and back to `running` when the answer arrives. While it
 reads `running`, the host's lifecycle hook catches a turn that ends with steps still open in
@@ -170,9 +171,9 @@ pull requests becomes a series inside the feature lane, per its step 1.
 
 When no lane fits, write one. Put its steps in the run log's **Lane** in full, since no file
 holds them, in the shape of the others: ground, gate, build, then
-[`lanes/tail.md`](lanes/tail.md). Say in the report that the lane was written for this run. Two
-tasks still go elsewhere: a review of code that already shipped is `prod-review`, and a machine
-that needs cleaning is `dev-tidy`. Name the skill in one sentence and stop.
+[`lanes/tail.md`](lanes/tail.md). Say in the report that the lane was written for this run. Three
+tasks still go elsewhere: a review of code that already shipped is `prod-review`, an old pull
+request to bring up to date is `stale-pr`, and a machine that needs cleaning is `dev-tidy`. Name the skill in one sentence and stop.
 
 ## Step 1: open the run
 
@@ -254,7 +255,7 @@ The log already holds the gate, the checks, every review round, and the evidence
 is not a second copy of it. Name the log's path once, and write only what the user acts on:
 
 - **The outcome and the link.** One or two sentences on what now works or what is fixed, then
-  the PR link.
+  the PR link and the head it is ready on, or what it still waits on.
 - **The proof.** The one check or verification the outcome rests on, as the output it printed.
   Not the list of everything the run executed.
 - **Assumptions**, one line each, no evidence attached, the ones the user might overturn

@@ -239,6 +239,13 @@ function renderOutputs(ctx, spec, dir, config) {
     });
   }
 
+  if (out.has(join(spec.skills, 'pr-wait', 'SKILL.md'))) {
+    out.set(join(spec.skills, 'pr-wait', 'bots.json'), {
+      data: Buffer.from(JSON.stringify(config.reviewBots, null, 2) + '\n'),
+      mode: 0o644,
+    });
+  }
+
   for (const f of spec.agents ? walk(join(ctx.repo, 'agents')) : []) {
     const data = render(f.abs, f.rel);
     const { dir: agentsDir, format, ext, extra } = spec.agents;
