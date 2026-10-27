@@ -12,8 +12,8 @@ ticks it.
 3. Write the structure into `run.md`: collections in the order a new user meets them, and
    under each the articles with slug, type, title, and one line on the reader's question. A
    common order for a theme: Getting started, Theme settings, Sections, Blocks, Pages and
-   templates, How-to guides, Troubleshooting, Changelog. Take the product's own order when it
-   has one.
+   templates, How-to guides, Troubleshooting, Changelog. On Poise the changelog is the Updates
+   section, not a collection. Take the product's own order when it has one.
 4. Map every inventory item to the article that covers it. An item no article covers is either
    a new article or written down as left out on purpose, with the reason. The map becomes each
    article's `product_refs`, as `poise.md` describes.

@@ -92,7 +92,7 @@ model, how to compare two models on writing, and how the fresh reader scales are
 | A new article, or one rewritten | **Article** |
 | A product change, a code change, or a release range that made articles wrong | **Update** |
 | Collections, order, or article titles to change | **Structure** |
-| Release notes to publish in the help center | **Changelog**: take the entry `changelog` wrote for this release, or run `changelog` first when there is none, then **Update** on the changelog article, newest entry first |
+| Release notes to publish in the help center | **Changelog**: take the entry `changelog` wrote for this release, or run `changelog` first when there is none, then shape it as the changelog section of [references/article-types.md](references/article-types.md) says: **Article** for a new Updates entry on Poise, **Update** on the changelog article elsewhere |
 | Docs for a whole product, or a rebuild of all of them | **Full build**: read [references/full-build.md](references/full-build.md) and follow it instead of the steps below |
 
 Open the run folder and write `run.md`. Done when its checklist names every article the job

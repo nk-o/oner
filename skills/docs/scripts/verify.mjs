@@ -46,7 +46,7 @@ const plain = (md) =>
     .replace(/`([^`]*)`/g, (m, code) => code.replace(/[<>]/g, ' '))
     .replace(/^\s*(\d+\.|-)\s+/gm, ' ')
     // A changelog item's tag shows as an icon, not as text.
-    .replace(/^\s*\[(new|feature|improved|fixed)\]\s/gm, ' ')
+    .replace(/^\s*\[(new|feature|improved|changed|fixed|removed)\]\s/gm, ' ')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
     .replace(/^#+\s/gm, ' ')

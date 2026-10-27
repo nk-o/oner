@@ -21,7 +21,7 @@ Look for the file before asking for it, in this order: `CHANGELOG.md` at the roo
 route in the app. Then search the repository for the previous version string. Two files often
 carry the same entries, and both are part of the release.
 
-When `.claude/docs.json` names a help center, its changelog article carries the entries too.
+When `.claude/docs.json` names a help center, it publishes each release too.
 Write the entry here and stop at the file. The `docs` skill's Changelog job puts it into the help
 center later, and decides when it is published.
 
