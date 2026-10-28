@@ -49,6 +49,14 @@ report, and this hook is what keeps an unattended run going. The run sets `waiti
 stops for your answer, and `stopped: <reason>` when the lane ends without a pull request. The hook
 works in Claude Code and Codex.
 
+In Claude Code the same hook answers permission prompts while `Status.` reads `running`, in the
+session that started the run and in its subagents. It approves edits inside the repository's
+worktrees, reads, and shell commands. It leaves to you every other tool (MCP servers, web
+fetches), and commands that run as another user, open a remote shell, deploy, change
+infrastructure, publish a package or release, force-push, push to the default branch, delete a
+remote branch, or delete recursively outside the repository. `skills/oneshot/permission.mjs`
+holds that list.
+
 ## A series of pull requests, through production
 
 There is no flag for this. During its analysis, `oneshot` decides whether the work fits one pull
@@ -97,3 +105,24 @@ repeating anything. `resume --recheck <stage>` reads a stage you repaired by han
 again. The hook keeps the coordinating session going while the series runs, once per change of
 state, and stays silent while it waits. The series is finished when `series.mjs report` exits 0,
 which needs every stage done with its evidence.
+
+## /oneshot-auto
+
+```
+/oneshot-auto <the feature, the ticket, or the bug>
+```
+
+The same run for when you are not watching, carried into production. Starting it by name is
+your authorization to merge and deploy this task, and it differs from `oneshot` in three ways:
+
+- The gate posts its screen and takes its own recommended answers.
+- A migration or data shape that only adds, and a contract change every existing caller
+  survives, are decided and flagged with `Attention.` in the report. Dropping or overwriting
+  data, a migration the running code cannot work with, and a breaking contract change still
+  stop the run.
+- After the pull request is ready, a **Release** step runs it as a one-stage series: merge,
+  wait for the repository's own pipeline to deploy, then the production checks. When nothing
+  tells which commit production runs, it merges and reports production as not verified.
+
+It still stops for a login only you can supply, a review only a person can give, and the
+failures a series asks about.

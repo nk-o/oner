@@ -182,9 +182,11 @@ The investigation lane writes nothing, so it skips this step.
 **Resume before you open.** When this branch already carries `.specs/*/oneshot.md` with
 `Status. running` or `Status. waiting`, that run is the task: read the log, take the first open
 line in its **Lane**, and re-read that step in the lane file the `Lane.` line names. Never open
-a second folder for the same branch. When the hook names an open series in this repository and
-the task is that series, read the `## Now` section of the series log in its program folder,
-then follow [`lanes/series.md`](lanes/series.md) from step 5, whichever agent ran it before.
+a second folder for the same branch. A log with an `Auto.` line was opened by `oneshot-auto`:
+read `{{skills_dir}}/oneshot-auto/SKILL.md` too, because its rules hold for the whole run. When
+the hook names an open series in this repository and the task is that series, read the `## Now`
+section of the series log in its program folder, then follow [`lanes/series.md`](lanes/series.md)
+from step 5, whichever agent ran it before.
 
 **Never commit or push to the default branch.** When HEAD is the default branch, get off it
 before anything else. Where the repository has `.claude/worktree.json`, run
@@ -234,7 +236,9 @@ Move it to started through the `issue-tracker` skill once the gate is settled, n
 
 This file is the state. It makes an unattended run auditable and lets another session pick it
 up where it stopped. While `Status.` reads `running` or `waiting`, the hook in `settings.json`
-reminds every turn that the run is open, and again after a resume or a compaction.
+reminds every turn that the run is open, and again after a resume or a compaction. While it
+reads `running`, the same hook approves the host's permission prompts for the run's local work
+in Claude Code, and `permission.mjs` beside it lists what it leaves to the user.
 
 ## Step 2: copy the lane in
 
