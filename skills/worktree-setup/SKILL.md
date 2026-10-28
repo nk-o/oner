@@ -33,8 +33,14 @@ Do not guess any of this. Read, then decide.
   documents, local services, and any bootstrap script it already ships.
 - `.github/workflows/*.yml` → the commands CI actually gates on. Those are the `checks`, and
   `green-repo` runs them in that order.
-- `scripts/bootstrap*.sh` → if the repo bootstraps itself, set `bootstrap` and stop; that
+- `scripts/bootstrap*.sh` → if the repo bootstraps itself, set `bootstrap`; that
   script owns copying, installing, and ports.
+
+For a repository-owned bootstrap, verify its port allocation in two disposable worktrees,
+then repeat bootstrap while one dev server runs. Require distinct reservations, the same
+running port, and an app URL that matches that checkout. Check that the documented dev command
+uses the reservation. With no `servers` in the config, `wt.sh` delegates all of this to the
+bootstrap; its own allocator does not run.
 
 ## 2. Reserve a port block
 

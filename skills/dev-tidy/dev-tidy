@@ -577,50 +577,34 @@ gap_note() {
   return 0
 }
 
-port_lock=""
+port_lock_ref="refs/oner/worktree-ports"
+port_lock_owner=""
 die() { echo "$*" >&2; exit 1; }
 release_port_lock() {
-  local attempt
-  [ -n "$port_lock" ] || return 0
-  if [ "$(cat "$port_lock/pid" 2>/dev/null)" = "$$" ]; then
-    rm -f "$port_lock/pid"
-    for ((attempt = 0; attempt < 100; attempt++)); do
-      rmdir "$port_lock" 2>/dev/null && break
-      [ -d "$port_lock" ] && [ ! -e "$port_lock/pid" ] || break
-      sleep 0.01
-    done
-  fi
-  port_lock=""
+  [ -n "$port_lock_owner" ] || return 0
+  git -C "$PRIMARY" update-ref -d "$port_lock_ref" "$port_lock_owner" 2>/dev/null || true
+  port_lock_owner=""
 }
 
 acquire_port_lock() {
-  local lock owner attempt cleanup_attempt
-  lock="$(git -C "$PRIMARY" rev-parse --path-format=absolute --git-common-dir)/worktree-ports.lock"
+  local owner_object observed owner attempt
+  owner_object="$(printf '%s\n' "$$" "$RANDOM-$RANDOM" | git -C "$PRIMARY" hash-object -w --stdin)"
   for ((attempt = 0; attempt < 300; attempt++)); do
-    if mkdir "$lock" 2>/dev/null; then
-      port_lock="$lock"
-      printf '%s\n' "$$" > "$lock/pid"
+    if git -C "$PRIMARY" update-ref "$port_lock_ref" "$owner_object" "" 2>/dev/null; then
+      port_lock_owner="$owner_object"
       trap 'release_port_lock; [ -z "$PR_CACHE" ] || rm -rf "$PR_CACHE"' EXIT
       trap 'exit 130' INT
       trap 'exit 143' TERM
       return 0
     fi
-    owner="$(cat "$lock/pid" 2>/dev/null || true)"
-    if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null && mkdir "$lock/reap" 2>/dev/null; then
-      owner="$(cat "$lock/pid" 2>/dev/null || true)"
-      if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
-        rm -f "$lock/pid"
-      fi
-      rmdir "$lock/reap" 2>/dev/null || true
-      for ((cleanup_attempt = 0; cleanup_attempt < 100; cleanup_attempt++)); do
-        rmdir "$lock" 2>/dev/null && break
-        [ -d "$lock" ] && [ ! -e "$lock/pid" ] || break
-        sleep 0.01
-      done
+    observed="$(git -C "$PRIMARY" rev-parse --verify "$port_lock_ref" 2>/dev/null || true)"
+    owner="$(git -C "$PRIMARY" cat-file -p "$observed" 2>/dev/null | sed -n '1p' || true)"
+    if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
+      git -C "$PRIMARY" update-ref -d "$port_lock_ref" "$observed" 2>/dev/null || true
     fi
     sleep 0.1
   done
-  die "Port allocation is busy: $lock. Retry after the other bootstrap finishes."
+  die "Port allocation is busy. Retry after the other bootstrap finishes."
 }
 
 release_ports() {

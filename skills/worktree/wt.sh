@@ -30,9 +30,8 @@
 #     "checks": ["npm run lint", "npm test"]
 #   }
 #
-# With "bootstrap" set, the repository's own script owns copy and install, and
-# this one only assigns ports (.claude/launch.json, written first so the script
-# can read them) and calls it. Everything else is optional.
+# With "bootstrap" set, the repository's own script owns setup. Configured
+# "servers" get a launch file first; without them, bootstrap also owns ports.
 
 set -euo pipefail
 
@@ -135,57 +134,45 @@ pick_port() {
   die "No free port in ${min}-${max}. Free one, or finish a stale worktree."
 }
 
-# Each checkout writes its own launch file; choosing a free port reads them all.
-port_lock=""
+# Git compare-and-swap publishes the owner atomically and releases only that owner.
+port_lock_ref="refs/oner/worktree-ports"
+port_lock_owner=""
 release_port_lock() {
-  local attempt
-  [ -n "$port_lock" ] || return 0
-  if [ "$(cat "$port_lock/pid" 2>/dev/null)" = "$$" ]; then
-    rm -f "$port_lock/pid"
-    for ((attempt = 0; attempt < 100; attempt++)); do
-      rmdir "$port_lock" 2>/dev/null && break
-      [ -d "$port_lock" ] && [ ! -e "$port_lock/pid" ] || break
-      sleep 0.01
-    done
-  fi
-  port_lock=""
+  [ -n "$port_lock_owner" ] || return 0
+  git -C "$PRIMARY" update-ref -d "$port_lock_ref" "$port_lock_owner" 2>/dev/null || true
+  port_lock_owner=""
 }
 
 acquire_port_lock() {
-  local lock owner attempt cleanup_attempt
-  lock="$(git -C "$PRIMARY" rev-parse --path-format=absolute --git-common-dir)/worktree-ports.lock"
+  local owner_object observed owner attempt
+  owner_object="$(printf '%s\n' "$$" "$RANDOM-$RANDOM" | git -C "$PRIMARY" hash-object -w --stdin)"
   for ((attempt = 0; attempt < 300; attempt++)); do
-    if mkdir "$lock" 2>/dev/null; then
-      port_lock="$lock"
-      printf '%s\n' "$$" > "$lock/pid"
+    if git -C "$PRIMARY" update-ref "$port_lock_ref" "$owner_object" "" 2>/dev/null; then
+      port_lock_owner="$owner_object"
       trap release_port_lock EXIT
       trap 'exit 130' INT
       trap 'exit 143' TERM
       return 0
     fi
-    owner="$(cat "$lock/pid" 2>/dev/null || true)"
-    if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null && mkdir "$lock/reap" 2>/dev/null; then
-      owner="$(cat "$lock/pid" 2>/dev/null || true)"
-      if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
-        rm -f "$lock/pid"
-      fi
-      rmdir "$lock/reap" 2>/dev/null || true
-      for ((cleanup_attempt = 0; cleanup_attempt < 100; cleanup_attempt++)); do
-        rmdir "$lock" 2>/dev/null && break
-        [ -d "$lock" ] && [ ! -e "$lock/pid" ] || break
-        sleep 0.01
-      done
+    observed="$(git -C "$PRIMARY" rev-parse --verify "$port_lock_ref" 2>/dev/null || true)"
+    owner="$(git -C "$PRIMARY" cat-file -p "$observed" 2>/dev/null | sed -n '1p' || true)"
+    if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
+      git -C "$PRIMARY" update-ref -d "$port_lock_ref" "$observed" 2>/dev/null || true
     fi
     sleep 0.1
   done
-  die "Port allocation is busy: $lock. Retry after the other bootstrap finishes."
+  die "Port allocation is busy. Retry after the other bootstrap finishes."
 }
 
 port_belongs_to() {
-  local port="$1" dir="$2" cwd pid checkout
+  local port="$1" dir="$2" cwd pid checkout pids
+  dir="$(cd "$dir" 2>/dev/null && pwd -P)" || return 1
+  pids="$(lsof -nP -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  [ -n "$pids" ] || return 1
   while IFS= read -r pid; do
-    [ -n "$pid" ] || continue
     cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+    [ -n "$cwd" ] || return 1
+    cwd="$(cd "$cwd" 2>/dev/null && pwd -P)" || return 1
     case "$cwd/" in "$dir/"*) : ;; *) return 1 ;; esac
     while IFS= read -r checkout; do
       [ "$checkout" = "$dir" ] && continue
@@ -193,7 +180,8 @@ port_belongs_to() {
         "$dir/"*) case "$cwd/" in "$checkout/"*) return 1 ;; esac ;;
       esac
     done < <(git worktree list --porcelain | awk '/^worktree /{print substr($0, 10)}')
-  done < <(lsof -nP -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+  done <<< "$pids"
+  return 0
 }
 
 set_env_var() {
@@ -340,11 +328,9 @@ cmd_init() {
   echo "Add \"servers\" so new worktrees get a dev port, and \"checks\" for the pre-PR gate."
 }
 
-# True when every ranged server in the launch config has a port inside its range
-# that no other checkout claims. The Claude app copies the primary checkout's
-# .claude/ into worktrees, so a launch config can be present without being ours.
+# Copied launch files can duplicate a reservation, but a running owner keeps its port.
 launch_config_is_own() {
-  local file="$1" servers="$2" claimed="$3" i count sname smin smax port
+  local file="$1" servers="$2" claimed="$3" assigned="" i count sname smin smax port
   count="$(printf '%s' "$servers" | jq 'length')"
   for ((i = 0; i < count; i++)); do
     sname="$(printf '%s' "$servers" | jq -r ".[$i].name // \"dev\"")"
@@ -354,9 +340,10 @@ launch_config_is_own() {
     [ -n "$(printf '%s' "$servers" | jq -r ".[$i].command // empty")" ] || continue
     port="$(jq -r --arg n "$sname" 'first(.configurations[]? | select(.name == $n) | .port) // empty' "$file" 2>/dev/null || true)"
     [ -n "$port" ] && [ "$port" -ge "$smin" ] && [ "$port" -le "$smax" ] || return 1
-    printf '%s\n' "$claimed" | grep -qx "$port" && return 1
-    port_belongs_to "$port" "$(dirname "$(dirname "$file")")" || return 1
-    claimed="$(printf '%s\n%s' "$claimed" "$port")"
+    printf '%s\n' "$assigned" | grep -qx "$port" && return 1
+    if { printf '%s\n' "$claimed" | grep -qx "$port" || is_listening "$port"; } &&
+      ! port_belongs_to "$port" "$(dirname "$(dirname "$file")")"; then return 1; fi
+    assigned="$(printf '%s\n%s' "$assigned" "$port")"
   done
   return 0
 }
@@ -366,7 +353,7 @@ launch_config_is_own() {
 # unless another checkout claims their port, as in a copy of the primary's file.
 # No-op for a repo that declares no servers.
 write_launch_config() {
-  local dir="$1" servers configs="[]" claimed
+  local dir="$1" servers configs="[]" claimed assigned=""
   servers="$(cfg '.servers')"
   [ -z "$servers" ] || [ "$servers" = "null" ] && return 0
 
@@ -403,10 +390,12 @@ write_launch_config() {
         sport="$(jq -r --arg n "$sname" 'first(.configurations[]? | select(.name == $n) | .port) // empty' "$dir/.claude/launch.json")"
       fi
       if ! [[ "$sport" =~ ^[0-9]+$ ]] || [ "$sport" -lt "$smin" ] || [ "$sport" -gt "$smax" ] ||
-        printf '%s\n' "$claimed" | grep -qx "$sport" || ! port_belongs_to "$sport" "$dir"; then
+        printf '%s\n' "$assigned" | grep -qx "$sport" ||
+        { { printf '%s\n' "$claimed" | grep -qx "$sport" || is_listening "$sport"; } && ! port_belongs_to "$sport" "$dir"; }; then
         sport="$(pick_port "$smin" "$smax" "$claimed")"
       fi
       claimed="$(printf '%s\n%s' "$claimed" "$sport")"
+      assigned="$(printf '%s\n%s' "$assigned" "$sport")"
       scommand="${scommand//\{port\}/$sport}"
       senv="$(printf '%s' "$server" | jq -r '.envFile // empty')"
       skey="$(printf '%s' "$server" | jq -r '.envUrlKey // empty')"

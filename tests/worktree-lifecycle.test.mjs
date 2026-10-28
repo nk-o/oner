@@ -52,11 +52,18 @@ function fixture() {
   runGit('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
   writeFileSync(join(bin, 'git'), `#!/bin/sh\nfor arg in "$@"; do [ "$arg" = fetch ] && exit 0; done\nexec '${git}' "$@"\n`, { mode: 0o755 });
   writeFileSync(join(bin, 'gh'), '#!/bin/sh\n[ "${FAIL_GH:-}" = 1 ] && exit 1\nprintf "feature\\t%s\\t%s\\n" "$FIXTURE_SHA" "${FIXTURE_STATE:-MERGED}"\n', { mode: 0o755 });
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, FIXTURE_SHA: sha };
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, FIXTURE_SHA: sha,
+    DEV_TIDY_CLAUDE_SESSIONS: join(root, 'sessions'), DEV_TIDY_CODEX_HOME: join(root, 'codex') };
   const worktree = (name) => { const dir = join(repo, '.claude/worktrees', name); runGit('worktree', 'add', '-qb', name, dir); return dir; };
   const launch = (dir, port = 38101) => { mkdirSync(join(dir, '.claude'), { recursive: true }); writeFileSync(join(dir, '.claude/launch.json'), JSON.stringify({ version: '0.0.1', configurations: [{ name: 'web', runtimeExecutable: 'node', runtimeArgs: ['server.mjs', '--port', String(port)], port }] })); };
   const run = (script, args, cwd = repo, extraEnv = {}) => spawnSync('bash', [script, ...args], { cwd, env: { ...env, ...extraEnv }, encoding: 'utf8', timeout: 30000 });
   return { root, repo, env, sha, runGit, worktree, launch, run };
+}
+
+function serverRange(dir, port, names = ['web']) {
+  const range = [Math.max(1024, port - 10), Math.min(65535, port + 10)];
+  writeFileSync(join(dir, '.claude/worktree.json'), JSON.stringify({ servers: names.map(name => ({ name, command: 'node server.mjs --port {port}', portRange: range })) }));
+  return range;
 }
 
 test('adopt repairs copied ports and keeps its assignment on repeat', () => {
@@ -82,25 +89,108 @@ test('parallel adopt reserves different ports', async () => {
   assert.deepEqual(ports.sort(), [38101, 38102]);
 });
 
-test('a second stale-lock reaper cannot strand allocation without a pid', () => {
+test('allocation recovers after its owner dies before publishing a port', () => {
   const f = fixture(); const dir = f.worktree('feature');
   const lock = join(f.runGit('rev-parse', '--path-format=absolute', '--git-common-dir'), 'worktree-ports.lock');
-  mkdirSync(lock); writeFileSync(join(lock, 'pid'), '99999999\n');
-  writeFileSync(join(f.root, 'bin/rmdir'), `#!/bin/sh
-if [ "$1" = '${lock}/reap' ] && [ ! -e '${f.root}/reaped' ]; then
-  /bin/rmdir "$@" || exit 1
-  touch '${f.root}/reaped'
-  mkdir '${lock}/reap'
-  (/bin/sleep 0.05; /bin/rmdir '${lock}/reap') >/dev/null 2>&1 &
-  exit 0
+  const killed = join(f.root, 'allocator-killed');
+  writeFileSync(join(f.root, 'bin/mkdir'), `#!/bin/sh
+/bin/mkdir "$@" || exit $?
+if [ "$1" = '${lock}' ] && [ ! -e '${killed}' ]; then
+  touch '${killed}'
+  kill -KILL "$PPID"
 fi
-exec /bin/rmdir "$@"
+`, { mode: 0o755 });
+  writeFileSync(join(f.root, 'bin/git'), `#!/bin/sh
+for arg in "$@"; do [ "$arg" = fetch ] && exit 0; done
+'${git}' "$@"
+result=$?
+case "$*" in
+  *'update-ref refs/oner/worktree-ports '*)
+    if [ "$result" = 0 ] && [ ! -e '${killed}' ]; then
+      touch '${killed}'
+      kill -KILL "$PPID"
+    fi ;;
+esac
+exit "$result"
 `, { mode: 0o755 });
   writeFileSync(join(f.root, 'bin/sleep'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  const interrupted = f.run(wt, ['adopt', '--no-install'], dir);
+  assert.equal(interrupted.signal, 'SIGKILL');
   const result = f.run(wt, ['adopt', '--no-install'], dir);
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(existsSync(lock), false);
   assert.equal(JSON.parse(readFileSync(join(dir, '.claude/launch.json'))).configurations[0].port, 38101);
+  assert.equal(f.runGit('for-each-ref', '--format=%(refname)', 'refs/oner/worktree-ports'), '');
+});
+
+test('a copied duplicate cannot move a running checkout reservation', async () => {
+  const f = fixture(); const dir = f.worktree('feature'); const copied = f.worktree('copied');
+  const own = await server(dir);
+  const range = serverRange(dir, own.port);
+  serverRange(copied, own.port);
+  f.launch(dir, own.port); f.launch(copied, own.port);
+  const result = f.run(wt, ['adopt', '--no-install'], dir);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(readFileSync(join(dir, '.claude/launch.json'))).configurations[0].port, own.port);
+  assert.equal(own.child.exitCode, null);
+  const repair = f.run(wt, ['adopt', '--no-install'], copied);
+  assert.equal(repair.status, 0, repair.stderr);
+  const reassigned = JSON.parse(readFileSync(join(copied, '.claude/launch.json'))).configurations[0].port;
+  assert.notEqual(reassigned, own.port);
+  assert.ok(Number.isInteger(reassigned) && reassigned >= range[0] && reassigned <= range[1]);
+  assert.equal(own.child.exitCode, null);
+});
+
+test('an unreadable listener identity cannot retain a reserved port', () => {
+  const f = fixture(); const dir = f.worktree('feature'); f.launch(dir);
+  writeFileSync(join(f.root, 'bin/lsof'), `#!/bin/sh
+case "$*" in
+  *-tiTCP:38101*) exit 0 ;;
+  *-iTCP:38101*) exit 0 ;;
+esac
+exit 1
+`, { mode: 0o755 });
+  const result = f.run(wt, ['adopt', '--no-install'], dir);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(readFileSync(join(dir, '.claude/launch.json'))).configurations[0].port, 38102);
+});
+
+test('overlapping server ranges still assign distinct ports with an owned listener', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const own = await server(dir);
+  const range = serverRange(dir, own.port, ['web', 'admin']);
+  f.launch(dir, own.port);
+  const result = f.run(wt,['adopt','--no-install'],dir);
+  assert.equal(result.status,0,result.stderr);
+  const ports = JSON.parse(readFileSync(join(dir,'.claude/launch.json'))).configurations.map(c=>c.port);
+  assert.equal(ports[0], own.port);
+  assert.equal(new Set(ports).size, 2);
+  assert.ok(ports.every(port => Number.isInteger(port) && port >= range[0] && port <= range[1]));
+});
+
+test('port cleanup waits for the same clone reservation as adopt', async () => {
+  const f = fixture(); const dir = f.worktree('feature'); f.launch(dir);
+  const waiting = join(f.root, 'cleanup-waiting');
+  const owner = execFileSync(git, ['-C', f.repo, 'hash-object', '-w', '--stdin'], {input:`${process.pid}\nfixture\n`, encoding:'utf8'}).trim();
+  f.runGit('update-ref','refs/oner/worktree-ports',owner);
+  writeFileSync(join(f.root,'bin/git'), `#!/bin/sh
+for arg in "$@"; do [ "$arg" = fetch ] && exit 0; done
+case "$*" in *'rev-parse --verify refs/oner/worktree-ports'*) touch '${waiting}' ;; esac
+exec '${git}' "$@"
+`,{mode:0o755});
+  const child=spawn('bash',[tidy,'--ports-only','--yes','--root',f.repo],{cwd:f.repo,env:f.env,stdio:'ignore'});
+  children.push(child);
+  const closed=new Promise(resolvePromise=>child.once('exit',resolvePromise));
+  try {
+    const deadline=Date.now()+5000;
+    while(!existsSync(waiting)&&child.exitCode===null&&Date.now()<deadline) await new Promise(resolvePromise=>setTimeout(resolvePromise,20));
+    assert.equal(existsSync(join(dir,'.claude/launch.json')),true);
+    assert.equal(existsSync(waiting),true,'cleanup never attempted the shared allocator reservation');
+    f.runGit('update-ref','-d','refs/oner/worktree-ports',owner);
+    assert.equal(await closed,0);
+    assert.equal(existsSync(join(dir,'.claude/launch.json')),false);
+  } finally {
+    f.runGit('update-ref','-d','refs/oner/worktree-ports');
+  }
 });
 
 test('port repair cannot replace the primary checkout fixed assignment', () => {
@@ -160,17 +250,21 @@ test('failed GitHub lookup reports failure and keeps reservations', () => {
 });
 
 test('adopt keeps a running own server but reallocates a foreign listener', async () => {
-  const f = fixture(); const dir = f.worktree('feature'); f.launch(dir);
-  const own = await server(dir, 38101);
+  const f = fixture(); const dir = f.worktree('feature');
+  const own = await server(dir);
+  const range = serverRange(dir, own.port);
+  f.launch(dir, own.port);
   const first = f.run(wt, ['adopt', '--no-install'], dir);
   assert.equal(first.status, 0, first.stderr);
-  assert.equal(JSON.parse(readFileSync(join(dir, '.claude/launch.json'))).configurations[0].port, 38101);
+  assert.equal(JSON.parse(readFileSync(join(dir, '.claude/launch.json'))).configurations[0].port, own.port);
   const stopped = new Promise(resolvePromise => own.child.once('exit', resolvePromise));
   own.child.kill(); await stopped;
-  const foreign = await server(f.repo, 38101);
+  const foreign = await server(f.repo, own.port);
   const second = f.run(wt, ['adopt', '--no-install'], dir);
   assert.equal(second.status, 0, second.stderr);
-  assert.equal(JSON.parse(readFileSync(join(dir, '.claude/launch.json'))).configurations[0].port, 38102);
+  const reassigned = JSON.parse(readFileSync(join(dir, '.claude/launch.json'))).configurations[0].port;
+  assert.notEqual(reassigned, own.port);
+  assert.ok(Number.isInteger(reassigned) && reassigned >= range[0] && reassigned <= range[1]);
   assert.equal(foreign.child.exitCode, null);
 });
 
