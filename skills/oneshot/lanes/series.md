@@ -74,8 +74,9 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    the host asks to confirm when it happens.
 
    **Away** does not reach this question. An authorization is consent, never a recommended
-   default. Without one, build stage one to its pull request and run `series.mjs wait input
-   "authorize the release of <program folder>"`.
+   default. A run `oneshot-auto` opened already has one: the user started it by name, and
+   `authorization` quotes the log's `Auto.` line. Without one, build stage one to its pull
+   request and run `series.mjs wait input "authorize the release of <program folder>"`.
 
    The four hard stops still stop. A migration or data shape the approved spec already sets
    is settled, so only one the spec does not cover stops the series. A decision that can only

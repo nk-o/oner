@@ -6,10 +6,12 @@
 # does, and it never fails the prompt.
 #
 # SessionStart and UserPromptSubmit print one reminder, which the host adds to
-# the model's context. Stop keeps an unattended run from ending on a progress
-# report: in a session that loaded the skill, while Status reads running and the
-# log's Lane checklist has open items, it asks the model to continue, naming
-# them. A series is the same one level up: while its program is running, the
+# the model's context. PermissionRequest hands the request to permission.mjs
+# while a run or a series this session drives is running, so the user is asked
+# only for what that script leaves to them. Stop keeps an unattended run from
+# ending on a progress report: in a session that loaded the skill, while Status
+# reads running and the log's Lane checklist has open items, it asks the model
+# to continue, naming them. A series is the same one level up: while its program is running, the
 # session that ran series.mjs is asked to take its next action. It asks once per
 # state of the work, so a turn that ends again with nothing changed since the
 # last ask is let go, and never while the run or the series is waiting.
@@ -50,7 +52,17 @@ for candidate in "${primary:-$root}"/.specs/*/program.json; do
   pstatus="$(jq -r '.status // "running"' "$candidate" 2>/dev/null)"
   case "$pstatus" in running|waiting) program="$(dirname "$candidate")"; break ;; esac
 done
-[ -n "$log" ] || [ -n "$program" ] || exit 0
+# A delegate in an isolated worktree has a detached HEAD and no run log of its
+# own; the run it works for is any running log in this repository.
+delegate=false
+if [ "$branch" = "HEAD" ]; then
+  while IFS= read -r wt; do
+    for candidate in "$wt"/.specs/*/oneshot.md; do
+      [ -f "$candidate" ] && grep -qxF 'Status. running' "$candidate" 2>/dev/null && delegate=true
+    done
+  done < <(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
+fi
+[ -n "$log" ] || [ -n "$program" ] || [ "$delegate" = true ] || exit 0
 
 rel="${log#"$root"/}"
 transcript="$(field '.transcript_path // empty')"
@@ -66,20 +78,23 @@ progress() {
     "$program/program.json" 2>/dev/null
 }
 series="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/series.mjs"
+# A stale log must not steer, or approve for, a session that never ran the skill.
+loaded() {
+  [ -f "$transcript" ] || return 1
+  if [ "$host" = codex ]; then
+    grep -qE '<name>oneshot(-auto)?</name>|\$oneshot|/skills/oneshot(-auto)?/SKILL\.md' "$transcript" 2>/dev/null
+  else
+    grep -qE '<command-name>/oneshot(-auto)?<|Base directory for this skill: [^"\\]*/skills/oneshot(-auto)?(\\|")' \
+      "$transcript" 2>/dev/null
+  fi
+}
 
 case "$(field '.hook_event_name // empty')" in
   Stop)
     # Background work or a scheduled wakeup starts the next turn by itself.
     [ "$(field '(.background_tasks // []) | length')" = "0" ] || exit 0
     [ "$(field '(.session_crons // []) | length')" = "0" ] || exit 0
-    # A stale log must not steer a session that never ran the skill.
-    [ -f "$transcript" ] || exit 0
-    if [ "$host" = codex ]; then
-      grep -qE '<name>oneshot</name>|\$oneshot|/skills/oneshot/SKILL\.md' "$transcript" 2>/dev/null || exit 0
-    else
-      grep -qE '<command-name>/oneshot<|Base directory for this skill: [^"\\]*/skills/oneshot(\\|")' \
-        "$transcript" 2>/dev/null || exit 0
-    fi
+    loaded || exit 0
 
     # A stage run that waits on the user holds the series with it.
     [ "$status" = "waiting" ] && exit 0
@@ -119,6 +134,13 @@ If nothing needs the user, continue with the first open step now, and put any st
     else
       jq -n --arg m "$message" \
         '{hookSpecificOutput: {hookEventName: "Stop", additionalContext: $m}}' 2>/dev/null || exit 0
+    fi
+    ;;
+  PermissionRequest)
+    [ "$host" = claude ] && loaded || exit 0
+    if [ "$status" = running ] || [ "$delegate" = true ] ||
+      { [ "$pstatus" = running ] && [ "$coordinator" = true ]; }; then
+      printf '%s' "$input" | node "$(dirname "$0")/permission.mjs" "$(dirname "$0")/.." 2>/dev/null || true
     fi
     ;;
   *)

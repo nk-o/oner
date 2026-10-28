@@ -68,6 +68,10 @@ request, and a watch on it until checks and review bots are through. It does not
 Work too large for one pull request becomes a series. With your authorization, each stage is
 merged, deployed, and checked in production before the next one lands.
 
+`/oneshot-auto` is the same run for when you are not watching. The gate takes its own
+recommended answers, and the pull request is merged once it is ready and checked in production
+after the deploy. It stops only for a change that destroys data or breaks an outside contract.
+
 [docs/oneshot.md](docs/oneshot.md) covers the lanes, the run log, and the series.
 
 ## By hand
@@ -118,6 +122,7 @@ a new project.
 | | `/resolve-review` | acts on a review already in hand: fixes what is real, refutes the rest |
 | | `/external-review` | the same change reviewed by every provider turned on in `config.json` |
 | Ship | `/oneshot` | one task from idea to open pull request |
+| | `/oneshot-auto` | one task from idea to production, with nobody watching |
 | | `/commit-message` | a Conventional Commits message for the staged change |
 | | `/pr` | a pull request title and body written for a person |
 | | `/pr-feedback` | works through a PR's unresolved threads and failing checks once |
@@ -132,7 +137,8 @@ a new project.
 | | `/gardener` | finds workarounds, silenced checks, and dead code merged since the last pass |
 
 An agent also loads a skill on its own when a task calls for it. `/architecture-scan`,
-`/external-review`, and `/gardener` are the exceptions and run only when you start them.
+`/external-review`, `/gardener`, and `/oneshot-auto` are the exceptions and run only when you
+start them.
 
 ## Agents
 
@@ -162,7 +168,7 @@ the rules in `AGENTS.md`.
 | [pstack](https://github.com/cursor/plugins/tree/main/pstack) | `blast-radius` and the evidence rungs in `AGENTS.md`; the **Shaping code** principles in `AGENTS.md`; `reflect`; the `verify-<app>` skill `worktree-setup` writes, from `create-verification-skill`, with its CLI and feature map from Lauren Tan's Control Glass; **Mistakes that recur** in `AGENTS.md` and `gardener`, from the same talk; the multi-model review in `external-review`, from `interrogate`; four technical-prose patterns in `humanizer`, from `unslop` |
 | [blader/humanizer](https://github.com/blader/humanizer) | `humanizer`, built on Wikipedia's "Signs of AI writing" |
 | [emilkowalski/skills](https://github.com/emilkowalski/skills) | `prototype`; the field map, catalog, and failure signatures in `break-ui` |
-| [t3dotgg/tstack](https://github.com/t3dotgg/tstack) | `pr-wait`, from `babysit-pr` and its `pr-wait` script; `stale-pr`, from `modernize`; the extra review round for security, access, data loss, and concurrency in `oneshot`, from `sol-loop`; the secrets check in `pr`, from `file-pr` |
+| [t3dotgg/tstack](https://github.com/t3dotgg/tstack) | `pr-wait`, from `babysit-pr` and its `pr-wait` script; `stale-pr`, from `modernize`; `oneshot-auto`, from `full-send`; the extra review round for security, access, data loss, and concurrency in `oneshot`, from `sol-loop`; the secrets check in `pr`, from `file-pr` |
 | [anthropics/skills](https://github.com/anthropics/skills) | `frontend-design`, extended with a branch for screens inside an existing product; the fresh-reader check in `docs`, from `doc-coauthoring` |
 | [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | `refine` and its five directions; `break-api` and the cases in `break-ui`, from its `harden`; the product UI rules, templated habits, and bounded screenshot rounds in `frontend-design` |
 | [juliusbrussee/caveman](https://github.com/juliusbrussee/caveman) | `commit-message`, from `caveman-commit` |
