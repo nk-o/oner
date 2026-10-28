@@ -38,8 +38,10 @@ review decision. Run it when the user asks what is in flight, and before `finish
 
 Port assignments are reserved even while servers are stopped. `dev-tidy --ports-only`
 releases reservations for completed tasks without deleting their work. `adopt` and
-`ports` restore saved settings and choose another port when the old one is claimed.
-Concurrent allocation is serialized per clone.
+`ports` restore saved settings, reassign stopped duplicates, and retain a running port
+when its listener belongs to that checkout. Concurrent allocation is serialized per clone
+for configured `servers`. A bootstrap-only config delegates ports to the repository's script;
+verify that script through `worktree-setup`.
 
 **Merging is the user's call.** `finish` and `prune` are dry runs by default: they
 print the plan and change nothing. Show that output to the user, get a clear yes,
