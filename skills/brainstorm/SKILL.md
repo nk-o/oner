@@ -52,8 +52,12 @@ Then, in this order:
    after the seam it uses and grounded in files that exist. One line each on what it costs,
    what it forecloses, and who pays for it later. Say why the recommended one won. When a
    smaller change gets most of the value, it belongs here as an option, even if the request
-   implies the larger one. When the change sets an interface other code will build on (a
-   module's public surface, a shared type, a protocol), do not draft the approaches alone: run
+   implies the larger one. When the feature has a screen, the approaches also differ in where
+   the user meets it. Open the screen where the user already does the surrounding work, and
+   count a panel, a dialog, or a menu inside it as an approach. A page of its own is the
+   recommendation only when the task happens apart from that screen. When the change sets an
+   interface other code will build on (a module's public surface, a shared type, a protocol),
+   do not draft the approaches alone: run
    two or three read-only subagents at once, each under a different constraint from
    `codebase-design`'s DESIGN-IT-TWICE.md, and compare what comes back on depth, locality, and
    seam placement before you recommend.

@@ -17,7 +17,11 @@ the task and reuse it across prototypes, code, and Figma.
    the selected product's `DESIGN.md`; a sibling product's file is not authority for this one.
 2. Read the applicable `DESIGN.md`, then the actual tokens, shared components, assets, and two
    relevant neighboring screens. With Figma, inspect its variables, styles, instances, and
-   the source frame. Preserve an established system even when no document exists.
+   the source frame. Preserve an established system even when no document exists. Take the
+   neighbors from where the user meets this surface. When the product or its platform keeps an
+   older UI layer beside a current one, such as WordPress settings pages built on `form-table`
+   beside the block editor's `@wordpress/components`, a new surface follows the current layer,
+   its components, and its patterns. The older screens are not its template.
 3. Record the task's purpose, audience when known, main action, content, important states,
    constraints, and what may vary. Use the request and existing documentation for product
    intent. Do not invent an audience or a brand from CSS.

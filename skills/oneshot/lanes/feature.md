@@ -14,8 +14,8 @@ is your call, per **Delegating the work**.
    the next as `skip: approved spec <path>`, and build that folder up to the first stage that
    opens with decisions brainstorm deferred; the report names that stage as the next run. When
    the first unbuilt stage is one of those, run this step as written on that stage instead,
-   because its brainstorm is the gate. An edit step 3 makes to that tracked plan.md is committed
-   before the build.
+   because its brainstorm is the gate. An edit steps 3 and 5 make to that tracked plan.md is
+   committed before the build.
 2. **Spec.** Run `spec` in unattended mode, into the folder step 1 of the skill created. It
    does not take a number of its own. Its two checkpoints become status notes that wait for
    nothing, because the decisions behind them were approved at step 1 of this lane.
@@ -35,7 +35,13 @@ is your call, per **Delegating the work**.
    product admits rather than from what the new code happens to handle. When the feature
    changes a screen a user already sees, save that screen now into the run folder's `media/`,
    at the viewport and with the data the Verify step will use, as the pull request's Before.
-5. **Build.** Run `implement` in unattended mode on that folder. Silence in the plan is
+5. **Design the screen.** When the plan adds or reshapes a screen a user sees, load
+   `frontend-design` and run its **Before the first edit** on each one, with step 4's capture
+   and worst cases. A user who declined prototypes declined the comparison, so this step
+   still runs and settles the one recommended design. Write each screen's place, element
+   list, and fixtures into the plan.md task that builds it, because that is what a delegate
+   reads. With no such screen, `skip: no UI`.
+6. **Build.** Run `implement` in unattended mode on that folder. Silence in the plan is
    decided here and logged under **Assumptions** in the run log; a conflict with the spec and
    the four hard stops still stop. Delegate or not per **Delegating the work**, and review
    every diff you did not write before its checkbox is ticked. When the plan adds or reshapes
