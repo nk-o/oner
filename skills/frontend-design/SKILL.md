@@ -14,7 +14,8 @@ applicable DESIGN.md, tokens, and neighboring screens directly. Reuse that conte
 construction and verification. Choose the job before designing:
 
 - **Extend or improve a product.** Read its tokens, components, assets, and neighboring
-  screens. Preserve the system, behavior, and factual copy outside the requested change.
+  screens in its current UI layer, per `design-context`. Preserve the system, behavior, and
+  factual copy outside the requested change.
 - **Create or replace an identity.** Resolve the subject, audience, purpose, constraints,
   and references from the brief. Propose missing material decisions rather than silently
   inventing the product. Explore a new direction only where the user requested one.
@@ -23,10 +24,33 @@ construction and verification. Choose the job before designing:
 - **Refine what works.** To polish, calm, strengthen, simplify, or reword an existing surface
   without changing its structure, use `refine`.
 
+## Before the first edit
+
+A new or reshaped screen gets these three steps in every job above, with or without
+prototypes. Skipping prototypes skips the comparison, not the design.
+
+1. Capture the screen where the user meets this task, in the running app with realistic data.
+   Put the new UI there, as a panel, a dialog, a menu, or a row, unless the task happens apart
+   from that screen. Where the request leaves the place open, the place is a decision. Bring
+   it with that recommendation.
+2. Write the element list: every text, control, status, and icon with its job, starting from
+   the fewest that complete the task, per **Every element has a job**. A rare action goes
+   behind one menu, not into every row.
+3. Pick the fixtures per steps 1 and 2 of `break-ui`: the typical case, the most items a real
+   account reaches, the longest values, and empty. Read the element list against each. A
+   structure that holds only for three short rows changes now, before any code.
+
+Done when the capture is saved and the place, the element list, and the fixtures are written
+down. In a spec run they go into the plan task that builds the screen. Build that list and
+nothing more.
+
 ## Inside a product
 
-- Use familiar controls and accessible primitives. The same action keeps the same component
-  and name. Reuse established tokens instead of creating parallel values.
+- Use the platform's current controls and accessible primitives. The same action keeps the
+  same component and name. Reuse established tokens instead of creating parallel values.
+- Output that renders inside a page someone else styles, such as a plugin's front end inside a
+  theme or an embed on a customer's site, takes type, color, and spacing from that page's
+  presets and custom properties, and adds as few values of its own as it can.
 - Density follows the task. A table used all day and onboarding need different spacing and
   emphasis. One or more font families are valid when the system calls for them.
 - Cover the states the interaction admits: focus, active, disabled, loading, empty, and error
@@ -124,7 +148,8 @@ font, color, theme, or reference is the default for every project.
 
 ## Look at what you built
 
-Build fully, then run `design-review` on the rendered result before reporting visible UI done.
+Build fully, render it with every fixture from **Before the first edit**, then run
+`design-review` on the rendered result before reporting visible UI done.
 Include an ordinary laptop height when viewport sizing, sticky chrome, or a large hero is
 involved, and reuse `break-ui` evidence for the same surface. A prototype has the same
 interaction floor as a working screen.

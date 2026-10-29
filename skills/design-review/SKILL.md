@@ -33,10 +33,12 @@ If browser or rendered access is unavailable, name the unverified checks.
 - **Task and hierarchy.** The reading order, main action, and grouping are clear. Secondary
   content does not compete with the task. Density suits use frequency and information.
   Removal test: hide each line of text, control, and status in turn. One the task still reads
-  and completes without is a proposal to remove, under "Every element has a job" in
-  `frontend-design`.
+  and completes without fails "Every element has a job" in `frontend-design`. It is a defect
+  of the change when the change added it, and a proposal to remove when it was already there.
 - **System consistency.** Tokens, components, terminology, and meaningful states match the
-  product. A local change does not introduce a second visual language.
+  product. A local change does not introduce a second visual language. A new surface built in
+  an older UI layer while the platform has a current one is a system conflict, per
+  `design-context`.
 - **Text and layout.** Real copy wraps without hiding essential information. Containers adapt
   to content. Numbers align where comparison matters. Images reserve their space. Repeated
   elements stay consistent, and intentional differences have a content or interaction reason.
