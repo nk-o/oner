@@ -78,8 +78,8 @@
   forced by a dependency, platform, or protocol this repository cannot change, a doc comment the
   project's linter or public API contract requires, a license header, or a comment a tool reads,
   such as a directive, a pragma, a file header, or a type annotation. A constraint in this
-  repository's own code becomes a clearer name, a type, or a test, and keeps its comment only
-  until it does. One line is enough.
+  repository's own code becomes a type, a test, or a lint rule, and keeps its comment only
+  until it does. A comment that explains surprising code becomes a clearer name instead. One line is enough.
 - Fix the root cause, not the symptom. A workaround is for a cause this change cannot reach,
   such as a library bug, a platform limit, or another team's API. Its comment names that cause
   and what would let the workaround go, and the report lists it. A workaround whose cause is in

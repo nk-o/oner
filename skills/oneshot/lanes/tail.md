@@ -6,7 +6,8 @@ the run log for a review.
 
 - **Clean the diff.** Read the whole diff once, the delegates' parts included, against
   [`deslop`'s criteria](../../deslop/criteria.md), scoped to the diff. When `deslop` is turned
-  off and that file is missing, read **Editing** and **Verifying** in `AGENTS.md` instead.
+  off and that file is missing, read **Editing**, **Shaping code**, and **Verifying** in
+  `AGENTS.md` instead, and leave what they do not settle as it is.
   Remove what the criteria name in every kind, with the proof each kind asks for, plus options
   nothing uses and edits outside the task. An item they mark `DECIDE` stays as it is and goes
   into the report. Give the comments to a subagent when you wrote them. A relaxed gate, a behavior
@@ -33,11 +34,11 @@ the run log for a review.
   going green. A unit test shows branch behavior, not the absence of the bug.
 
   When the change adds or alters server code that a build bundles, a background job or
-  workflow, an RPC, or a migration, also run that path once from the production build, the
-  way the deploy starts it, after the `verify-<app>` checks below have run on the dev server.
-  Seed the rows it reads to the volume the spec or the production data names, or to ten
-  thousand when neither does, and log the count. A build that exits 0 says nothing about what
-  it does when it runs. When the change adds
+  workflow, an RPC, or a migration, also run that path once from the production build against
+  the local stack, on top of the `verify-<app>` checks, which run on the dev server. Seed it
+  with the most data the project's `verify-<app>` **Seed** section can put in front of it, log
+  the count, and revert the seed after. A build that exits 0 says nothing about what it does
+  when it runs. When the change adds
   or alters a state machine, drive every transition it touches, the failed and the abandoned
   ones included, since a state a user can enter and never leave passes every unit test.
 
@@ -89,8 +90,8 @@ the run log for a review.
 - **Resolve.** Run `resolve-review` on the merged list. Its `DECIDE` verdict is not available
   here: the spec, the plan, or the gate pins the behavior, or the decision is taken and logged
   under **Assumptions**, or it is one of the four hard stops and the run pauses. Its own
-  `prod-review` of the fixes does not run here, because round two below decides when the fixes
-  need one. Re-run
+  `prod-review` of the fixes runs only for a fix past a few lines when round two below will
+  skip. Re-run
   `green-repo` after the fixes, then commit them.
 
   Put `git diff <Base>...HEAD --shortstat` into the run log's **Review** before the fixes and

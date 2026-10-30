@@ -34,7 +34,8 @@ Goes:
   called with some arguments. What a boundary the repository does not own receives, such as an
   email sent or a vendor request body, is behavior and stays.
 - A test that restates on-screen text, a log line, a config table, a catalog, or a constant the
-  code already holds.
+  code already holds. Text the input under test produced, such as the error a failed action
+  shows, is an outcome and stays.
 - A test of the same branch as another test, with an input that changes nothing. Merge it into
   a row of that test's table.
 - A test whose name claims a check its own mocks remove, such as "refuses a non-owner" with the
@@ -59,8 +60,9 @@ Never delete a test because it fails.
 Goes: an export, a function, a file, a flag, or an option that nothing outside its own tests
 reaches, and a compatibility path for a caller this repository owns. Run the project's
 dead-code tool, such as `knip`, `ts-prune`, `vulture`, or PHPStan's unused rules, with unused
-exports turned on for this pass even where the project's configuration leaves them out, because
-an export that only its tests import is what a change split by layer leaves behind. Then
+exports turned on and test files left out of its entry points (for `knip`, `--production`), even
+where the project's configuration does otherwise, because an export only its tests import is
+what a change split by layer leaves behind. Then
 confirm each hit by search, including references by string: a registry, a route table, a hook
 or filter name, a template, a job name. The code and the tests that only test it go in one
 commit.

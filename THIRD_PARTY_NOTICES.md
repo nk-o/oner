@@ -7,6 +7,7 @@ is a modified version of the original. Those parts stay under the original proje
 | --- | --- | --- | --- |
 | [mattpocock/skills](https://github.com/mattpocock/skills) | MIT | Copyright (c) 2026 Matt Pocock | `architecture-scan`, `codebase-design`, `diagnose`, `grilling`, `prototype`, `reflect`, `pr`, `.claude/skills/writing-for-agents` |
 | [pstack](https://github.com/cursor/plugins/tree/main/pstack) | MIT | Copyright (c) 2026 Lauren Tan | `blast-radius`, `reflect`, `gardener`, `external-review`, `worktree-setup`, `humanizer`, `deslop`, `AGENTS.md` |
+| [cursor/plugins](https://github.com/cursor/plugins) `cursor-team-kit` | MIT | Copyright (c) 2026 Cursor | `deslop` |
 | [garrytan/gstack](https://github.com/garrytan/gstack) | MIT | Copyright (c) 2026 Garry Tan | `deslop`, `AGENTS.md` |
 | [obra/superpowers](https://github.com/obra/superpowers) | MIT | Copyright (c) 2025 Jesse Vincent | `AGENTS.md` |
 | [t3dotgg/tstack](https://github.com/t3dotgg/tstack) | MIT | Copyright (c) 2026 Theo Browne | `pr-wait`, `stale-pr`, `oneshot`, `pr` |
