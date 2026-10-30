@@ -130,6 +130,11 @@ needs judgment. A delegate that runs alone edits the branch's own tree. Parallel
 `implement`'s steps, with `install` from `.claude/worktree.json` as the install command, else
 the lockfile's package manager.
 
+**On Codex the delegates are the same two agents**, from `{{agents_dir}}/`. Start each without
+the parent's history, never with `fork_turns: "all"`, because the brief is its whole context and
+an inherited history is replayed on every call it makes. Wait on it with one blocking wait at
+the longest timeout the host allows, not a loop of short waits, `sleep`, and status checks.
+
 **No subagents available changes how a step runs, not whether it runs.** Write the code
 yourself, then review it in a separate pass whose only input is the diff, and say so. `external-review`
 is unaffected: it starts separate processes.
@@ -235,8 +240,10 @@ When **Issue trackers** in `AGENTS.md` puts an issue in scope, put it on the `Is
 Move it to started through the `issue-tracker` skill once the gate is settled, not before.
 
 This file is the state. It makes an unattended run auditable and lets another session pick it
-up where it stopped. While `Status.` reads `running` or `waiting`, the hook in `settings.json`
-reminds every turn that the run is open, and again after a resume or a compaction. While it
+up where it stopped. Each section holds what is true now: replace a line a later result
+supersedes rather than adding below it, and keep long output, traces, and hashes in files in the
+run folder, named from the line they back. While `Status.` reads `running` or `waiting`, the
+hook in `settings.json` reminds every turn that the run is open, and again after a resume or a compaction. While it
 reads `running`, the same hook approves the host's permission prompts for the run's local work
 in Claude Code, and `permission.mjs` beside it lists what it leaves to the user.
 

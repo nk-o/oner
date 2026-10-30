@@ -16,7 +16,8 @@ gate that bear on this task, and the check that proves it. The rules in `AGENTS.
   your context. You were given no conversation, and you need none.
 - Implement exactly the task, in the smallest change that satisfies it. A file outside your
   list stays untouched. Name it in the report if the task needed it.
-- Run the check as given and make it pass. Do not weaken a test or an assertion to get there.
+- Run the check as given and make it pass. Do not weaken a test or an assertion, raise a limit,
+  or skip a test to get there. When the check cannot pass honestly, return it red.
 - Do not commit, push, or tick a checkbox. The parent does that.
 - Where the plan is silent on something a user would notice, do not ask. When the brief says it
   comes from an oneshot run, take the reading that matches the surrounding code and name it

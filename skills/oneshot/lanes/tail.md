@@ -4,11 +4,13 @@ Every lane that writes code ends here, after its own steps. The scope of everyth
 what this run wrote: the branch's diff for a feature or a fix, and the commits since **Base** in
 the run log for a review.
 
-- **Clean the diff.** Read the whole diff once, the delegates' parts included. Remove
-  narrating comments, guards and options for cases that do not exist, dead compatibility
-  paths, and edits outside the task, per **Editing** in `AGENTS.md`. A behavior change found
-  here is a finding for the steps below, not a cleanup, and so is a workaround whose cause the
-  change could reach.
+- **Clean the diff.** Read the whole diff once, the delegates' parts included, against
+  [`deslop`'s criteria](../../deslop/criteria.md), scoped to the diff. Remove what they name in
+  every kind, with the proof each kind asks for, plus options nothing uses and edits outside
+  the task. Give the comments to a subagent when you wrote them. A relaxed gate, a behavior
+  change, and a workaround whose cause the change could reach are findings for the steps
+  below, not cleanups. A second change a user would notice is a follow-up for the report, per
+  **Commits and pull requests** in `AGENTS.md`.
 - **Green.** Run `green-repo`. Paste what it printed into the run log's **Checks**. A
   pre-existing failure is reported, not fixed inside this run. It counts as pre-existing only
   when it also fails on **Base**; log how you showed that. Then commit what Clean the diff,
@@ -27,6 +29,13 @@ the run log for a review.
   with the same data, are the pull request's After. A feature with nothing to compare against
   ships its screenshot of what is new. Inconclusive is not a pass, and neither is the suite
   going green. A unit test shows branch behavior, not the absence of the bug.
+
+  When the change runs on a server, in a background job or workflow, behind an RPC or a
+  migration, or in anything a bundler packs, run it from the production build, not the dev
+  server, against as many rows as production holds or the largest set the local stack can
+  seed. A build that exits 0 says nothing about what it does when it runs. When the change adds
+  or alters a state machine, drive every transition it touches, the failed and the abandoned
+  ones included, since a state a user can enter and never leave passes every unit test.
 
   Then, where the lane took a pin, re-run it, and run `check` on every feature
   `list --affected <Base>` names, or `check --all` when it prints `unmapped` files. When the
@@ -85,8 +94,10 @@ the run log for a review.
   catch what the change broke, not to grow it, so a total that went up is reported with the
   findings that paid for it. Hardening against a case the boundary does not admit is what makes
   it go up.
-- **Round two.** If Resolve changed code, review the fix commits alone and resolve again,
-  scoped with `--base` set to the logged **Round 2 base**. Stop after round two, with two
+- **Round two.** When Resolve's fixes add more than 20 lines to the shortstat, or touch access
+  control, stored data, or concurrency, review the fix commits alone and resolve again, scoped with
+  `--base` set to the logged **Round 2 base**. Smaller fixes rest on the checks Resolve re-ran,
+  and the run log says `round two: skip, <shortstat>`. Stop after round two, with two
   exceptions, each worth one more round on the newest fixes and no more. Round two's own fixes
   introduced a regression, or a `FIX` in security, access control, data loss, or concurrency is
   still open with an input that shows it. Record each round in the run log's **Review**.
