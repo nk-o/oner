@@ -61,8 +61,9 @@ holds that list.
 
 There is no flag for this. During its analysis, `oneshot` decides whether the work fits one pull
 request. It becomes a series when one change has to be in production before the next can land
-(an expand-and-contract migration, a backfill before a constraint), or when the work is several
-independently shippable pieces too large to review as one diff.
+(an expand-and-contract migration, a backfill before a constraint), when a later part is designed
+on what an earlier one shows in production, when a part's failure must not roll back the rest, or
+when a part waits on a date or a person. Size alone never splits it.
 
 A series still stops once, at the gate. That stop shows the decisions, the stage map, and the
 release process found in the repository: the merge method, the checks GitHub must report, the

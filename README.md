@@ -65,7 +65,7 @@ after that runs without asking: the spec, the implementation, the project's chec
 in the running product, review by several models, fixes for what the review proves, the pull
 request, and a watch on it until checks and review bots are through. It does not merge.
 
-Work too large for one pull request becomes a series. With your authorization, each stage is
+Work whose parts must reach production one after another becomes a series. With your authorization, each stage is
 merged, deployed, and checked in production before the next one lands.
 
 `/oneshot-auto` is the same run for when you are not watching. The gate takes its own
