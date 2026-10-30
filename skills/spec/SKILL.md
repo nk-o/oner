@@ -104,7 +104,8 @@ Write `plan.md` beside it:
 
 - **Stages** in dependency order. Each stage holds tasks as `- [ ]` checkboxes.
 - Each task names the files it writes and the check that proves it. One task is one
-  focused edit-and-check cycle.
+  focused edit-and-check cycle. The check is a command: a test that already exists, a run of
+  the product, or a new test only where the task adds a behavior nothing yet catches breaking.
 - Each stage ends with a **Verify** step: exact commands, plus what to open and click when
   UI is involved.
 - **Deviations.** An empty section; /implement fills it.

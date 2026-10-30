@@ -65,7 +65,7 @@ after that runs without asking: the spec, the implementation, the project's chec
 in the running product, review by several models, fixes for what the review proves, the pull
 request, and a watch on it until checks and review bots are through. It does not merge.
 
-Work too large for one pull request becomes a series. With your authorization, each stage is
+Work whose parts must reach production one after another becomes a series. With your authorization, each stage is
 merged, deployed, and checked in production before the next one lands.
 
 `/oneshot-auto` is the same run for when you are not watching. The gate takes its own
@@ -135,9 +135,10 @@ a new project.
 | | `/dev-tidy` | clears merged worktrees, stale dev servers, and old build caches from the machine |
 | | `/reflect` | turns what went wrong in a session into rules, applied only on your approval |
 | | `/gardener` | finds workarounds, silenced checks, and dead code merged since the last pass |
+| | `/deslop` | slims a project: narrating comments, tests that guard nothing, unreached code, and copied helpers go |
 
 An agent also loads a skill on its own when a task calls for it. `/architecture-scan`,
-`/external-review`, `/gardener`, and `/oneshot-auto` are the exceptions and run only when you
+`/deslop`, `/external-review`, `/gardener`, and `/oneshot-auto` are the exceptions and run only when you
 start them.
 
 ## Agents
@@ -165,7 +166,10 @@ the rules in `AGENTS.md`.
 | Source | What came from it |
 | --- | --- |
 | [mattpocock/skills](https://github.com/mattpocock/skills) | `grilling`, `codebase-design`, and `architecture-scan` (upstream `improve-codebase-architecture`); `diagnose`, from `diagnosing-bugs`; the logic branch of `prototype`; the information-access, tool-cost, and unwired-check lessons in `reflect`, from `retro`; the call tree and rollback note in `pr`; `writing-for-agents` in this repository's `.claude/skills` |
-| [pstack](https://github.com/cursor/plugins/tree/main/pstack) | `blast-radius` and the evidence rungs in `AGENTS.md`; the **Shaping code** principles in `AGENTS.md`; `reflect`; the `verify-<app>` skill `worktree-setup` writes, from `create-verification-skill`, with its CLI and feature map from Lauren Tan's Control Glass; **Mistakes that recur** in `AGENTS.md` and `gardener`, from the same talk; the multi-model review in `external-review`, from `interrogate`; four technical-prose patterns in `humanizer`, from `unslop` |
+| [pstack](https://github.com/cursor/plugins/tree/main/pstack) | `blast-radius` and the evidence rungs in `AGENTS.md`; the **Shaping code** principles in `AGENTS.md`; `reflect`; the `verify-<app>` skill `worktree-setup` writes, from `create-verification-skill`, with its CLI and feature map from Lauren Tan's Control Glass; **Mistakes that recur** in `AGENTS.md` and `gardener`, from the same talk; the multi-model review in `external-review`, from `interrogate`; four technical-prose patterns in `humanizer`, from `unslop`; the comment keep list in `AGENTS.md` and `deslop`, from `no-comments` |
+| [cursor/plugins](https://github.com/cursor/plugins) `cursor-team-kit` | the diff scope, behavior rule, and guards kind of `deslop`, from `deslop` |
+| [garrytan/gstack](https://github.com/garrytan/gstack) | the relaxed-gate rule in `AGENTS.md` and `deslop`'s criteria, from `review/gate-integrity.md`; the test kind's copied-scaffolding and test-only-caller rows, from `test-audit` |
+| [obra/superpowers](https://github.com/obra/superpowers) | the test bar in `AGENTS.md`, from `writing-good-tests` |
 | [blader/humanizer](https://github.com/blader/humanizer) | `humanizer`, built on Wikipedia's "Signs of AI writing" |
 | [emilkowalski/skills](https://github.com/emilkowalski/skills) | `prototype`; the field map, catalog, and failure signatures in `break-ui` |
 | [t3dotgg/tstack](https://github.com/t3dotgg/tstack) | `pr-wait`, from `babysit-pr` and its `pr-wait` script; `stale-pr`, from `modernize`; `oneshot-auto`, from `full-send`; the extra review round for security, access, data loss, and concurrency in `oneshot`, from `sol-loop`; the secrets check in `pr`, from `file-pr` |

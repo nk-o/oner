@@ -4,9 +4,9 @@ description: >-
   Carries one task from idea to open pull request in one run. Stops once, early, to settle the
   decisions that are the user's, then builds, checks, reviews with several models from different
   vendors, fixes what the review proves, opens the PR, and watches it until checks and review
-  bots are through, without stopping again. Work too
-  large for one PR becomes a series of PRs, each merged, deployed, and verified in production
-  once the user authorizes that release at the gate. The user starts it by name. Start it
+  bots are through, without stopping again. Work whose parts must
+  reach production in order becomes a series of PRs, each merged, deployed, and verified in
+  production once the user authorizes that release at the gate. The user starts it by name. Start it
   yourself only when the user hands over a whole feature or bug and asks for it carried through
   to a pull request. A question, a one-line edit, a review of shipped code, or work already
   under way in the chat goes the ordinary way.
@@ -130,6 +130,12 @@ needs judgment. A delegate that runs alone edits the branch's own tree. Parallel
 `implement`'s steps, with `install` from `.claude/worktree.json` as the install command, else
 the lockfile's package manager.
 
+**On Codex the delegates are the same two agents**, from `{{agents_dir}}/`. Start each with its
+brief alone: `fork_context` false or left out, or `fork_turns: "none"` where the host takes
+`fork_turns`, because the brief is its whole context and an inherited history is replayed on
+every call it makes. Wait on it with `wait_agent` at the longest timeout the host allows, and
+wait again when that ends first, never with `sleep` and status checks between.
+
 **No subagents available changes how a step runs, not whether it runs.** Write the code
 yourself, then review it in a separate pass whose only input is the diff, and say so. `external-review`
 is unaffected: it starts separate processes.
@@ -235,8 +241,11 @@ When **Issue trackers** in `AGENTS.md` puts an issue in scope, put it on the `Is
 Move it to started through the `issue-tracker` skill once the gate is settled, not before.
 
 This file is the state. It makes an unattended run auditable and lets another session pick it
-up where it stopped. While `Status.` reads `running` or `waiting`, the hook in `settings.json`
-reminds every turn that the run is open, and again after a resume or a compaction. While it
+up where it stopped. Each section holds what is true now: a later run of the same check
+replaces the earlier result rather than adding below it, unless a step asks for both, as the
+tail's before and after shortstat does, and output longer than a screen, traces,
+and hashes go in files in the run folder, named from the line they back. While `Status.` reads `running` or `waiting`, the
+hook in `settings.json` reminds every turn that the run is open, and again after a resume or a compaction. While it
 reads `running`, the same hook approves the host's permission prompts for the run's local work
 in Claude Code, and `permission.mjs` beside it lists what it leaves to the user.
 

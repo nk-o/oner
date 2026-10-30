@@ -74,8 +74,12 @@
   imports, and style-only edits need the task to require them.
 - Add error handling, options, config flags, and abstraction layers for cases that exist, not
   for cases that might.
-- Comment only what the code cannot say: a non-obvious constraint, an invariant, why a
-  workaround exists. One line is enough.
+- Write no comment by default. One stays only as: why a workaround exists (next rule), behavior
+  forced by a dependency, platform, or protocol this repository cannot change, a doc comment the
+  project's linter or public API contract requires, a license header, or a comment a tool reads,
+  such as a directive, a pragma, a file header, or a type annotation. A constraint in this
+  repository's own code becomes a type, a test, or a lint rule, and keeps its comment only
+  until it does. A comment that explains surprising code becomes a clearer name instead. One line is enough.
 - Fix the root cause, not the symptom. A workaround is for a cause this change cannot reach,
   such as a library bug, a platform limit, or another team's API. Its comment names that cause
   and what would let the workaround go, and the report lists it. A workaround whose cause is in
@@ -136,10 +140,18 @@ and `gardener` apply guards.
 - Say plainly when a check failed or you skipped it. Never describe an expected result as
   something you observed.
 - Say which part of the request you left out, and why.
-- A test has to be able to fail. Before you keep one, ask whether it would still pass if every
-  function it imports returned `undefined`. If it would, it observes nothing, so assert a
-  literal output or an observable effect on one concrete input, or delete it. Asserting that a
-  mock was called, or restating a constant the code already holds, is not an assertion.
+- A test names the break it catches and fails when that break happens. Before you keep one,
+  ask whether it would still pass if every function it imports returned `undefined`. If it
+  would, it observes nothing, so assert a literal output or an observable effect on one
+  concrete input, or delete it. Mock only what this repository does not own, such as the
+  network, the clock, or a vendor SDK. That this repository's own code was called with some
+  arguments is not an assertion, and neither is restating copy, a log line, a config table, or
+  a constant the code already holds. Text is an assertion when the input under test produced
+  it, such as the error a failed action shows. Reuse the project's test helpers before writing a fake,
+  and add a row to an existing test before adding a file.
+- Never turn a check green by raising a limit, a timeout, a budget, or a retry count, by
+  loosening an exact value, or by skipping a test. That change needs a measurement in the diff
+  or my decision.
 
 Every claim the work's correctness rests on sits on one of these rungs. Get each one as far
 down the list as is cheap, and name where it stopped.
@@ -209,6 +221,8 @@ usually one small script that imports what the app ships and calls the function 
 
 - Use the commit-message skill before every commit, mine or a run's.
 - Use the pr skill before opening a pull request.
+- One concern per pull request: one feature, one fix, or one cleanup, at whatever size it
+  takes. A second change a user would notice, found on the way, is a follow-up.
 - Run `gh pr merge` as a command of its own, with no `cd`, pipe, `&&` or `;` around it, and
   check the result in a second call. Only the bare command matches the allow rule.
 - Use the pr-wait skill to wait on a pull request's checks and review, and to merge one once

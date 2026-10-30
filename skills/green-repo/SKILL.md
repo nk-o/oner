@@ -30,7 +30,7 @@ description: >-
 
 3. If a step fails or prints fixable warnings, prefer **existing** `scripts` that already autofix (for example **`lint:fix`**) or whatever **`format`** / **`lint`** already run (read the command string; if it already uses write/fix flags, that is enough). Do not invent new CLI flags the project does not use. For **`knip`**, use project-documented fixes (ignore patterns, `tags`, entry files); do not disable rules broadly without a decision.
 
-4. For anything still failing after that, understand the failure before editing: wrong **implementation**, wrong **test or expectation**, **config/tooling**, or **flakiness**. Fix the layer that should change; do not hollow out tests just to go green unless that matches obvious project intent (for example an outdated snapshot the team would retire).
+4. For anything still failing after that, understand the failure before editing: wrong **implementation**, wrong **test or expectation**, **config/tooling**, or **flakiness**. Fix the layer that should change, and relax no check to go green, per **Verifying** in `AGENTS.md`. An outdated snapshot is regenerated to the new intended output, not deleted.
 
 5. If more than one reasonable fix exists and you are not confident which is correct, **stop and ask** using the question routing in `AGENTS.md`, recommended option first.
 
