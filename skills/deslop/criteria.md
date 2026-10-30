@@ -7,19 +7,24 @@ behavior. A cleanup that needs a test's assertion changed has changed behavior, 
 ## Comments
 
 Goes: a line that says what the next line does, a section banner, commented-out code, a
-restated name or type, history ("added for #123", "previously this used X"), a TODO with no
+restated name, history ("added for #123", "previously this used X"), a TODO with no
 issue, a defense of this repository's own design.
 
-Stays: the keep list in **Editing** in `AGENTS.md`, and nothing else. A comment that warns,
-such as "do not remove", "order matters", or "IMPORTANT", states a constraint. Turn it into a
-type, a test, or a lint rule and delete it. When that is out of reach for this pass, keep it
-and list it. A comment that explains a surprise in this repository's own code goes, and the
-symbol it explained is listed as a rename or refactor candidate, not refactored here.
+Stays: the keep list in **Editing** in `AGENTS.md`, and nothing else. Any comment a runtime,
+compiler, bundler, or checker reads is on it: a WordPress `Template Name:` header, a
+`webpackChunkName` or `#__PURE__` annotation, a shebang, JSDoc or PHPDoc types a checker reads.
+
+A comment that states a constraint of this repository's own code, such as "do not remove",
+"order matters", a sort order a search relies on, or a lock order, goes once a type, a test, or
+a lint rule holds the constraint. When that is out of reach in this pass, keep it and list it.
+A comment that only explains what surprising code does goes, and the symbol it explained is
+listed as a rename or refactor candidate, not refactored here.
 
 Comments go to a reader who did not write them, because an author keeps its own. When the
 comments in scope are yours, hand this kind to a subagent.
 
-Proof: the commit removes comment lines and changes nothing else. Read its diff once to confirm.
+Proof: the commit removes comment lines and changes nothing else, and the project's checks and
+build stay green after it. Read its diff once to confirm no removed line is one a tool reads.
 
 ## Tests
 
@@ -54,14 +59,18 @@ Never delete a test because it fails.
 Goes: an export, a function, a file, a flag, or an option that nothing outside its own tests
 reaches, and a compatibility path for a caller this repository owns. Run the project's
 dead-code tool, such as `knip`, `ts-prune`, `vulture`, or PHPStan's unused rules, with unused
-exports turned on for this pass even where the project's configuration leaves them out. Then
+exports turned on for this pass even where the project's configuration leaves them out, because
+an export that only its tests import is what a change split by layer leaves behind. Then
 confirm each hit by search, including references by string: a registry, a route table, a hook
 or filter name, a template, a job name. The code and the tests that only test it go in one
 commit.
 
 Stays, listed as `DECIDE`: a surface something outside the repository may call, such as a
 package's exports, a REST route, a plugin hook or filter, a CLI flag, or a database function;
-the off path of a flag that still exists; a migration.
+code reached through a name built at run time, such as a template, hook, or module path
+assembled from a variable; a file a framework loads by its path or name; the off path of a flag
+that still exists; a migration. The checks cannot prove a removal here, since they never ran
+this code, so anything in doubt stays.
 
 ## Copies
 

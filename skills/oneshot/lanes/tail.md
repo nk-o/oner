@@ -5,9 +5,11 @@ what this run wrote: the branch's diff for a feature or a fix, and the commits s
 the run log for a review.
 
 - **Clean the diff.** Read the whole diff once, the delegates' parts included, against
-  [`deslop`'s criteria](../../deslop/criteria.md), scoped to the diff. Remove what they name in
-  every kind, with the proof each kind asks for, plus options nothing uses and edits outside
-  the task. Give the comments to a subagent when you wrote them. A relaxed gate, a behavior
+  [`deslop`'s criteria](../../deslop/criteria.md), scoped to the diff. When `deslop` is turned
+  off and that file is missing, read **Editing** and **Verifying** in `AGENTS.md` instead.
+  Remove what the criteria name in every kind, with the proof each kind asks for, plus options
+  nothing uses and edits outside the task. An item they mark `DECIDE` stays as it is and goes
+  into the report. Give the comments to a subagent when you wrote them. A relaxed gate, a behavior
   change, and a workaround whose cause the change could reach are findings for the steps
   below, not cleanups. A second change a user would notice is a follow-up for the report, per
   **Commits and pull requests** in `AGENTS.md`.
@@ -30,10 +32,12 @@ the run log for a review.
   ships its screenshot of what is new. Inconclusive is not a pass, and neither is the suite
   going green. A unit test shows branch behavior, not the absence of the bug.
 
-  When the change runs on a server, in a background job or workflow, behind an RPC or a
-  migration, or in anything a bundler packs, run it from the production build, not the dev
-  server, against as many rows as production holds or the largest set the local stack can
-  seed. A build that exits 0 says nothing about what it does when it runs. When the change adds
+  When the change adds or alters server code that a build bundles, a background job or
+  workflow, an RPC, or a migration, also run that path once from the production build, the
+  way the deploy starts it, after the `verify-<app>` checks below have run on the dev server.
+  Seed the rows it reads to the volume the spec or the production data names, or to ten
+  thousand when neither does, and log the count. A build that exits 0 says nothing about what
+  it does when it runs. When the change adds
   or alters a state machine, drive every transition it touches, the failed and the abandoned
   ones included, since a state a user can enter and never leave passes every unit test.
 
@@ -85,7 +89,8 @@ the run log for a review.
 - **Resolve.** Run `resolve-review` on the merged list. Its `DECIDE` verdict is not available
   here: the spec, the plan, or the gate pins the behavior, or the decision is taken and logged
   under **Assumptions**, or it is one of the four hard stops and the run pauses. Its own
-  `prod-review` of the fixes does not run here, because round two is that review. Re-run
+  `prod-review` of the fixes does not run here, because round two below decides when the fixes
+  need one. Re-run
   `green-repo` after the fixes, then commit them.
 
   Put `git diff <Base>...HEAD --shortstat` into the run log's **Review** before the fixes and
@@ -94,10 +99,11 @@ the run log for a review.
   catch what the change broke, not to grow it, so a total that went up is reported with the
   findings that paid for it. Hardening against a case the boundary does not admit is what makes
   it go up.
-- **Round two.** When Resolve's fixes add more than 20 lines to the shortstat, or touch access
-  control, stored data, or concurrency, review the fix commits alone and resolve again, scoped with
-  `--base` set to the logged **Round 2 base**. Smaller fixes rest on the checks Resolve re-ran,
-  and the run log says `round two: skip, <shortstat>`. Stop after round two, with two
+- **Round two.** When `git diff <Round 2 base>..HEAD --shortstat` counts more than 20 changed
+  lines, insertions and deletions together, or the fixes touch access control, stored data, or
+  concurrency, review the fix commits alone and resolve again, scoped with `--base` set to the
+  logged **Round 2 base**. Smaller fixes rest on the checks Resolve re-ran, and the run log says
+  `round two: skip, <that shortstat>`. Stop after round two, with two
   exceptions, each worth one more round on the newest fixes and no more. Round two's own fixes
   introduced a regression, or a `FIX` in security, access control, data loss, or concurrency is
   still open with an input that shows it. Record each round in the run log's **Review**.

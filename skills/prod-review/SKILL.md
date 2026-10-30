@@ -53,8 +53,8 @@ Sort the code under review into three buckets and write down which is which:
 | Bucket | Test | Bar |
 | --- | --- | --- |
 | **Live** | Reaches a real user who did nothing, already or the moment this merges | Every changed line, differentially. With no diff, every line on a path a real user reaches |
-| **Dormant** | Behind a flag that is off, a new entity nobody has yet, a caller that does not exist | Correctness only. A bug here is fixed on the default branch, not in an incident. Code that nothing outside its own tests calls is itself a finding: wire it in this change or remove it |
-| **Inert** | Tests, fixtures, docs, generated files | Read tests against the Tests kind in `{{skills_dir}}/deslop/criteria.md`. A test it would remove, and a relaxed gate, are findings |
+| **Dormant** | Behind a flag that is off, a new entity nobody has yet, a caller that does not exist | Correctness only. A bug here is fixed on the default branch, not in an incident. Code this change adds that nothing outside its own tests calls is a finding for this change, to wire or remove, unless something outside the repository calls it, such as a package export, a route, or a hook |
+| **Inert** | Tests, fixtures, docs, generated files | Read tests against the Tests kind in `{{skills_dir}}/deslop/criteria.md`, or against **Verifying** in `AGENTS.md` when `deslop` is turned off. A test it would remove, and a relaxed gate, are findings |
 
 Prove each placement rather than assuming it: grep for the callers, check whether the flag is
 on, check whether any row of the new type exists. "Nobody has this entity yet" is a claim you

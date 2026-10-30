@@ -21,7 +21,7 @@ behavior as it was, and the checks prove it.
 
 - Leave out of scope what nobody writes by hand: generated files, vendored code, lockfiles,
   migrations, recorded fixtures, snapshots.
-- Get off the default branch the way oneshot's Step 1 does, onto `deslop/<date>`.
+- Get off the default branch the way oneshot's Step 1 does, onto `deslop-<date>`.
 - Run the project's checks per `green-repo`, and change nothing yet. A red baseline stops the
   pass with the failing check named, because a cleanup on red cannot show it kept behavior.
 - Count the lines in scope, split into code and tests, for the report.
