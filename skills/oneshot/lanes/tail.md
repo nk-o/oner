@@ -39,8 +39,9 @@ the run log for a review.
   with the most data the project's `verify-<app>` **Seed** section can put in front of it, log
   the count, and revert the seed after. A build that exits 0 says nothing about what it does
   when it runs. When the change adds
-  or alters a state machine, drive every transition it touches, the failed and the abandoned
-  ones included, since a state a user can enter and never leave passes every unit test.
+  or alters anything with states, timers, retries, or two writers to one record, run
+  `model-check` on it with the properties the lane picked, since a state a user can enter and
+  never leave, or a second click while a timer runs, passes every unit test.
 
   Then, where the lane took a pin, re-run it, and run `check` on every feature
   `list --affected <Base>` names, or `check --all` when it prints `unmapped` files. When the

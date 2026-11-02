@@ -48,7 +48,13 @@ Then, in this order:
    checks, data model and migrations, cached or client-held state that goes stale,
    background work and retries, and any rule the repository states that this change would
    skip.
-4. **Ways to build it.** Two or three approaches this codebase actually admits, each named
+4. **Principles.** For each behavior a user touches, the rules it must keep, per **Principles
+   before behavior** in `AGENTS.md`, one line each: a short title, the rule, and its source
+   (the project's principles, the platform's native behavior, the user's words). A rule none
+   of those settles is marked `open` and goes to phase 2 as a decision. These are what the
+   build is checked against, so a vague one ("feels smooth") is rewritten until a test or a
+   `model-check` property could fail on it.
+5. **Ways to build it.** Two or three approaches this codebase actually admits, each named
    after the seam it uses and grounded in files that exist. One line each on what it costs,
    what it forecloses, and who pays for it later. Say why the recommended one won. When a
    smaller change gets most of the value, it belongs here as an option, even if the request
@@ -61,11 +67,11 @@ Then, in this order:
    two or three read-only subagents at once, each under a different constraint from
    `codebase-design`'s DESIGN-IT-TWICE.md, and compare what comes back on depth, locality, and
    seam placement before you recommend.
-5. **What worries you.** The problems you can already see without asking: the part that will
+6. **What worries you.** The problems you can already see without asking: the part that will
    be hard, the assumption in the request the code contradicts, the case nobody mentioned,
    the thing that looks cheap and is not. State them now. A worry the user can dismiss in one
    line is worth more than a question they have to answer.
-6. **Candidate stages.** Dependency order, each with the check that proves it. This becomes
+7. **Candidate stages.** Dependency order, each with the check that proves it. This becomes
    the skeleton of plan.md in /spec, or of the map when phase 2 ends staged.
 
 ## Phase 2: settle the decisions
@@ -82,6 +88,12 @@ outside the repository, and report the result in one line. What remains is the u
 product behavior, wording, scope, a visual direction, a new dependency, which repository ships
 the code when more than one could.
 
+Then take out the ones already answered, per **Decisions** in `AGENTS.md`: by the user's
+words, the project's documented rules or principles, a pattern the codebase follows, or one
+option that beats the rest on every count. Each goes into the decision record with its
+source, and none is asked. What is left is what a reasonable user could answer differently.
+When nothing is left, say so in one line and go to the exit.
+
 Take the ready decisions:
 
 - Three or fewer, independent of each other: ask them directly using the question routing in `AGENTS.md`,
@@ -95,7 +107,8 @@ Take the ready decisions:
 Which exit you take depends on whether anything was deferred.
 
 **Settled.** Nothing deferred, so the whole feature can be specced now. Post a **decision
-record**: each settled decision with a one-line rationale, plus the chosen stage order. Close
+record**: each settled decision with a one-line rationale, the principles, plus the chosen
+stage order. Close
 with: ready for `/spec`.
 
 **Staged.** Something was deferred, so the work outgrew one pass. Post a **map** instead: the

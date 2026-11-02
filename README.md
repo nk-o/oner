@@ -118,6 +118,7 @@ a new project.
 | | `/blast-radius` | what a change breaks outside its own diff, with the key safety fact proven by running code |
 | | `/break-ui` | renders a screen with the worst data it can get, and gives a fix for each break |
 | | `/break-api` | runs an endpoint, job, or command against the worst inputs it accepts |
+| | `/model-check` | drives a control or flow through every order of events up to a bound and names the shortest one that breaks |
 | | `/green-repo` | runs the project's own checks in order and fixes failures until all pass |
 | | `/resolve-review` | acts on a review already in hand: fixes what is real, refutes the rest |
 | | `/external-review` | the same change reviewed by every provider turned on in `config.json` |
@@ -166,7 +167,7 @@ the rules in `AGENTS.md`.
 | Source | What came from it |
 | --- | --- |
 | [mattpocock/skills](https://github.com/mattpocock/skills) | `grilling`, `codebase-design`, and `architecture-scan` (upstream `improve-codebase-architecture`); `diagnose`, from `diagnosing-bugs`; the logic branch of `prototype`; the information-access, tool-cost, and unwired-check lessons in `reflect`, from `retro`; the call tree and rollback note in `pr`; `writing-for-agents` in this repository's `.claude/skills` |
-| [pstack](https://github.com/cursor/plugins/tree/main/pstack) | `blast-radius` and the evidence rungs in `AGENTS.md`; the **Shaping code** principles in `AGENTS.md`; `reflect`; the `verify-<app>` skill `worktree-setup` writes, from `create-verification-skill`, with its CLI and feature map from Lauren Tan's Control Glass; **Mistakes that recur** in `AGENTS.md` and `gardener`, from the same talk; the multi-model review in `external-review`, from `interrogate`; four technical-prose patterns in `humanizer`, from `unslop`; the comment keep list in `AGENTS.md` and `deslop`, from `no-comments` |
+| [pstack](https://github.com/cursor/plugins/tree/main/pstack) | `blast-radius` and the evidence rungs in `AGENTS.md`; `model-check`, from `create-formal-verification-skill`; the **Shaping code** principles in `AGENTS.md`; `reflect`; the `verify-<app>` skill `worktree-setup` writes, from `create-verification-skill`, with its CLI and feature map from Lauren Tan's Control Glass; **Mistakes that recur** in `AGENTS.md` and `gardener`, from the same talk; the multi-model review in `external-review`, from `interrogate`; four technical-prose patterns in `humanizer`, from `unslop`; the comment keep list in `AGENTS.md` and `deslop`, from `no-comments` |
 | [cursor/plugins](https://github.com/cursor/plugins) `cursor-team-kit` | the diff scope, behavior rule, and guards kind of `deslop`, from `deslop` |
 | [garrytan/gstack](https://github.com/garrytan/gstack) | the relaxed-gate rule in `AGENTS.md` and `deslop`'s criteria, from `review/gate-integrity.md`; the test kind's copied-scaffolding and test-only-caller rows, from `test-audit` |
 | [obra/superpowers](https://github.com/obra/superpowers) | the test bar in `AGENTS.md`, from `writing-good-tests` |

@@ -708,6 +708,43 @@ test('an ordinary run still ends at its open pull request', () => {
   assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript), '');
 });
 
+test('a new or compacted session hears the open asks in .specs/requests.md, and only then', () => {
+  const f = fixture();
+  rmSync(f.program, { recursive: true });
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, '');
+  assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Compare the two tooltip offsets\n');
+  assert.match(runHook(f.repo, 'SessionStart', transcript), /Asks still open[^\n]*\n- Compare the two tooltip offsets/);
+  assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' }), '');
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '');
+  assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
+});
+
+test('a run marked done with open lines, or with an open request, is not let go', () => {
+  const f = fixture();
+  rmSync(f.program, { recursive: true });
+  f.g('switch', '-q', '-c', 'feature');
+  const run = join(f.repo, '.specs', '002-feature');
+  mkdirSync(run);
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, '<command-name>/oneshot</command-name>\n');
+  const write = (status, lane, request) => writeFileSync(join(run, 'oneshot.md'),
+    `# feature\n\nLane. feature\nBranch. feature\nStatus. ${status}\n\n## Requests\n- [${request}] Slides are 310px\n\n## Lane\n- [x] Build\n- [${lane}] Tail\n`);
+
+  write('done', ' ', 'x');
+  const skipped = runHook(f.repo, 'Stop', transcript);
+  assert.match(skipped, /says `Status\. done`, but these lines are still open:\\n- \[ \] Tail/);
+  assert.equal(runHook(f.repo, 'Stop', transcript), '', 'a turn that changed nothing is let go');
+  assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript), '', 'a finished run is not announced as open');
+
+  write('running', 'x', ' ');
+  assert.match(runHook(f.repo, 'Stop', transcript), /steps still open:\\n- \[ \] Slides are 310px/);
+
+  write('done', 'x', 'x');
+  assert.equal(runHook(f.repo, 'Stop', transcript), '');
+});
+
 test('the hook keeps the coordinator going until the series is done, once per state, and never through a wait', () => {
   const f = fixture();
   const b = f.build('schema');

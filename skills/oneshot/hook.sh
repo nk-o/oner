@@ -5,13 +5,16 @@
 # or the primary checkout's .specs/ holds a series program.json whose status
 # does, and it never fails the prompt.
 #
+# SessionStart also prints the open asks in .specs/requests.md, in any session.
 # SessionStart and UserPromptSubmit print one reminder, which the host adds to
 # the model's context. PermissionRequest hands the request to permission.mjs
 # while a run or a series this session drives is running, so the user is asked
 # only for what that script leaves to them. Stop keeps an unattended run from
 # ending on a progress report: in a session that loaded the skill, while Status
 # reads running and the log's Lane checklist has open items, it asks the model
-# to continue, naming them. A series is the same one level up: while its program is running, the
+# to continue, naming them. A log marked done that still has open items in Lane
+# or Requests gets the same reminder, because a run that skipped its tail must
+# not end looking finished. A series is the same one level up: while its program is running, the
 # session that ran series.mjs is asked to take its next action. It asks once per
 # state of the work, so a turn that ends again with nothing changed since the
 # last ask is let go, and never while the run or the series is waiting.
@@ -31,14 +34,21 @@ fi
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || exit 0
 
+requests="$root/.specs/requests.md"
+if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] && [ -s "$requests" ]; then
+  printf '%s\n%s\n' "Asks still open from earlier work, kept in .specs/requests.md. Delete a line once it is done or dropped:" "$(head -n 20 "$requests")"
+fi
+
 log=""
 status=""
+closed=""
 if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
   for candidate in "$root"/.specs/*/oneshot.md; do
     [ -f "$candidate" ] || continue
     grep -qxF "Branch. $branch" "$candidate" 2>/dev/null || continue
     status="$(sed -nE 's/^Status\. (running|waiting)$/\1/p' "$candidate" | head -n 1)"
     if [ -n "$status" ]; then log="$candidate"; break; fi
+    [ -z "$closed" ] && grep -qxF 'Status. done' "$candidate" 2>/dev/null && closed="$candidate"
   done
 fi
 
@@ -62,7 +72,7 @@ if [ "$branch" = "HEAD" ]; then
     done
   done < <(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
 fi
-[ -n "$log" ] || [ -n "$program" ] || [ "$delegate" = true ] || exit 0
+[ -n "$log" ] || [ -n "$closed" ] || [ -n "$program" ] || [ "$delegate" = true ] || exit 0
 
 rel="${log#"$root"/}"
 transcript="$(field '.transcript_path // empty')"
@@ -73,6 +83,9 @@ if [ -n "$program" ] && [ -f "$transcript" ] &&
   grep -qF "series program: $program/program.json" "$transcript" 2>/dev/null; then
   coordinator=true
 fi
+unticked() {
+  awk '/^## /{on = ($0 == "## Lane" || $0 == "## Requests")} on && /^- \[ \] /' "$1" | head -n 6
+}
 progress() {
   jq -r '"\([.stages[] | select(.state == "done")] | length) of \(.stages | length) stages done"' \
     "$program/program.json" 2>/dev/null
@@ -101,14 +114,22 @@ case "$(field '.hook_event_name // empty')" in
     message=""
     open=""
     if [ -n "$log" ] && [ "$status" = "running" ]; then
-      open="$(awk '/^## /{on = ($0 == "## Lane")} on && /^- \[ \] /' "$log" | head -n 6)"
+      open="$(unticked "$log")"
     fi
+    unfinished=""
+    [ -z "$log" ] && [ -n "$closed" ] && unfinished="$(unticked "$closed")"
     if [ -n "$open" ]; then
       state="$(dirname "$log")/.stop-state"
       tracked="$(cat "$(dirname "$log")"/*.md 2>/dev/null)"
       message="The oneshot run in $rel is open and this turn ended with steps still open:
 $open
 If nothing needs the user, continue with the first open step now, and put any status note in the same message as the next tool call. If the run does need the user, at the gate, at one of the four hard stops, at a conflict with the spec or a gate decision, or for a login only the user can supply, set \`Status. waiting\` in the run log and end the turn. If the user's last message was about something else, end the turn and leave the run open."
+    elif [ -n "$unfinished" ]; then
+      state="$(dirname "$closed")/.stop-state"
+      tracked="$(cat "$(dirname "$closed")"/*.md 2>/dev/null)"
+      message="The oneshot run in ${closed#"$root"/} says \`Status. done\`, but these lines are still open:
+$unfinished
+Set \`Status. running\` and run each one, or tick it as \`- [x] <title> skip: <reason>\` and name it in the report. A run is done only when every line is ticked."
     elif [ "$pstatus" = "running" ] && [ "$coordinator" = true ]; then
       state="$program/.stop-state"
       tracked="$(cat "$program/program.json" 2>/dev/null)"

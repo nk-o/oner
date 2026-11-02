@@ -61,6 +61,10 @@
   dependency, a visual direction, scope, which repository ships the code when more than one
   could. When work runs into one of these unmade, stop that thread and bring two or three
   options with a recommendation and the reason for it.
+- A decision is already made when my words, the project's documented rules or principles, or
+  a pattern the codebase follows settle it, or when every option but one is worse on every
+  count. Take it and name its source in the report. Ask only where I could reasonably pick
+  differently.
 - Internal names, file layout, test structure, and the choice between two implementations
   that behave the same are yours. Settle them and report them settled instead of asking.
 - Do not build the guess and present it finished. Building it has already made the decision.
@@ -99,6 +103,12 @@ changed a decision.
 - Data shape first. Before logic, choose the types and the structure the domain wants: a
   state machine over scattered booleans, a table or registry over branching spread across
   files, a typed model over a shape assumption repeated in several places.
+- Principles before behavior. Before building something a user interacts with (a control, a
+  gesture, a flow), write the few rules it must keep: what repeated input, interruption,
+  failure, keyboard, and touch do, and how it compares to the platform's native behavior. Take
+  them from the project's own principles first, then the platform, then my words. One those
+  leave open is a decision. Each principle becomes a test or a `model-check` property. Where
+  the project keeps principles, a change to behavior updates them in the same diff.
 - Validate at the boundary, trust inside. Parse input where it enters (CLI, config, network,
   storage) into typed data, and add no re-checks deeper in.
 - Reuse before you write. Before new code, look for what already does the job, in this order:
@@ -126,13 +136,15 @@ next agent cannot repeat it. The second fix goes to the first of these that can 
 1. The project's types or structure, so the wrong code does not compile or has nowhere to go.
 2. A lint rule, a CI check, or a test the project already runs, shown failing on the code that
    made the mistake.
-3. The project's own guidance: its `verify-<app>` skill or its `AGENTS.md`.
+3. The project's own guidance: its `verify-<app>` skill, its `DESIGN.md`, or its `AGENTS.md`.
 4. A skill in this set, for a lesson about how to work rather than about one codebase.
 
 A rule that only a reviewer remembers is not on the list, because at volume the reviewer
 misses it. A mistake seen once, with nothing that would bring it back, gets the first fix only.
 Inside a task the second fix is a **Guard** line in the report, not part of the diff. `reflect`
-and `gardener` apply guards.
+and `gardener` apply guards. One exception: a correction I make a second time has recurred
+already. When it is about how the product looks or reads, write it into the project's
+`DESIGN.md` in the change that applies it.
 
 ## Verifying
 
@@ -201,6 +213,12 @@ usually one small script that imports what the app ships and calls the function 
 - I start `oneshot` by name. When a request looks like a whole task but does not ask for a
   pull request, do it the ordinary way and say in one line that `/oneshot` would carry it to a
   PR.
+- An ask of mine that this turn will not finish ("after that, look at X", the rest of a list)
+  goes into `.specs/requests.md` at the repository root, one short line in my words, because a
+  compaction can drop it from the chat. Nothing else goes in the file. Delete a line once it is
+  done or I drop it, and the file once it is empty. `.specs/` stays in `.gitignore`. Once work
+  you ran in this checkout has merged, delete its folder under `.specs/`, except an oneshot
+  series' folder, which stays until the series is done.
 
 ## Reviewing
 
