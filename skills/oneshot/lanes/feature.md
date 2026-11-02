@@ -30,7 +30,8 @@ is your call, per **Delegating the work**.
    ships as a test gets its own commit before the build, because `implement` starts only on a
    clean tree. A scratch pin lives in the run folder, which git ignores. In the same step, pick
    the worst cases for each surface the feature adds or changes, per steps 1 and 2 of
-   `break-ui` for a screen or `break-api` for an endpoint, job, or command, and list them in **Checks**. A surface that does not exist yet takes its
+   `break-ui` for a screen or `break-api` for an endpoint, job, or command, and the properties
+   per step 1 of `model-check` for each control or flow with states, and list them in **Checks**. A surface that does not exist yet takes its
    boundary from the spec and the data model it adds. Picked now, the cases come from what the
    product admits rather than from what the new code happens to handle. When the feature
    changes a screen a user already sees, save that screen now into the run folder's `media/`,

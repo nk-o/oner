@@ -1,9 +1,10 @@
 ---
 name: motion-design
 description: >-
-  Designs and checks UI animation, transitions, and gesture feedback. Use when adding,
-  changing, or reviewing motion, including animated prototypes. Chooses purpose, frequency,
-  interruption, easing, duration, reduced motion, and the simplest fitting tool.
+  Designs and checks UI animation, transitions, and gestures: drag, swipe, momentum after
+  release, overscroll. Use when adding, changing, or reviewing motion or how a gesture feels,
+  including animated prototypes. Chooses purpose, frequency, interruption, easing, duration,
+  reduced motion, and the simplest fitting tool.
 ---
 
 # Motion design
@@ -26,6 +27,15 @@ Before implementation, settle these in order:
 4. What properties, origin, curve, duration, and exit make the change legible? Existing tokens
    win. Defaults are starting points to test, not a reason to rewrite working motion.
 5. How does it behave with reduced motion, touch, slow rendering, and repeated input?
+
+A gesture that must feel like the platform (momentum after release, resistance past the end,
+snap) takes its constants from a native reference: the browser's or the OS's own source for
+that behavior, or a recording of the native gesture on real hardware. Compare whole curves,
+distance moved against distance pulled and position against time, not one point, since two
+formulas can agree at one pull and differ everywhere a user feels. Synthetic pointer events
+cannot produce trackpad momentum, so they check the code, not the feel. When no reference
+settles a value, expose it as a live control in a `prototype` beside the native behavior and
+let the user set it, rather than shipping a guess.
 
 Match visual choices to the brief. Do not force bounce, magnetic buttons, scroll reveals,
 stagger, or perpetual animation into routine UI. Do not install a library for a fade.

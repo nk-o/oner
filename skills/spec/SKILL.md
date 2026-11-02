@@ -41,7 +41,8 @@ collides. The slug is a short kebab-case feature name.
 
 - **Plan-only.** The default for small work: one stage of tasks, behavior that fits inside
   their checks. Skip spec.md. plan.md opens with **Done when** (the numbered acceptance
-  criteria) and **Decisions** (one line each), then the stage. One checkpoint total, at
+  criteria), **Principles** when the work has behavior a user touches, and **Decisions** (one
+  line each), then the stage. One checkpoint total, at
   step 2.
 - **Full.** Both files, when the work runs to several stages, or when behavior and edge
   cases need prose the checkboxes cannot carry. A spec in `specs/` is always full, because the
@@ -81,6 +82,9 @@ A plan-only spec skips this step. Write `spec.md` in the chosen folder:
 - **Goals / Non-goals.** Bullets; non-goals prevent scope creep.
 - **Behavior.** What the user sees and does, including the edge cases the discussion
   raised.
+- **Principles.** The rules the behavior keeps, from the brainstorm, one line each. Each one
+  is proved by a task's check in plan.md: a test, a `model-check` property, or a run of the
+  product.
 - **Acceptance criteria.** Numbered; each one checkable by running the product or a test.
 - **Decisions.** Each settled decision with its one-line rationale (from the brainstorm
   decision record).

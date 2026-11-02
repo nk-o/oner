@@ -96,9 +96,10 @@ Pick by what the change actually touches. Running all of them produces volume, n
 | **Removed behaviour** | Anything was deleted or replaced | Guards, validations, error paths, and tests whose invariant never came back |
 | **Caller tracing** | A signature or contract changed | Call sites that no longer hold: new precondition, changed nullability, new throw, new ordering |
 | **Data and migrations** | Schema, SQL, or stored data changed | Behaviour on a populated table: locks, rewrites, unbounded updates, policies that widen |
-| **Concurrency and lifecycle** | Locks, retries, queues, background work, caches | Interleavings, double-spend, orphaned work, a lock released by the wrong holder, a claim nothing releases |
+| **Concurrency and lifecycle** | Locks, retries, queues, background work, caches, timers | Interleavings, double-spend, orphaned work, a lock released by the wrong holder, a claim nothing releases. `model-check` settles a suspected interleaving by running it |
 | **Boundary inputs** | A new or changed surface a user or caller touches | What it does at the edge the code admits: the longest accepted value, nothing at all, a failed dependency, the same action twice. `break-ui` runs these against a screen, `break-api` against an endpoint or command |
 | **Dead ends** | New state machines or gates | States a user can enter and never leave: work assigned to something that never runs, a refusal with no way forward |
+| **Weight** | A shipped library, the first page load, or code that runs every frame | Bytes or time the change adds, measured before and after with the project's own size or timing script, or a gzip of the built entry when it has none |
 | **Language and framework** | Always, cheaply | The known footguns of this stack, in the lines the diff adds |
 | **Conventions** | The repo owns an instructions file | Rules you can quote, broken by lines you can quote |
 

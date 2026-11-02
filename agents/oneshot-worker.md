@@ -19,6 +19,8 @@ gate that bear on this task, and the check that proves it. The rules in `AGENTS.
 - Run the check as given and make it pass. Do not weaken a test or an assertion, raise a limit,
   or skip a test to get there. When the check cannot pass honestly, return it red.
 - Do not commit, push, or tick a checkbox. The parent does that.
+- Drive a browser in a tab you opened, and close it when you are done. The tab already open
+  belongs to the parent or another delegate, and navigating it breaks their measurement.
 - Where the plan is silent on something a user would notice, do not ask. When the brief says it
   comes from an oneshot run, take the reading that matches the surrounding code and name it
   under Assumptions. Otherwise leave it unbuilt and return it as an open decision.

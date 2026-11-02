@@ -34,9 +34,11 @@ roughly this order of preference:
 4. A headless browser script that drives the UI and asserts on the DOM, console, or network.
 5. A captured request, payload, or event log saved to disk and replayed through the code path.
 6. A throwaway harness that runs the smallest slice of the system reaching the bug.
-7. A loop over many random or recorded inputs, for output that is only sometimes wrong.
-8. `git bisect run` with the command, when the bug appeared between two known states.
-9. The same input through the old and the new version, with the outputs diffed.
+7. A `model-check` world over the events involved, for a bug that shows only after some order
+   of clicks, timers, or messages. It prints the shortest order that breaks.
+8. A loop over many random or recorded inputs, for output that is only sometimes wrong.
+9. `git bisect run` with the command, when the bug appeared between two known states.
+10. The same input through the old and the new version, with the outputs diffed.
 
 Reproduce it yourself, through the project's own run path. Do not ask the user to reproduce it
 for you. If it does not happen on demand, force it: synthesize the trigger, tighten the

@@ -55,12 +55,13 @@ cannot hold:
 | Count | zero items, exactly one (every count at 1, for plurals), page size and page size + 1, the most rows a real account reaches |
 | State | loading, each error the backend returns, a slow response, partial data, every enum value in one list |
 | Space | the component's real container width, the narrowest supported width, the widest layout, 200% zoom, the longest shipped translation |
-| Environment | dark mode, RTL, and touch, each only when the product supports it |
-| Repetition | double submit, back after submit, the same record open in two tabs |
+| Environment | dark mode, RTL, touch, and each browser engine the product runs in (WebKit for Safari and every iPhone browser), each only when the product supports it |
+| Repetition | double submit, back after submit, the same record open in two tabs, the same control again while its timed state runs |
 | Access | a role that can see but not edit, the current user in the list |
 
 Take only the rows the change reaches. A new label needs its longest value and Space. A new
-list needs most of the table. Two cases that run the same code path are one case.
+list needs most of the table. Two cases that run the same code path are one case. Every order
+of events on a control with states or timers is `model-check`'s job, not a row here.
 
 ## 3. Render them on the real screen
 

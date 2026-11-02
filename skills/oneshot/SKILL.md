@@ -1,8 +1,8 @@
 ---
 name: oneshot
 description: >-
-  Carries one task from idea to open pull request in one run. Stops once, early, to settle the
-  decisions that are the user's, then builds, checks, reviews with several models from different
+  Carries one task from idea to open pull request in one run. Stops at most once, early, and
+  only for decisions the user could answer differently, then builds, checks, reviews with several models from different
   vendors, fixes what the review proves, opens the PR, and watches it until checks and review
   bots are through, without stopping again. Work whose parts must
   reach production in order becomes a series of PRs, each merged, deployed, and verified in
@@ -22,13 +22,17 @@ log as a checklist, and runs the skills already in this set. What it adds is the
 
 ## The contract
 
-**One stop.** The run pauses at the gate and nowhere else. The gate can take several rounds of
-questions when many decisions are open, and it is still one stop. In the feature and plan lanes
-the gate is `brainstorm`'s phase 2, and in a series it also approves the stage map and the
-release, per [`lanes/series.md`](lanes/series.md). In the fix, perf, refactor, and review lanes
-it posts one screen holding what the lane's gate step lists. With no open decision on it, say `gate: nothing to settle` and keep
-going. Otherwise ask the open decisions with the question routing in `AGENTS.md`, recommended
-option first.
+**One stop at most.** The run pauses at the gate and nowhere else. The gate can take several
+rounds of questions when many decisions are open, and it is still one stop. In the feature and
+plan lanes the gate is `brainstorm`'s phase 2, and in a series it also approves the stage map
+and the release, per [`lanes/series.md`](lanes/series.md). In the fix, perf, refactor, and
+review lanes it posts one screen holding what the lane's gate step lists. A decision the user's
+words, the project's rules or principles, or the codebase already settle is not open, per
+**Decisions** in `AGENTS.md`: log it under **Assumptions** with its source. With no open
+decision left, post the screen as a status note, say `gate: nothing to settle`, and keep going
+in the same turn. Otherwise ask the open decisions with the question routing in `AGENTS.md`,
+recommended option first. A series' release authorization is consent, not a decision, so
+it is asked even when nothing else is.
 
 **A turn ends only where the run waits.** A message with no tool call ends the turn, and the
 run stands still until someone types, who may be asleep. After the gate, none of these ends a
@@ -126,9 +130,10 @@ and any other review to `general-purpose`, because Explore skips `AGENTS.md`. Bo
 carry their own reasoning effort from `config.json`, whatever level the session runs at.
 Anything that does not block the next step runs with `run_in_background: true`. Pass
 `model: "sonnet"` for a mechanical task with a precise brief, and no `model` where the task
-needs judgment. A delegate that runs alone edits the branch's own tree. Parallel writers follow
-`implement`'s steps, with `install` from `.claude/worktree.json` as the install command, else
-the lockfile's package manager.
+needs judgment. A delegate that runs alone edits the branch's own tree. Parallel writers each
+get `isolation: "worktree"` and follow `implement`'s steps, with `install` from
+`.claude/worktree.json` as the install command, else the lockfile's package manager. Two
+writers in one checkout share its git index and break each other's builds.
 
 **On Codex the delegates are the same two agents**, from `{{agents_dir}}/`. Start each with its
 brief alone: `fork_context` false or left out, or `fork_turns: "none"` where the host takes
@@ -220,6 +225,9 @@ Base. <the sha HEAD was at when the run opened>
 Issue. <the tracker issue's id and link, and its status before the run, or none>
 Status. running | waiting | done | stopped: <reason> | series
 
+## Requests
+- [ ] <each request in the user's words, when the task holds several>
+
 ## Lane
 - [ ] <each step's bold title, the lane's then the tail's, in order>
 
@@ -257,7 +265,14 @@ ends by naming [`lanes/tail.md`](lanes/tail.md): its steps follow the lane's own
 list. Mirror the list in the host's todo tool when it has one. Then work the list: re-read each
 step's text in its file before you start it, because a compaction keeps the log and drops what
 you read, and tick its line when it is done. A step you do not run is ticked as
-`- [x] <title> skip: <reason>`.
+`- [x] <title> skip: <reason>`. The tail's steps go in one by one, never as one line naming
+the file.
+
+When the task holds several requests (a numbered feedback list, one message with many asks,
+items the user raised earlier in the conversation and expects in this run), copy each into
+**Requests** in the same step, one `- [ ]` line in the user's words. Tick each with the commit
+that did it, or `declined: <reason>` when the gate or a decision ruled it out. A compaction's
+summary drops items; this list does not. Leave the section out when the task is one request.
 
 ## Report
 
@@ -285,6 +300,11 @@ reports in a short paragraph however long the run took. No preamble, no recap of
 walk through the steps in order.
 
 A series reports per step 6 of [`lanes/series.md`](lanes/series.md).
+
+**After the report.** A message that adds to or corrects this run's work is another round of
+the same run while its pull request is open, and a new run once it has merged. Either way it
+goes through the tail, review included, before a merge. Add its items to **Requests**, set
+`Status. running`, and start the tail at **Clean the diff** on the new commits.
 
 A review lane adds the verdict table in the review's own numbers, with a ready-to-paste reply
 for every `WRONG` and `LATER`, because those are what the user sends back.
