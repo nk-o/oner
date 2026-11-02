@@ -270,7 +270,8 @@ the file.
 
 When the task holds several requests (a numbered feedback list, one message with many asks,
 items the user raised earlier in the conversation and expects in this run), copy each into
-**Requests** in the same step, one `- [ ]` line in the user's words. Tick each with the commit
+**Requests** in the same step, one `- [ ]` line in the user's words, and move in the lines of
+`.specs/requests.md` this run takes on, deleting them there. Tick each with the commit
 that did it, or `declined: <reason>` when the gate or a decision ruled it out. A compaction's
 summary drops items; this list does not. Leave the section out when the task is one request.
 

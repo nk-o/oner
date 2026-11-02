@@ -5,6 +5,7 @@
 # or the primary checkout's .specs/ holds a series program.json whose status
 # does, and it never fails the prompt.
 #
+# SessionStart also prints the open asks in .specs/requests.md, in any session.
 # SessionStart and UserPromptSubmit print one reminder, which the host adds to
 # the model's context. PermissionRequest hands the request to permission.mjs
 # while a run or a series this session drives is running, so the user is asked
@@ -32,6 +33,11 @@ fi
 
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || exit 0
+
+requests="$root/.specs/requests.md"
+if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] && [ -s "$requests" ]; then
+  printf '%s\n%s\n' "Asks still open from earlier work, kept in .specs/requests.md. Delete a line once it is done or dropped:" "$(head -n 20 "$requests")"
+fi
 
 log=""
 status=""

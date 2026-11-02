@@ -708,6 +708,19 @@ test('an ordinary run still ends at its open pull request', () => {
   assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript), '');
 });
 
+test('a new or compacted session hears the open asks in .specs/requests.md, and only then', () => {
+  const f = fixture();
+  rmSync(f.program, { recursive: true });
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, '');
+  assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Compare the two tooltip offsets\n');
+  assert.match(runHook(f.repo, 'SessionStart', transcript), /Asks still open[^\n]*\n- Compare the two tooltip offsets/);
+  assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' }), '');
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '');
+  assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
+});
+
 test('a run marked done with open lines, or with an open request, is not let go', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });
