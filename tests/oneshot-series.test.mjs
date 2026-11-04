@@ -254,7 +254,7 @@ test('a local gate replaces the checks and is named in the merge action', () => 
   f.openPr(b.branch, b.head);
   const r = f.series(['next']);
   assert.deepEqual(kinds(r, 'schema'), ['merge']);
-  assert.match(r.actions[0].detail, new RegExp(`^run npm run ci:local on ${b.head.slice(0, 7)} .*then gh pr merge 1 --squash --match-head-commit ${b.head}$`));
+  assert.match(r.actions[0].detail, new RegExp(`^run npm run ci:local on ${b.head.slice(0, 9)} .*then gh pr merge 1 --squash --match-head-commit ${b.head}$`));
   const refused = f.record();
   refused.release.localGate = '  ';
   f.writeRecord(refused);
