@@ -5,8 +5,8 @@ description: >-
   merge conflicts, and comments and threads from people and review bots. Fixes what is real,
   answers every thread, and resolves the bots' threads. Use right after opening a pull request,
   when asked to watch, babysit, or wait for CI or review on one, when a `<ci-monitor-event>`
-  arrives, and before merging a pull request once it is ready. For one pass over a pull
-  request's feedback without waiting, use `pr-feedback`.
+  arrives, before merging a pull request once it is ready, and after merging one to watch its
+  deployment. For one pass over a pull request's feedback without waiting, use `pr-feedback`.
 argument-hint: "[pull request number or URL]"
 ---
 
@@ -82,6 +82,10 @@ when the same comments would get a third pass.
 Ready is the watcher's exit 0: gating checks green on the head, the waited-on bots finished on
 it, no thread ending on someone else's comment, no conflict. Ready is not merged.
 
+A repository whose CI does not run on pull requests has no gating checks, so ready says nothing
+about the code. No file in `.github/workflows` triggering on `pull_request` is how you tell. There,
+`green-repo` is the gate, and it has to have passed on the newest head.
+
 ## Merge, only when the task says so
 
 Merge only when the task says to merge once the pull request is ready. Never turn on
@@ -93,7 +97,22 @@ BEHIND. A branch that is behind gets the base merged in as for a conflict, and w
 again. Then run `gh pr merge <n> --<method> --match-head-commit <sha>` with the repository's
 merge method, as `AGENTS.md` says, and check the result in a second call.
 
+## After a merge you made
+
+The task ends when the change is live, not when it merged. Run `pr-wait.mjs deploy <pr>` as a
+background command, because the app's Auto-fix stops at the merge and this is the one thing still
+watching. A series skips this, since `series.mjs` verifies its own deploys.
+
+- **Exit 0.** Report the line it printed. `nothing deploys` is the normal result for a branch that
+  does not deploy.
+- **Exit 1.** The deployment is blocked, and so is every deployment after it. Open the failed
+  status's link. A flaky failure gets one rerun, `gh run rerun <run-id> --failed`, and a second
+  identical failure is not flake. A real failure gets a fix on a new branch from the base, carried
+  through the same steps as this pull request, merge included. A failed migration goes to the user.
+- **Exit 3.** Report what it still waits on.
+
 ## Report
 
 The pull request's link and the head it is ready on, or what it still waits on. The commits
-the fixes added, the threads answered and the ones resolved, and what went to the user.
+the fixes added, the threads answered and the ones resolved, and what went to the user. After a
+merge, the line `deploy` printed.

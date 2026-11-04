@@ -4,6 +4,7 @@
 //
 //   pr-wait.mjs <pr> [--repo owner/name] [--interval <seconds>] [--timeout <minutes>] [--once]
 //   pr-wait.mjs request <pr> [--repo owner/name]
+//   pr-wait.mjs deploy <pr> [--repo owner/name] [--interval <seconds>] [--timeout <minutes>] [--grace <seconds>]
 //
 // <pr> is a number or a pull request URL. stdout carries events only, one line each, so
 // Claude Code's Monitor wakes the agent once per event. Progress and retries go to stderr.
@@ -22,6 +23,12 @@
 //
 // Gating checks are the base branch's required checks, or every check that is not a review
 // bot's when the branch requires none. A required check that has not started counts as pending.
+//
+// `deploy` watches the commit statuses on a merged pull request's merge commit, where a deploy
+// provider and a deployment gate report. It exits 0 once they are all green, or when the commit
+// has none --grace seconds after the merge, because a branch that does not deploy reports nothing.
+// It exits 1 when one failed, 2 when the pull request is not merged, and 3 on --timeout. Check runs
+// are left out: scheduled jobs attach theirs to whatever commit is the default branch's head.
 //
 // bots.json beside this file comes from `reviewBots` in config.json, one mode per bot: `off`
 // ignores it, `wait` waits for it once it shows up on the pull request, `request` also posts
@@ -138,7 +145,7 @@ const digest = (body) => createHash('sha1').update(plain(body).replace(/\s+/g, '
 const time = (iso) => (iso ? Date.parse(iso) : 0);
 
 function parseArgs(argv) {
-  const opts = { command: 'watch', interval: 20, timeout: 60, once: false };
+  const opts = { command: 'watch', interval: 20, timeout: 60, grace: 180, once: false };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -149,20 +156,21 @@ function parseArgs(argv) {
     if (a === '--repo') opts.repo = value();
     else if (a === '--interval') opts.interval = Number(value());
     else if (a === '--timeout') opts.timeout = Number(value());
+    else if (a === '--grace') opts.grace = Number(value());
     else if (a === '--once') opts.once = true;
     else if (a === '-h' || a === '--help') {
-      process.stdout.write('pr-wait.mjs <pr> [--repo owner/name] [--interval <seconds>] [--timeout <minutes>] [--once]\npr-wait.mjs request <pr> [--repo owner/name]\n');
+      process.stdout.write('pr-wait.mjs <pr> [--repo owner/name] [--interval <seconds>] [--timeout <minutes>] [--once]\npr-wait.mjs request <pr> [--repo owner/name]\npr-wait.mjs deploy <pr> [--repo owner/name] [--interval <seconds>] [--timeout <minutes>] [--grace <seconds>]\n');
       process.exit(0);
     } else if (a.startsWith('--')) fail(`unknown option ${a}`);
     else rest.push(a);
   }
-  if (rest[0] === 'request') {
-    opts.command = 'request';
-    rest.shift();
+  if (rest[0] === 'request' || rest[0] === 'deploy') {
+    opts.command = rest.shift();
   }
   if (rest.length !== 1) fail('usage: pr-wait.mjs <pr> [--repo owner/name] [--interval <seconds>] [--timeout <minutes>] [--once]');
   if (!(opts.interval > 0)) fail('--interval must be a positive number of seconds');
   if (!(opts.timeout > 0)) fail('--timeout must be a positive number of minutes');
+  if (!(opts.grace >= 0)) fail('--grace must be a number of seconds');
   opts.target = rest[0];
   return opts;
 }
@@ -269,6 +277,42 @@ function request(repo, pr, modes, node) {
     if (lastTrigger(node, bot, mine) >= headTime(node)) continue;
     gh(['pr', 'comment', String(pr), '-R', repo, '--body', BOTS[bot].trigger]);
     log(`asked ${bot} for a review: ${BOTS[bot].trigger}`);
+  }
+}
+
+function watchDeploy(repo, pr, opts) {
+  const say = (line) => process.stdout.write(`#${pr} ${line}\n`);
+  const view = JSON.parse(gh(['pr', 'view', String(pr), '-R', repo, '--json', 'state,mergedAt,mergeCommit']).out);
+  if (view.state !== 'MERGED') fail(`${repo}#${pr} is not merged`);
+  const sha = view.mergeCommit.oid;
+  const short = sha.slice(0, 7);
+  const started = Date.now();
+  let previous = null;
+  for (;;) {
+    const statuses = JSON.parse(gh(['api', `repos/${repo}/commits/${sha}/status`]).out).statuses;
+    const failed = statuses.filter((s) => s.state === 'failure' || s.state === 'error');
+    if (failed.length) {
+      for (const s of failed) say(`deploy failed on ${short}: ${s.context} ${s.target_url ?? ''}`.trim());
+      process.exit(1);
+    }
+    const settled = Date.now() - time(view.mergedAt) >= opts.grace * 1000;
+    if (!statuses.length && settled) {
+      say(`nothing deploys ${short}: no commit status ${opts.grace} seconds after the merge`);
+      process.exit(0);
+    }
+    const pending = statuses.filter((s) => s.state !== 'success');
+    const names = statuses.map((s) => s.context).sort().join(', ');
+    // A gate posts its status only when it finishes, so one reading of all green is not enough.
+    if (statuses.length && !pending.length && settled && names === previous) {
+      say(`deployed ${short}: ${names}`);
+      process.exit(0);
+    }
+    previous = pending.length ? null : names;
+    if (Date.now() - started > opts.timeout * 60000) {
+      say(`still pending after ${opts.timeout} minutes on ${short}: ${pending.map((s) => s.context).join(', ') || 'no commit status yet'}`);
+      process.exit(3);
+    }
+    sleep(opts.interval * 1000);
   }
 }
 
@@ -565,6 +609,14 @@ if (opts.command === 'request') {
     fail(`cannot read ${repo}#${pr}: ${error.message}`, 1);
   }
   process.exit(0);
+}
+if (opts.command === 'deploy') {
+  try {
+    watchDeploy(repo, pr, opts);
+  } catch (error) {
+    if (!(error instanceof GhError)) throw error;
+    fail(`cannot read ${repo}#${pr}: ${error.message}`, 1);
+  }
 }
 lock(join(STATE_DIR, `${repo.replace('/', '__')}__${pr}.pid`), `${repo}#${pr}`);
 new Watcher(repo, pr, modes, opts).run();

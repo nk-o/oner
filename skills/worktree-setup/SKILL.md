@@ -32,7 +32,9 @@ Do not guess any of this. Read, then decide.
 - `AGENTS.md`, `CLAUDE.md`, `README.md`, `docs/` → port conventions the project already
   documents, local services, and any bootstrap script it already ships.
 - `.github/workflows/*.yml` → the commands CI actually gates on. Those are the `checks`, and
-  `green-repo` runs them in that order.
+  `green-repo` runs them in that order. When CI runs only at deployment, `checks` is the only gate
+  before a merge, so it takes every gate command the machine can run. A command that applies only
+  to some paths goes behind one project script that chooses by the branch's changed files.
 - `scripts/bootstrap*.sh` → if the repo bootstraps itself, set `bootstrap`; that
   script owns copying, installing, and ports.
 

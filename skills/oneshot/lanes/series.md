@@ -43,7 +43,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    - **The stage map**, one line per stage: what it ships, which stages it waits for, the
      reason from step 1 that makes it a stage of its own, and whether it carries a migration.
    - **The release.** The merge method the repository uses, the checks GitHub must report
-     green, the command that prints the commit production runs, the command that proves a
+     green or, where CI does not run on pull requests, the local gate command that replaces
+     them as `release.localGate`, the command that prints the commit production runs, the command that proves a
      stage's migrations are applied, the read-only production checks, and the timeout. Each
      is a fact you find before the gate, in the CI workflows, the deploy provider, and the
      project's `AGENTS.md`. None of them is a question. Each command runs from the primary
@@ -139,7 +140,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    | `restart` | The branch was cut before a stage it needs was merged. Remove it and start again. |
    | `fix` | A fresh delegate works what `next` names in the stage's checkout by `pr-wait`'s **Handle an event**, and pushes. It does not wait. |
    | `update` | Merge the default branch into the stage's branch, run `green-repo`, and push. `next` asks for this whenever the head lacks a stage merged since the branch was cut, whatever GitHub's own setting. |
-   | `merge` | Run the printed `gh pr merge` command exactly, as a command of its own, then `next`. `--match-head-commit` lets the merge through only for the head whose checks `next` verified. |
+   | `merge` | With a local gate, the action names it: run it first in the stage's checkout, and when it fails, stop the merge and work the failure as a `fix`. Run the printed `gh pr merge` command exactly, as a command of its own, then `next`. `--match-head-commit` lets the merge through only for the head whose checks `next` verified. |
    | `accept` | Record the production check the stage run wrote, with `series.mjs amend --stage <id> --accept "<command>"`, once its log shows the check failing on production as it is. When the stage run wrote none, a fresh delegate writes it. When no read-only check can see the stage, record `--waive-accept "<reason>"` instead. |
    | `wait-checks`, `wait-merge`, `wait-deploy`, `wait-verify`, `hold` | Run `series.mjs next --wait 1800`. It returns once an action other than a wait appears. Where the host wakes the session when background work ends, run it in the background and end the turn. Where it does not, run it in the foreground as one command and wait on that command with the longest timeout the host allows. |
    | `fix-forward` | Cut the branch it names from the updated default branch and run a stage run there with `Lane. fix`, on the failure it quotes. The stage stays open until the fix passes production. |

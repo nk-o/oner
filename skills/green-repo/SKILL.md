@@ -11,7 +11,7 @@ description: >-
 
 # Green repo
 
-1. When `.claude/worktree.json` carries a `checks` list, run those commands in that order and skip the rest of this step. `worktree-setup` took them from the CI workflow, so they are the repository's own gates, PHP and all, and the same list in every worktree. Otherwise, from the project root, read `package.json` → `scripts`. Run only scripts whose keys exist, **in this order**:
+1. When `.claude/worktree.json` carries a `checks` list, run those commands in that order and skip the rest of this step. `worktree-setup` took them from the CI workflow, so they are the repository's own gates, PHP and all, and the same list in every worktree. Where CI does not run on pull requests, nothing repeats this list before a merge. Otherwise, from the project root, read `package.json` → `scripts`. Run only scripts whose keys exist, **in this order**:
    - **`format`**
    - **`lint`**
    - **`type-check`**

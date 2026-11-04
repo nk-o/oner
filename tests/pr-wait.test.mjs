@@ -21,7 +21,13 @@ const args = process.argv.slice(2);
 const save = () => fs.writeFileSync(file, JSON.stringify(state));
 // Checks belong to the step the last GraphQL read served.
 const step = state.steps[Math.max(0, Math.min(state.poll - 1, state.steps.length - 1))];
-if (args[0] === 'pr' && args[1] === 'view') process.stdout.write('{"number":7}');
+if (args[0] === 'pr' && args[1] === 'view' && args.includes('state,mergedAt,mergeCommit')) process.stdout.write(JSON.stringify(state.merge));
+else if (args[0] === 'api' && /commits\\/[0-9a-f]+\\/status/.test(args[1])) {
+  state.poll++;
+  save();
+  process.stdout.write(JSON.stringify({ statuses: state.steps[Math.min(state.poll - 1, state.steps.length - 1)].statuses }));
+}
+else if (args[0] === 'pr' && args[1] === 'view') process.stdout.write('{"number":7}');
 else if (args[0] === 'api' && args[1] === 'graphql') {
   state.poll++;
   save();
@@ -175,4 +181,54 @@ test('a conflict exits 1, a merged pull request exits 0, and a second watcher re
   const locked = held.run();
   assert.equal(locked.code, 2);
   assert.match(locked.out, new RegExp(`pid ${process.pid} already watches o/r#7`));
+});
+
+const MERGED = { state: 'MERGED', mergedAt: '2026-10-01T10:00:00Z', mergeCommit: { oid: 'c'.repeat(40) } };
+const status = (context, state) => ({ context, state, target_url: `https://ci.example.test/${context}` });
+
+function deploy({ steps, merge = MERGED, args = [] }) {
+  const f = fixture({ steps });
+  writeFileSync(f.env.GH_STATE, JSON.stringify({ ...f.gh(), merge }));
+  const r = spawnSync(process.execPath, [join(f.skill, 'pr-wait.mjs'), 'deploy', '7', '--repo', 'o/r', '--interval', '0.05', ...args], { env: f.env, encoding: 'utf8', timeout: 20000 });
+  return { code: r.status, out: r.stdout, polls: f.gh().poll };
+}
+
+test('deploy waits for pending statuses and needs two green readings', () => {
+  const r = deploy({ steps: [
+    { statuses: [status('Vercel', 'pending')] },
+    { statuses: [status('Vercel', 'success')] },
+    { statuses: [status('Vercel', 'success'), status('gate', 'success')] },
+    { statuses: [status('Vercel', 'success'), status('gate', 'success')] },
+  ] });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /^#7 deployed ccccccc: Vercel, gate$/m);
+  assert.equal(r.polls, 4);
+});
+
+test('deploy exits 1 and names the failed status', () => {
+  const r = deploy({ steps: [{ statuses: [status('Vercel', 'pending'), status('gate', 'failure')] }] });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^#7 deploy failed on ccccccc: gate https:\/\/ci\.example\.test\/gate$/m);
+});
+
+test('deploy exits 0 when a merge reports no status past the grace period', () => {
+  const r = deploy({ steps: [{ statuses: [] }] });
+  assert.equal(r.code, 0);
+  assert.match(r.out, /^#7 nothing deploys ccccccc: /m);
+});
+
+test('deploy keeps waiting inside the grace period, and times out with exit 3', () => {
+  const r = deploy({
+    steps: [{ statuses: [] }],
+    merge: { ...MERGED, mergedAt: new Date().toISOString() },
+    args: ['--grace', '600', '--timeout', '0.002'],
+  });
+  assert.equal(r.code, 3);
+  assert.match(r.out, /still pending after 0\.002 minutes on ccccccc: no commit status yet/);
+});
+
+test('deploy refuses a pull request that has not merged', () => {
+  const r = deploy({ steps: [{ statuses: [] }], merge: { state: 'OPEN', mergedAt: null, mergeCommit: null } });
+  assert.equal(r.code, 2);
+  assert.match(r.out, /o\/r#7 is not merged/);
 });

@@ -147,8 +147,10 @@ function normalize(p, dir, root) {
   if (typeof r.deployed !== 'string' || !r.deployed.trim()) bad('release.deployed must be the command that prints the commit production runs');
   r.merge ??= 'squash';
   if (!['squash', 'merge', 'rebase'].includes(r.merge)) bad(`release.merge "${r.merge}" is not squash, merge, or rebase`);
-  if (!strings(r.checks ?? [], 'release.checks').length) {
-    bad('release.checks must name at least one check, or a head whose checks have not registered yet looks green');
+  r.localGate ??= null;
+  if (r.localGate !== null && (typeof r.localGate !== 'string' || !r.localGate.trim())) bad('release.localGate must be a command or null');
+  if (!strings(r.checks ?? [], 'release.checks').length && !r.localGate) {
+    bad('release.checks must name at least one check, or a head whose checks have not registered yet looks green. A repository with no CI on pull requests sets release.localGate instead');
   }
   strings((r.accept ??= []), 'release.accept');
   r.migrations ??= null;
@@ -447,7 +449,8 @@ function advance(ctx, s) {
           ctx.changed = true;
         }
         ctx.merging = s.id;
-        ctx.mergeAction = act('merge', s, `gh pr merge ${s.pr.number} --${p.release.merge} --match-head-commit ${v.headRefOid}`);
+        const merge = `gh pr merge ${s.pr.number} --${p.release.merge} --match-head-commit ${v.headRefOid}`;
+        ctx.mergeAction = act('merge', s, p.release.localGate ? `run ${p.release.localGate} on ${short(v.headRefOid)} in the stage's checkout and stop if it fails, then ${merge}` : merge);
         return [ctx.mergeAction];
       }
       case 'merged': {
