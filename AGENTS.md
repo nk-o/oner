@@ -243,8 +243,8 @@ usually one small script that imports what the app ships and calls the function 
   takes. A second change a user would notice, found on the way, is a follow-up.
 - Run `gh pr merge` as a command of its own, with no `cd`, pipe, `&&` or `;` around it, and
   check the result in a second call. Only the bare command matches the allow rule.
-- Use the pr-wait skill to wait on a pull request's checks and review, and to merge one once
-  it is ready. Never turn on auto-merge.
+- Use the pr-wait skill to wait on a pull request's checks and review, to merge one once it is
+  ready, and to watch the deployment after a merge you made. Never turn on auto-merge.
 
 ## Issue trackers
 

@@ -127,7 +127,7 @@ a new project.
 | | `/commit-message` | a Conventional Commits message for the staged change |
 | | `/pr` | a pull request title and body written for a person |
 | | `/pr-feedback` | works through a PR's unresolved threads and failing checks once |
-| | `/pr-wait` | watches a PR until checks and review bots are through, fixing and answering on the way |
+| | `/pr-wait` | watches a PR until checks and review bots are through, fixing and answering on the way, then watches the deployment after a merge it made |
 | | `/stale-pr` | decides whether an old PR should be updated, reworked, or closed, and updates it |
 | | `/issue-tracker` | keeps the tracker issue's status and checklist in step with the work |
 | Upkeep | `/configure` | changes the language, agents, reviewers, or disabled skills, and applies updates |

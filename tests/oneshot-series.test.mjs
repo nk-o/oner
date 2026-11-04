@@ -242,6 +242,27 @@ test('red, pending, and missing checks never produce a merge', () => {
   assert.match(r.stderr, /release.checks must name at least one check/);
 });
 
+test('a local gate replaces the checks and is named in the merge action', () => {
+  const f = fixture();
+  const p = f.record();
+  p.release.checks = [];
+  p.release.localGate = 'npm run ci:local';
+  f.writeRecord(p);
+  assert.equal(f.series(['next']).status, 0);
+  const b = f.build('schema');
+  f.series(['next']);
+  f.openPr(b.branch, b.head);
+  const r = f.series(['next']);
+  assert.deepEqual(kinds(r, 'schema'), ['merge']);
+  assert.match(r.actions[0].detail, new RegExp(`^run npm run ci:local on ${b.head.slice(0, 9)} .*then gh pr merge 1 --squash --match-head-commit ${b.head}$`));
+  const refused = f.record();
+  refused.release.localGate = '  ';
+  f.writeRecord(refused);
+  const bad = f.series(['next']);
+  assert.equal(bad.status, 2);
+  assert.match(bad.stderr, /release.localGate must be a command or null/);
+});
+
 test('checks verified on an old head approve neither a newer head nor its merge', () => {
   const f = fixture();
   const b = f.build('schema');
