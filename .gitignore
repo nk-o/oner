@@ -4,3 +4,4 @@ config.json
 local/
 .build-state.json
 .update-check.json
+.panel-stats*

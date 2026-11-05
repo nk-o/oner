@@ -96,8 +96,8 @@ skill twice.
 
 - When the build printed a line asking to trust Codex hooks, tell the user to run `/hooks` in
   Codex once. Codex skips a new or changed hook until then.
-- Start the settings page in the background with `node bin/ui.mjs` and give the user the address
-  it prints. Say that it runs until that process stops, and that asking an agent to "open
+- Start the settings page in the background with `node bin/ui.mjs` and give the user the `Settings:`
+  address it prints. Say that it runs until that process stops, and that asking an agent to "open
   oner settings" starts it again.
 - Tell the user to start a new session in each agent, because the rules load at startup.
 

@@ -58,8 +58,9 @@ agrees, or asks to update:
 
 ## Open the settings page
 
-Start `node {{repo_dir}}/bin/ui.mjs` in the background and give the user the address it prints.
-It runs until that process stops. The page changes the same `config.json` and rebuilds on save.
+Start `node {{repo_dir}}/bin/ui.mjs` in the background and give the user the `Settings:` address it
+prints. It runs until that process stops, and a second start finds the running one. The page changes
+the same `config.json` and rebuilds on save.
 
 ## Two effects to mention when they apply
 

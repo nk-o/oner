@@ -46,9 +46,17 @@ export const register: Register = on => {
   // drops its children, and it places the dot to the right of the button.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const p = await current($)
-    if (p === null) return next(e)
-
     const { Box, Text, Button } = $.ui.resolve(e)
+    const panel = <Button key="panel" plain label="oner" onPress={() => openPanel($)} />
+    if (p === null) {
+      return (
+        <Box flexDirection="row" alignItems="center">
+          {e.props.modes.length > 0 && <Text dimColor>{e.props.modes.join(' & ')} · </Text>}
+          {panel}
+        </Box>
+      )
+    }
+
     const five = await fiveHour($)
     const fiveStatus = five === null ? 'ok' : windowStatus(five.used)
     // The five-hour window joins the footer only once it nears its limit.
@@ -59,6 +67,8 @@ export const register: Register = on => {
         {e.props.modes.length > 0 && <Text dimColor>{e.props.modes.join(' & ')} · </Text>}
         <Text color={COLOR[worst(todayStatus(p.used, p.start, p.target), fiveStatus)]}>• </Text>
         <Button key="pace" plain label={label} onPress={() => update($, isOpen, v => !v)} />
+        <Text dimColor> · </Text>
+        {panel}
       </Box>
     )
   })
@@ -71,6 +81,17 @@ export const register: Register = on => {
 
     return card($.ui.resolve(e), p, await fiveHour($), staleMs, () => update($, isOpen, () => false))
   })
+}
+
+/** Opens the oner panel. bin/ui.mjs reuses a running server, so repeated presses leave one. */
+async function openPanel($: EngineInterface) {
+  const script = `${$.plugin.root}/../../bin/ui.mjs`
+  try {
+    const { exitCode } = await $.process.run(['node', script, '--open'], { timeoutMs: 15_000 })
+    if (exitCode !== 0) await $.ui.toast('The oner panel did not start. Run node bin/ui.mjs to see why.')
+  } catch {
+    await $.ui.toast('The oner panel did not start. Run node bin/ui.mjs to see why.')
+  }
 }
 
 async function current($: EngineInterface): Promise<Today | null> {
