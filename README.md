@@ -28,8 +28,9 @@ something that worked the day before. Read it and take what helps. There is no s
 - **Review by other vendors' models.** Codex, Cursor, and Claude review a change through your own
   subscriptions, each on a sanitized copy of the code.
 - **Skills** for planning, interface design, debugging, review, and shipping, listed below.
-- **A settings page** for the reply language, the agents, the reviewers, and the skills you turn
-  off.
+- **A panel** with what waits on you across agents and pull requests, activity charts for any dates, an
+  editor for your local skills, and the settings: the reply language, the agents, the reviewers, and
+  the skills you turn off.
 
 ## Install
 
@@ -46,8 +47,10 @@ skills also use `jq`, `lsof`, and the GitHub CLI `gh`.
 
 ## Day to day
 
-- **Settings.** Ask your agent to change one, or open the settings page. Both edit `config.json`
-  and rebuild. `node bin/ui.mjs` serves the page on `127.0.0.1`.
+- **The panel.** `node bin/ui.mjs --open` opens it, or press `oner` under the prompt in Claude Code. It
+  serves on `127.0.0.1` and stays up until you stop it.
+- **Settings.** Ask your agent to change one, or open the Settings tab of the panel. Both edit
+  `config.json` and rebuild.
 - **Updates.** Once a day, at session start, oner checks for new commits in the background. The
   agent offers the update and applies it only when you agree.
 - **Your own rules and skills.** The build appends `local/AGENTS.md` to the rules and installs

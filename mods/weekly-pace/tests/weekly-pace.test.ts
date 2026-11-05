@@ -181,3 +181,26 @@ test('a day that begins past an even pace shows how far over it is', async ($, o
   await ui.unmount()
   await card.unmount()
 })
+
+test('the oner button shows with no usage reading and opens the panel on a press', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  mock.store(on)
+  on('session.usage', () => ({ value: { startedAt: NOW, context: { window: 200_000 }, rateLimits: [] } }))
+  on('session.start', () => ({ cwd: '/' }))
+  on('ui.render', ($, e) => h($.ui.resolve(e).Box, {}) as RenderElement)
+  const runs: (readonly string[])[] = []
+  on('process.run', (_, e) => {
+    runs.push(e.argv)
+    return { value: { exitCode: 0, stdout: '', stderr: '' } }
+  })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+
+  const ui = await $.ui.mount({ plugin: 'weekly-pace', surface: 'desktop', component: 'SessionMode', props: { modes: [] } })
+  expect(await ui.find({ type: 'Button', text: 'oner' })).toBeDefined()
+  await ui.press({ key: 'panel' })
+  expect(runs.length).toBe(1)
+  expect(runs[0]?.[0]).toBe('node')
+  expect(runs[0]?.at(-1)).toBe('--open')
+  expect(runs[0]?.[1]).toMatch(/\/bin\/ui\.mjs$/)
+  await ui.unmount()
+})

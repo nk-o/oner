@@ -11,7 +11,7 @@
 | `agents/` | subagent definitions. `oneshot-worker` writes one task of a plan, `oneshot-reviewer` reviews the finished change. |
 | `mods/` | Claude Code mods, one folder per mod. `weekly-pace` shows the weekly usage limit under the prompt against how much today can spend, and warns when the five-hour window nears its limit. |
 | `bin/build.mjs`, `build/` | the build. It has no dependencies. |
-| `bin/ui.mjs`, `ui/` | the settings page. |
+| `bin/ui.mjs`, `ui/`, `panel/` | the panel: today's work across agents and pull requests, stats, the local skill editor, and settings. It reads no secrets of its own, and writes only to `config.json`, `local/`, and a cache of numbers. |
 | `bin/status.mjs` | what is configured, installed, and available on this machine. |
 | `bin/update-check.mjs`, `bin/session-start.mjs` | session-start hooks: the update check, and the context for agents whose hooks take JSON. |
 | `targets/` | for each agent, the hooks and settings keys the build owns there. |
