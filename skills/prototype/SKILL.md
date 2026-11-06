@@ -1,7 +1,7 @@
 ---
 name: prototype
 description: >-
-  Build working UI prototypes and meaningful variants of a component, section, screen, or
+  Build working UI prototypes and meaningful variants of a component, section, page, screen, or
   short flow, from a wide round of many different directions down to live controls for the
   parameters still open in a chosen one, or a clickable
   single-file demo that pushes a state model or business rule through its awkward cases. Use
@@ -122,6 +122,9 @@ chrome stays separate from product styling. A framework can express the same con
 its own state and keyed remounts without adding a runtime dependency. When the project
 already uses a tuning panel such as Leva, Tweakpane, or DialKit, that panel can host the
 controls.
+
+A whole page of sections, such as a marketing site, gets one choice per section on the
+assembled page, not one screen per direction. Read [the page picker](references/page-picker.md).
 
 - **Figma.** Create separate editable copies beside the original or on an exploration page.
   Keep the original unchanged. Use equal frame widths and shared content. A browser picker
