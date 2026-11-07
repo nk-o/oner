@@ -15,12 +15,15 @@
 // The skill and CLI come from Tencent/BrowserSkill (`bsk install-skill`), not from this
 // repository. Its extension works in a background window without the per-connection
 // "Allow remote debugging?" prompt that CDP tools trigger, so parallel sessions stay quiet.
-const BROWSER_RULE =
+const browserRule = (agent) =>
   '## Browser\n\n' +
   "To open or drive the user's own Chrome, use the `browser-skill` skill and its `bsk` CLI. It " +
   "works in a background Agent Window with the user's logins and runs sessions in parallel. Do " +
   'not use Claude in Chrome, the Codex Chrome plugin, or Computer Use for this. A page that needs ' +
-  "no login can use the host's built-in browser, such as T3 Code's preview.";
+  "no login can use the host's built-in browser, such as T3 Code's preview.\n\n" +
+  `Start every session with \`--agent-name "${agent}"\`, \`--project\` set to the repository's ` +
+  'directory name, and `--name` set to the task in a few words. The window overlay shows them, so ' +
+  'the user can tell parallel agent windows apart.';
 
 export const TARGETS = {
   claude: {
@@ -36,7 +39,7 @@ export const TARGETS = {
     legacy: ['"$HOME/.agents/skills/oneshot/hook.sh"'],
     vendor: 'claude',
     options: {
-      browser: () => ({ rules: BROWSER_RULE }),
+      browser: () => ({ rules: browserRule('Claude Code') }),
       noAttribution: () => ({ json: { 'settings.json': { attribution: { commit: '', pr: '' } } } }),
       noTelemetry: () => ({ json: { 'settings.json': { env: { DISABLE_TELEMETRY: '1' } } } }),
       autoCompact: (config) => ({ json: { 'settings.json': { autoCompactWindow: config.autoCompact } } }),
@@ -55,7 +58,7 @@ export const TARGETS = {
     legacy: [],
     vendor: 'codex',
     options: {
-      browser: () => ({ rules: BROWSER_RULE }),
+      browser: () => ({ rules: browserRule('Codex') }),
       noTelemetry: () => ({ toml: { tables: { analytics: { enabled: false } } } }),
       autoCompact: (config) => ({ toml: { keys: { model_auto_compact_token_limit: config.autoCompact } } }),
     },
@@ -71,7 +74,7 @@ export const TARGETS = {
     agents: { dir: 'agents', format: 'md' },
     settings: { file: 'hooks.json', template: 'targets/cursor/hooks.json' },
     options: {
-      browser: () => ({ rules: BROWSER_RULE }),
+      browser: () => ({ rules: browserRule('Cursor') }),
       noAttribution: () => ({
         json: { 'cli-config.json': { attribution: { attributeCommitsToAgent: false, attributePRsToAgent: false } } },
       }),
