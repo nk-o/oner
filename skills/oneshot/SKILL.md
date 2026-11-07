@@ -42,9 +42,12 @@ user objects, a list of decisions none of which blocks the rest (take each and l
 status note goes in the same message as the next tool call. The turns that do end are the
 gate's questions, a hard stop, a conflict with the spec or a gate decision that `implement` or
 `spec` stops on, a login or credential only the user can supply, a wait on background work
-this run started or on the pull request's events, and the final Report. A server or watcher started in the background never
-ends, so stop it once the step that needed it is done. Before a turn that waits on the user,
-set `Status. waiting` in the run log, and back to `running` when the answer arrives. While it
+this run started or on the pull request's events, and the final Report. In T3 Code, a secret
+the user must supply, such as a token or an API key, goes through `request_secret` rather than
+a question in chat, and the run goes on once it returns. A CLI login still needs the user. A
+server or watcher started in the background never ends, so stop it once the step that needed it
+is done. Before a turn that waits on the user, set `Status. waiting` in the run log, and back to
+`running` when the answer arrives. While it
 reads `running`, the host's lifecycle hook catches a turn that ends with steps still open in
 the log's **Lane**, and names them.
 
@@ -63,7 +66,7 @@ something, as `brainstorm`'s phase 2 does, and log the result under **Assumption
 read it in the morning"), the gate still posts its screen and does not wait: take the
 recommended option of every question, log each under **Assumptions**, and go on. The four hard
 stops and a login only the user can supply still stop, and a series' release is never authorized
-this way.
+this way. A secret in T3 Code still goes through `request_secret`, which waits for the user.
 
 **Four hard stops survive the gate.** Stop and ask, whatever else is running, when the choice
 in front of you sets a database schema or a migration, fixes the shape of data that gets
@@ -135,6 +138,15 @@ get `isolation: "worktree"` and follow `implement`'s steps, with `install` from
 `.claude/worktree.json` as the install command, else the lockfile's package manager. Two
 writers in one checkout share its git index and break each other's builds.
 
+**In T3 Code**, where `delegate_task` exists (`mcp__t3-code__delegate_task` in Claude Code),
+a delegate the next step waits on runs in the foreground: `Agent` with
+`run_in_background: false`, or `spawn_agent` and a wait on Codex. A background delegate goes
+through `delegate_task`, and so does each parallel writer, with `isolation: "worktree"`.
+`delegate_task` takes no `subagent_type`, so its task text starts with the body of
+`{{agents_dir}}/oneshot-worker.md` below the frontmatter, then the brief. Before a turn ends to
+wait on a `delegate_task`, set `Status. waiting` in the run log, and back to `running` when it
+returns.
+
 **On Codex the delegates are the same two agents**, from `{{agents_dir}}/`. Start each with its
 brief alone: `fork_context` false or left out, or `fork_turns: "none"` where the host takes
 `fork_turns`, because the brief is its whole context and an inherited history is replayed on
@@ -204,7 +216,9 @@ before anything else. Where the repository has `.claude/worktree.json`, run
 `{{skills_dir}}/worktree/wt.sh new <slug>` and continue the whole run inside the directory it
 prints, because it adds a worktree beside you and leaves this HEAD where it was. Where the file
 is missing, `git switch -c <slug>` here.
-A worktree the app already created counts, adopt it per `AGENTS.md`.
+A worktree the app already created counts, adopt it per `AGENTS.md`. In T3 Code, run
+`git switch -c <slug>` here in every case. A worktree made in the shell does not bind to the T3
+thread, and T3 already gave the thread its own worktree when the user chose one.
 
 Add the `.specs/` line to `.gitignore` per `spec`'s Depth section before writing the run log,
 because `implement` refuses to start on a tree where the run log sits untracked.

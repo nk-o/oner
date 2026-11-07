@@ -71,7 +71,8 @@ the run log for a review.
      background because its reviewers walk the repository themselves and take minutes. On a
      review lane pass `--base` with **Base**. The script already leaves out the vendor this
      session is. A message naming a CLI to install, or saying the config turns every voice
-     off, goes into the report rather than being swallowed.
+     off, goes into the report rather than being swallowed. In T3 Code, where
+     `t3_background_wait` exists, call it with the script's task ID before a turn ends on it.
   2. `prod-review` on this session's model, in an `oneshot-reviewer` subagent, where the host
      has subagents. Its brief carries the run log's **Assumptions**, and the `blast-radius`
      result when the step above ran, so its step 6 does not run it a second time. Where the
@@ -112,11 +113,14 @@ the run log for a review.
 - **Ship.** Run `pr`, push the branch, and open the PR with `gh pr create`, naming
   each screenshot and recording the body shows with `--attach`, as `pr` says. When
   the branch already has a pull request, push to it and leave its description alone unless the
-  change made it wrong. When the run log names an issue, update it for the open pull request
-  per the `issue-tracker` skill. Do not merge, and do not run `wt finish`.
+  change made it wrong. In T3 Code, the call after `gh pr create` or the push is
+  `link_pull_request` with the pull request's full URL. When the run log names an issue, update
+  it for the open pull request per the `issue-tracker` skill. Do not merge, and do not run
+  `wt finish`.
 - **Watch.** Run `pr-wait` on the pull request until it is ready. Each fix it pushes runs
   `green-repo` first, and a `DECIDE` from a comment follows the **Resolve** rule above. Before
-  a turn that ends to wait for the app's Auto-fix events, set `Status. waiting` in the run
-  log, and set it back to `running` when an event arrives. In a series stage, skip this step:
+  a turn that ends to wait for the Claude app's Auto-fix events or T3 Code's
+  `watch_pull_request` wakes, set `Status. waiting` in the run log, and set it back to
+  `running` when an event or a wake arrives. In a series stage, skip this step:
   the series takes the PR from here, per [`series.md`](series.md).
 - **Report** per the skill's Report section.

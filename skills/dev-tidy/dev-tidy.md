@@ -146,6 +146,8 @@ Left alone, always:
 - a worktree or branch that a Claude app or Codex session not yet archived
   worked in, because the app reuses one worktree for many sessions and the
   newest may still be in use
+- a worktree under `~/.t3/worktrees/`, because T3 Code made it for a thread that
+  may still be open
 - a worktree whose `.specs/*/oneshot.md` reads `Status. running` or `waiting`,
   because git ignores that log and no proof above can see it
 - the worktrees and branches of every stage an open oneshot series has not

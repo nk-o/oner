@@ -7,6 +7,7 @@ description: >-
   when asked to watch, babysit, or wait for CI or review on one, when a `<ci-monitor-event>`
   arrives, before merging a pull request once it is ready, and after merging one to watch its
   deployment. For one pass over a pull request's feedback without waiting, use `pr-feedback`.
+  A pull request is watched with this skill, never with `loop`.
 argument-hint: "[pull request number or URL]"
 ---
 
@@ -27,6 +28,16 @@ then end the turn. Each `<ci-monitor-event>` is an event for **Handle an event**
 not wake you when checks pass, so after you push, and after you handle an event that needed no
 push, run `pr-wait.mjs <pr> --once`. It reads GitHub once. Exit 0 is ready, 1 prints what to
 act on, and 3 means still pending, so the turn ends there and waits for the next event.
+
+**In T3 Code**, where `watch_pull_request` exists (`mcp__t3-code__watch_pull_request` in Claude
+Code), T3 is the watcher, and it forbids polling: no Monitor, `sleep`, loop, `gh --watch`, or
+`/loop`. Once the push is done, call `link_pull_request` with the pull request's full URL when
+the thread does not link it yet, then `watch_pull_request`. Run `pr-wait.mjs request <pr>`, then
+end the turn. T3 wakes you on failed and passed checks, new comments and reviews, and conflicts.
+The watch stays on after a wake, so call it once. On each wake, and after each push, run
+`pr-wait.mjs <pr> --once`. Exit 0 is ready, 1 prints what to act on, and 3 means still pending,
+so the turn ends there. Before you hand the pull request back, ready or not, call
+`unwatch_pull_request`.
 
 **Everywhere else**, the watcher is `pr-wait.mjs <pr>`. Claude Code runs it with Monitor, so
 each line wakes you. A host without one runs it as a single foreground command with the
@@ -101,7 +112,8 @@ merge method, as `AGENTS.md` says, and check the result in a second call.
 
 The task ends when the change is live, not when it merged. Run `pr-wait.mjs deploy <pr>` as a
 background command, because the app's Auto-fix stops at the merge and this is the one thing still
-watching. A series skips this, since `series.mjs` verifies its own deploys.
+watching. In T3 Code, where `t3_background_wait` exists, call it with the command's task ID
+before the turn ends. A series skips this, since `series.mjs` verifies its own deploys.
 
 - **Exit 0.** Report the line it printed. `nothing deploys` is the normal result for a branch that
   does not deploy.

@@ -53,7 +53,9 @@ you unedited. On Claude Code that subagent is `oneshot-worker`. Parallel ones ea
 That worktree starts from the default branch with tracked files only: commit what the branch
 holds before they start, put that commit's sha and the install command in each brief, and
 apply each returned diff with `git -C <worktree> diff --cached | git apply` before the stage's
-Verify step.
+Verify step. In T3 Code, where `delegate_task` exists, parallel ones go through `delegate_task`
+with `isolation: "worktree"` instead, each task text starting with the body of
+`{{agents_dir}}/oneshot-worker.md` below the frontmatter, and a lone one is a foreground `Agent`.
 
 ## Deviations
 

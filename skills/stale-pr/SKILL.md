@@ -50,7 +50,8 @@ without conflicts says nothing about whether the change still belongs in the pro
    branch's newer rules. A conflict that is a disagreement about the product sends you back to
    step 3. Then check that nothing was lost or brought back: compare the change before and after
    with `diff <(git diff <old merge base> <old head>) <(git diff origin/<base>...HEAD)` and
-   read every hunk that moved. Run `green-repo`, push, and hand the pull request to `pr-wait`.
+   read every hunk that moved. Run `green-repo` and push. In T3 Code, the next call is
+   `link_pull_request` with the pull request's full URL. Then hand the pull request to `pr-wait`.
 
 Asking for this on a pull request authorizes updating its branch. It does not authorize
 merging it, closing it, or changing its base.

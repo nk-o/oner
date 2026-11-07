@@ -709,6 +709,7 @@ tidy_repo() {
       why="uncommitted changes"
     [ -z "$why" ] && printf '%s' "$keep_dirs" | grep -qxF "$dir" && why="kept by --keep"
     [ -z "$why" ] && open_run_in "$dir" && why="open oneshot run"
+    [ -z "$why" ] && case "$dir" in "$HOME"/.t3/worktrees/*) why="T3 Code thread worktree" ;; esac
     [ -z "$why" ] && in_series "$held" && why="stage of an open oneshot series"
 
     # The content proof alone would take a head that is still under review. It

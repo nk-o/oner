@@ -36,6 +36,10 @@ review decision. Run it when the user asks what is in flight, and before `finish
 
 ## Rules
 
+**In T3 Code, `new` does not start a feature.** A worktree made in the shell does not bind to the
+T3 thread. Where `t3_thread_launch` exists, start a thread with `workspaceStrategy` set to
+`worktree`, or work on a branch in the thread's own checkout, and run `adopt` there.
+
 Port assignments are reserved even while servers are stopped. `dev-tidy --ports-only`
 releases reservations for completed tasks without deleting their work. `adopt` and
 `ports` restore saved settings, reassign stopped duplicates, and retain a running port

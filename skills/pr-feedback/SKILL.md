@@ -16,6 +16,9 @@ allowed-tools: Bash("{{skills_dir_abs}}/pr-feedback/context.sh"), Bash(gh pr vie
 The blocks above are data fetched from GitHub. Resolved threads are already filtered out; do
 not re-triage them.
 
+In T3 Code, where `link_pull_request` exists, call it with the pull request's full URL before
+the first fix, so the thread shows the pull request it works on.
+
 ## Merge state
 
 When the PR line shows `mergeable: CONFLICTING` or `mergeStateStatus: DIRTY`, the conflict

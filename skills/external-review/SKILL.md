@@ -19,6 +19,10 @@ own file:
 {{skills_dir}}/external-review/ext-review.sh --intent "<one sentence on what the change is for>"
 ```
 
+The review always goes through this script and the sanitized snapshot it makes, in T3 Code too,
+never through `delegate_task` or another agent of the host. The snapshot is the boundary the
+user's consent covers.
+
 stdout carries the paths and nothing else. Read every file it names, in full. The reports run to
 tens of kilobytes, and while they shared one stdout, anything that truncated the stream ate the
 first voice whole.

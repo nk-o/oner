@@ -135,24 +135,26 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
 
    | Action | What you do |
    | --- | --- |
-   | `start` | Cut the branch from the updated default branch: `{{skills_dir}}/worktree/wt.sh new <branch>` where the repository has `.claude/worktree.json`, else `git switch -c <branch> origin/<base>`. Open the stage run below there, and build it. |
+   | `start` | Cut the branch from the updated default branch: `{{skills_dir}}/worktree/wt.sh new <branch>` where the repository has `.claude/worktree.json`, else `git switch -c <branch> origin/<base>`. In T3 Code the stage's `delegate_task` checkout is its worktree, and the delegate runs that `git switch` there, because a worktree made in the shell does not bind to a T3 thread. Open the stage run below there, and build it. |
    | `build` | Work the stage run until its pull request is open. |
    | `restart` | The branch was cut before a stage it needs was merged. Remove it and start again. |
    | `fix` | A fresh delegate works what `next` names in the stage's checkout by `pr-wait`'s **Handle an event**, and pushes. It does not wait. |
    | `update` | Merge the default branch into the stage's branch, run `green-repo`, and push. `next` asks for this whenever the head lacks a stage merged since the branch was cut, whatever GitHub's own setting. |
    | `merge` | With a local gate, the action names it: run it first in the stage's checkout, and when it fails, stop the merge and work the failure as a `fix`. Run the printed `gh pr merge` command exactly, as a command of its own, then `next`. `--match-head-commit` lets the merge through only for the head whose checks `next` verified. |
    | `accept` | Record the production check the stage run wrote, with `series.mjs amend --stage <id> --accept "<command>"`, once its log shows the check failing on production as it is. When the stage run wrote none, a fresh delegate writes it. When no read-only check can see the stage, record `--waive-accept "<reason>"` instead. |
-   | `wait-checks`, `wait-merge`, `wait-deploy`, `wait-verify`, `hold` | Run `series.mjs next --wait 1800`. It returns once an action other than a wait appears. Where the host wakes the session when background work ends, run it in the background and end the turn. Where it does not, run it in the foreground as one command and wait on that command with the longest timeout the host allows. |
+   | `wait-checks`, `wait-merge`, `wait-deploy`, `wait-verify`, `hold` | Run `series.mjs next --wait 1800`. It returns once an action other than a wait appears. Where the host wakes the session when background work ends, run it in the background and end the turn, in T3 Code after `t3_background_wait` on its task ID where that tool exists. Where it does not, run it in the foreground as one command and wait on that command with the longest timeout the host allows. |
    | `fix-forward` | Cut the branch it names from the updated default branch and run a stage run there with `Lane. fix`, on the failure it quotes. The stage stays open until the fix passes production. |
    | `ask` | `next` has set the program to waiting. Ask the user what it names, per **Waiting**. |
-   | `cleanup` | Run `wt.sh finish <name>` from outside that worktree, then again with `--yes`. The authorization covers it. When something outside the series still runs from that worktree, leave it, name it in the series log's **Now**, and go on. `next --wait` does not stop on a cleanup. |
+   | `cleanup` | Run `wt.sh finish <name>` from outside that worktree, then again with `--yes`. A checkout that `delegate_task` made is T3 Code's to remove, so leave it and its branch. The authorization covers it. When something outside the series still runs from that worktree, leave it, name it in the series log's **Now**, and go on. `next --wait` does not stop on a cleanup. |
    | `complete` | Go to step 6. |
 
    **The coordinator drives, and a delegate builds.** The coordinator's context is what
    every later turn pays for, so it holds `next`, merges, production checks, the series log,
    and the user's questions, and hands out the rest. Each stage run goes to a fresh
    background `general-purpose` delegate with the brief under **Parallel stages**, and so
-   does long browser or provider work, such as a production canary in a dashboard. The
+   does long browser or provider work, such as a production canary in a dashboard. In T3
+   Code that delegate goes through `delegate_task`, with `isolation: "worktree"` for a stage
+   run, never a background `Agent`. The
    delegate returns its pull request and a summary of a few lines. Read the pull request's
    `--stat` and the stage log's **Review** and **Checks**, not its transcript. The stage's
    tail already gave the diff two readers who did not write it, so open code only where the
