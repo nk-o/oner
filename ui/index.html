@@ -438,6 +438,7 @@ function draftFrom(s) {
     effort: Object.fromEntries(s.effort.map((e) => [e.stage, e.level])),
     reviewers: Object.fromEntries(s.reviewers.map((r) => [r.name, { enabled: r.enabled, model: r.model, ...(r.effort ? { effort: r.effort } : {}) }])),
     reviewBots: Object.fromEntries(s.reviewBots.map((b) => [b.name, b.mode])),
+    browser: s.browser,
     attribution: s.attribution,
     telemetry: s.telemetry,
     autoCompact: s.autoCompact,
@@ -469,7 +470,7 @@ function changes() {
   for (const [name, mode] of Object.entries(draft.reviewBots)) {
     if (mode !== base.reviewBots[name]) (out.reviewBots ??= {})[name] = mode;
   }
-  for (const key of ["attribution", "telemetry", "autoCompact"]) {
+  for (const key of ["browser", "attribution", "telemetry", "autoCompact"]) {
     if (draft[key] !== base[key]) out[key] = draft[key];
   }
   if (JSON.stringify(draft.disabledSkills) !== JSON.stringify(base.disabledSkills)) out.disabledSkills = draft.disabledSkills;
@@ -554,6 +555,7 @@ function renderBehavior() {
       refreshBar();
     } });
   $("behavior").replaceChildren(
+    switchRow("browser", "Use your Chrome", "Claude in Chrome for Claude Code, Computer Use for Codex"),
     switchRow("attribution", "Credit the agent in commits and pull requests", "Claude Code and Cursor"),
     switchRow("telemetry", "Send usage data to the vendor", "Claude Code and Codex"),
     el("div", { class: "row" },

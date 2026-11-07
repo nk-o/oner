@@ -39,7 +39,7 @@ export function readRawConfig(repoDir) {
 
 // Returns the config with every default filled in and every dir absolute:
 // { language, disabledSkills, effort: { <stage>: <level> }, reviewers: { <provider>: { enabled, ... } },
-//   reviewBots: { <bot>: <mode> }, attribution, telemetry, autoCompact: <tokens> | null,
+//   reviewBots: { <bot>: <mode> }, browser, attribution, telemetry, autoCompact: <tokens> | null,
 //   targets: { <name>: { enabled, dir } } }
 export function loadConfig(repoDir) {
   return validateConfig(readRawConfig(repoDir), repoDir);
@@ -50,7 +50,7 @@ export function loadConfig(repoDir) {
 export function validateConfig(raw, repoDir) {
   const at = (path, msg) => new BuildError(`config.json ${path}: ${msg}`);
   if (!isObject(raw)) throw at('', 'must be an object');
-  onlyKeys(raw, ['$schema', 'language', 'skills', 'effort', 'externalReview', 'reviewBots', 'attribution', 'telemetry', 'autoCompact', 'targets'], '', at);
+  onlyKeys(raw, ['$schema', 'language', 'skills', 'effort', 'externalReview', 'reviewBots', 'browser', 'attribution', 'telemetry', 'autoCompact', 'targets'], '', at);
 
   if (raw.language !== undefined && (typeof raw.language !== 'string' || !raw.language.trim())) {
     throw at('language', 'must be a language name, such as "English"');
@@ -104,7 +104,7 @@ export function validateConfig(raw, repoDir) {
   }
 
   const switches = {};
-  for (const [key, fallback] of [['attribution', false], ['telemetry', true]]) {
+  for (const [key, fallback] of [['browser', false], ['attribution', false], ['telemetry', true]]) {
     const value = objectAt(raw[key], key, at);
     onlyKeys(value, ['enabled'], key, at);
     boolAt(value.enabled, `${key}.enabled`, at);

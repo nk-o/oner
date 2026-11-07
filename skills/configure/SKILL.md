@@ -4,7 +4,7 @@ description: >-
   Sets up, changes, and updates oner, the shared rules and skills installed into the user's
   coding agents. Use when the user asks to set up or reconfigure oner, to change the reply
   language, which agents get it, which external reviewers run, which skills are off, or the
-  agent settings (attribution, telemetry, auto-compact), to update
+  agent settings (Chrome access, attribution, telemetry, auto-compact), to update
   it, or to open its settings page. Also when a session-start note says an update is available.
 ---
 
@@ -50,6 +50,9 @@ each push and so spends that bot's quota.
 These write into each agent's own settings files, so they hold in every host, T3 Code included.
 Model, effort, and permission mode are left to the host. Each takes effect in the next session.
 
+- `browser.enabled` lets agents drive the user's Chrome. Claude Code gets
+  `CLAUDE_CODE_ENABLE_CFC=1` for the Claude in Chrome extension. Codex gets a rule to use
+  Computer Use, which needs its Accessibility and Screen Recording permissions.
 - `attribution.enabled` (off by default) lets Claude Code and Cursor credit themselves in commits
   and pull requests.
 - `telemetry.enabled` (on by default). Off sets `DISABLE_TELEMETRY` for Claude Code and

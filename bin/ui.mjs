@@ -61,7 +61,7 @@ function merge(raw, body) {
     if (r && typeof r === 'object') next.externalReview[name] = { ...raw.externalReview?.[name], ...r };
   }
   if (body.reviewBots && typeof body.reviewBots === 'object') next.reviewBots = { ...raw.reviewBots, ...body.reviewBots };
-  for (const key of ['attribution', 'telemetry']) {
+  for (const key of ['browser', 'attribution', 'telemetry']) {
     if (typeof body[key] === 'boolean') next[key] = { ...raw[key], enabled: body[key] };
   }
   if (body.autoCompact === null) delete next.autoCompact;
