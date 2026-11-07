@@ -52,10 +52,10 @@ test('the build owns env entry by entry, so the user own variables survive', () 
   assert.deepEqual(mergeSettings(off.settings, {}, off.owned, []).settings, { env: { MINE: '1' } });
 });
 
-test('agent settings default to browser off, no attribution, telemetry on, no auto-compact', () => {
+test('agent settings default to no attribution, telemetry on, no auto-compact', () => {
   const repo = resolve('.');
   const config = validateConfig({}, repo);
-  assert.deepEqual([config.browser, config.attribution, config.telemetry, config.autoCompact], [false, false, true, null]);
+  assert.deepEqual([config.attribution, config.telemetry, config.autoCompact], [false, true, null]);
   assert.equal(validateConfig({ autoCompact: { tokens: 900000 } }, repo).autoCompact, 900000);
   assert.throws(() => validateConfig({ autoCompact: { tokens: 99999 } }, repo), /autoCompact\.tokens/);
   assert.throws(() => validateConfig({ telemetry: { enabled: 'no' } }, repo), /telemetry\.enabled: must be true or false/);

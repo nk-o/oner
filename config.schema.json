@@ -121,17 +121,6 @@
         }
       }
     },
-    "browser": {
-      "description": "Lets Claude Code and Codex open and drive your own Chrome, in every host that runs them. Claude Code uses the Claude in Chrome extension. Codex uses Computer Use, which needs its Accessibility and Screen Recording permissions.",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false
-        }
-      }
-    },
     "attribution": {
       "description": "Lets agents credit themselves in commits and pull requests. Off writes Claude Code's attribution as empty and turns off Cursor's commit and pull request attribution.",
       "type": "object",

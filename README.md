@@ -30,7 +30,7 @@ something that worked the day before. Read it and take what helps. There is no s
 - **Skills** for planning, interface design, debugging, review, and shipping, listed below.
 - **A panel** with what waits on you across agents and pull requests, activity charts for any dates, an
   editor for your local skills, and the settings: the reply language, the agents, the reviewers,
-  the skills you turn off, and agent settings such as Chrome access and attribution.
+  the skills you turn off, and agent settings such as attribution and telemetry.
 
 ## Install
 

@@ -26,9 +26,6 @@ export const TARGETS = {
     legacy: ['"$HOME/.agents/skills/oneshot/hook.sh"'],
     vendor: 'claude',
     options: {
-      // Claude in Chrome. A session started by an SDK host such as T3 Code ignores
-      // the extension's "Enabled by default" and reads only this variable.
-      browser: () => ({ json: { 'settings.json': { env: { CLAUDE_CODE_ENABLE_CFC: '1' } } } }),
       noAttribution: () => ({ json: { 'settings.json': { attribution: { commit: '', pr: '' } } } }),
       noTelemetry: () => ({ json: { 'settings.json': { env: { DISABLE_TELEMETRY: '1' } } } }),
       autoCompact: (config) => ({ json: { 'settings.json': { autoCompactWindow: config.autoCompact } } }),
@@ -47,15 +44,6 @@ export const TARGETS = {
     legacy: [],
     vendor: 'codex',
     options: {
-      // The Chrome plugin's browser surface needs the desktop app's access host.
-      // Computer Use runs without it, so every host reaches Chrome that way.
-      browser: () => ({
-        rules:
-          '## Browser\n\n' +
-          "To open or drive the user's Chrome, use Computer Use: `cua_repl` with " +
-          '`cua.getApp("Google Chrome")`. The Chrome plugin\'s browser surface works only inside the ' +
-          'Codex desktop app and reports "The browser access host is unavailable" everywhere else.',
-      }),
       noTelemetry: () => ({ toml: { tables: { analytics: { enabled: false } } } }),
       autoCompact: (config) => ({ toml: { keys: { model_auto_compact_token_limit: config.autoCompact } } }),
     },
@@ -131,7 +119,6 @@ export const TARGETS = {
 
 // Agent settings in config.json, and when each one writes its `options` entry.
 export const OPTIONS = {
-  browser: (config) => config.browser,
   noAttribution: (config) => !config.attribution,
   noTelemetry: (config) => !config.telemetry,
   autoCompact: (config) => config.autoCompact !== null,
