@@ -19,9 +19,10 @@ import { homedir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { BuildError, TargetError } from './config.mjs';
 import { hashInputs, renderFile, renderJson, tokenValues, walk } from './render.mjs';
-import { PROVIDERS, TARGETS } from './targets.mjs';
+import { OPTIONS, PROVIDERS, TARGETS } from './targets.mjs';
 import { adaptSkill, checkSkillFrontmatter } from './skills.mjs';
 import { mergeReviewPolicy, reviewPolicy } from './review-policy.mjs';
+import { mergeTables, mergeTopKeys } from './codex-config.mjs';
 
 const MANIFEST = '.agent-config-manifest.json';
 // Gitignored, in the checkout, keyed by home directory: which dirs this checkout
@@ -81,17 +82,20 @@ function install(ctx, spec, dir, auto, config) {
     );
   }
 
-  const outputs = renderOutputs(ctx, spec, dir, config);
+  const writes = optionWrites(spec, config);
+  const outputs = renderOutputs(ctx, spec, dir, config, writes);
   const migrate = linksToMigrate(ctx, spec, dir);
   const settingsPath = spec.settings && join(dir, spec.settings.file);
   const settings = spec.settings ? readSettings(settingsPath) : null;
   const oldFiles = new Set(old?.files ?? []);
   const policyPath = spec.vendor === 'codex' ? join(dir, 'config.toml') : null;
   const policyBefore = policyPath && existsSync(policyPath) ? readFileSync(policyPath, 'utf8') : '';
+  let reviewed = policyBefore;
   let policyAfter = policyBefore;
   if (policyPath) {
     try {
-      policyAfter = mergeReviewPolicy(policyBefore, reviewPolicy(config.disabledSkills.includes('external-review') ? [] : enabledReviewers(config)));
+      reviewed = mergeReviewPolicy(policyBefore, reviewPolicy(config.disabledSkills.includes('external-review') ? [] : enabledReviewers(config)));
+      policyAfter = mergeTopKeys(mergeTables(reviewed, writes.toml.tables), writes.toml.keys, old?.toml);
     } catch (error) {
       throw new TargetError(`${policyPath}: ${error.message}`);
     }
@@ -107,17 +111,26 @@ function install(ctx, spec, dir, auto, config) {
         '\nMove personal rules into local/AGENTS.md and personal skills into local/skills/, then build again.',
     );
   }
+  const template =
+    spec.settings &&
+    renderJson(
+      JSON.parse(readFileSync(join(ctx.repo, spec.settings.template), 'utf8')),
+      tokenValues(pathsFor(ctx, spec, dir, config), 'home', config),
+    );
   const merged =
     spec.settings &&
-    mergeSettings(
-      settings.value,
-      renderJson(
-        JSON.parse(readFileSync(join(ctx.repo, spec.settings.template), 'utf8')),
-        tokenValues(pathsFor(ctx, spec, dir, config), 'home', config),
-      ),
-      old?.settings,
-      spec.legacy,
-    );
+    mergeSettings(settings.value, deepMerge(template, writes.json[spec.settings.file] ?? {}), old?.settings, spec.legacy);
+  // Agent-owned files the options write keys into, beside the settings file. A
+  // missing file is left for the agent to create.
+  const extra = [...new Set([...Object.keys(writes.json), ...Object.keys(old?.json ?? {})])]
+    .filter((file) => file !== spec.settings?.file)
+    .map((file) => {
+      const path = join(dir, file);
+      const current = readSettings(path);
+      if (!current.exists) return { file, path, changed: false, owned: {} };
+      const result = mergeSettings(current.value, writes.json[file] ?? {}, { keys: old?.json?.[file] ?? {}, hooks: [] }, []);
+      return { file, path, changed: canon(result.settings) !== canon(current.value), value: result.settings, owned: result.owned.keys };
+    });
 
   // Nothing is written above this line, so a refusal leaves the target as it was.
   mkdirSync(dir, { recursive: true });
@@ -130,13 +143,25 @@ function install(ctx, spec, dir, auto, config) {
   if (settingsChanged) writeJson(settingsPath, merged.settings);
   const policyChanged = policyAfter !== policyBefore;
   if (policyChanged) writeIfChanged(policyPath, Buffer.from(policyAfter), 0o600);
+  for (const e of extra) if (e.changed) writeJson(e.path, e.value);
+  const owned = {
+    json: Object.fromEntries(extra.filter((e) => Object.keys(e.owned).length).map((e) => [e.file, e.owned])),
+    toml: writes.toml.keys,
+  };
 
   // Own the union first, so a run that dies midway finds its own half-written
   // files on the next run instead of refusing them as foreign.
   const newFiles = [...outputs.keys()].sort();
   const union = [...new Set([...oldFiles, ...newFiles])].sort();
   if (!old || takeover || canon(union) !== canon(old.files)) {
-    writeJson(manifestPath, { version: 1, source: ctx.repo, files: union, settings: old?.settings ?? { keys: {}, hooks: [] } });
+    writeJson(manifestPath, {
+      version: 1,
+      source: ctx.repo,
+      files: union,
+      settings: old?.settings ?? { keys: {}, hooks: [] },
+      json: { ...old?.json, ...owned.json },
+      toml: { ...old?.toml, ...owned.toml },
+    });
   }
 
   let written = 0;
@@ -148,14 +173,16 @@ function install(ctx, spec, dir, auto, config) {
     if (outputs.has(rel)) continue;
     if (removeOwned(dir, rel)) removed += 1;
   }
-  writeJson(manifestPath, { version: 1, source: ctx.repo, files: newFiles, settings: merged?.owned ?? { keys: {}, hooks: [] } });
+  writeJson(manifestPath, { version: 1, source: ctx.repo, files: newFiles, settings: merged?.owned ?? { keys: {}, hooks: [] }, ...owned });
 
   const parts = [];
   if (takeover) parts.push(`took over from ${old.source}, which no longer exists`);
   if (migrate.length) parts.push(`replaced symlinks: ${migrate.join(', ')}`);
   if (written || removed) parts.push(`${written} written, ${removed} removed`);
   if (settingsChanged) parts.push(`${spec.settings.file} updated`);
-  if (policyChanged) parts.push('config.toml external-review authorization updated');
+  if (reviewed !== policyBefore) parts.push('config.toml external-review authorization updated');
+  if (policyAfter !== reviewed) parts.push('config.toml settings updated');
+  for (const e of extra) if (e.changed) parts.push(`${e.file} updated`);
   // Only a change to the hooks themselves needs approving again.
   if (spec.trustNote && merged && canon(merged.settings.hooks) !== canon(settings.value.hooks)) parts.push(spec.trustNote);
   return parts.length ? `${parts.join('; ')} (${dir})` : auto ? null : `up to date (${dir})`;
@@ -179,9 +206,16 @@ function uninstallIfMine(ctx, spec, dir, why) {
     const policyPath = join(dir, 'config.toml');
     if (existsSync(policyPath)) {
       const before = readFileSync(policyPath, 'utf8');
-      const after = mergeReviewPolicy(before, '');
+      const after = mergeTopKeys(mergeTables(mergeReviewPolicy(before, ''), {}), {}, old.toml);
       if (after !== before) writeIfChanged(policyPath, Buffer.from(after), 0o600);
     }
+  }
+  for (const [file, keys] of Object.entries(old.json ?? {})) {
+    const path = join(dir, file);
+    const current = readSettings(path);
+    if (!current.exists) continue;
+    const { settings: cleaned } = mergeSettings(current.value, {}, { keys, hooks: [] }, []);
+    if (canon(cleaned) !== canon(current.value)) writeJson(path, cleaned);
   }
   unlinkSync(manifestPath);
   return `${why}, ${removed} removed (${dir})`;
@@ -203,7 +237,7 @@ function pathsFor(ctx, spec, dir, config) {
 }
 
 // Map of target-relative path to { data, mode }.
-function renderOutputs(ctx, spec, dir, config) {
+function renderOutputs(ctx, spec, dir, config, writes) {
   const paths = pathsFor(ctx, spec, dir, config);
   const text = tokenValues(paths, 'tilde', config);
   const shell = tokenValues(paths, 'home', config);
@@ -264,10 +298,34 @@ function renderOutputs(ctx, spec, dir, config) {
     render(join(ctx.repo, 'AGENTS.md'), 'AGENTS.md').toString('utf8');
   const personal = join(ctx.repo, 'local', 'AGENTS.md');
   if (existsSync(personal)) instructions += '\n' + render(personal, 'AGENTS.md').toString('utf8');
+  for (const rule of writes.rules) instructions += '\n' + rule + '\n';
   if (!config.disabledSkills.includes('external-review') && enabledReviewers(config).length) {
     instructions += '\n## Saved external review consent\n\n' + reviewPolicy(enabledReviewers(config)) + '\n';
   }
   out.set(spec.instructions, { data: Buffer.from(instructions), mode: 0o644 });
+  return out;
+}
+
+// What the agent settings in config.json write into this agent: keys by JSON
+// file, config.toml keys and tables, and sections for its instructions.
+function optionWrites(spec, config) {
+  const out = { json: {}, toml: { keys: {}, tables: {} }, rules: [] };
+  for (const [name, applies] of Object.entries(OPTIONS)) {
+    if (!spec.options?.[name] || !applies(config)) continue;
+    const write = spec.options[name](config);
+    for (const [file, keys] of Object.entries(write.json ?? {})) out.json[file] = deepMerge(out.json[file] ?? {}, keys);
+    Object.assign(out.toml.keys, write.toml?.keys);
+    for (const [table, keys] of Object.entries(write.toml?.tables ?? {})) out.toml.tables[table] = { ...out.toml.tables[table], ...keys };
+    if (write.rules) out.rules.push(write.rules);
+  }
+  return out;
+}
+
+function deepMerge(base, extra) {
+  const out = structuredClone(base);
+  for (const [key, value] of Object.entries(extra)) {
+    out[key] = isObject(value) && isObject(out[key]) ? deepMerge(out[key], value) : structuredClone(value);
+  }
   return out;
 }
 
@@ -369,6 +427,9 @@ function hookId(event, entry) {
   return JSON.stringify([event, entry?.matcher ?? null, commands.sort()]);
 }
 
+// Keys the build owns entry by entry, so the user's own entries beside them stay.
+const BY_ENTRY = new Set(['env']);
+
 // Removes owned keys and hook entries recorded in oldOwned and the legacy hook
 // commands, then adds the template's. Returns the new settings and what is owned.
 export function mergeSettings(settings, template, oldOwned, legacyCommands) {
@@ -394,13 +455,18 @@ export function mergeSettings(settings, template, oldOwned, legacyCommands) {
     out.hooks[event] = kept;
   }
   for (const [key, value] of Object.entries(oldOwned?.keys ?? {})) {
-    if (!(key in template) && canon(out[key]) === canon(value)) delete out[key];
+    if (BY_ENTRY.has(key) && isObject(value) && isObject(out[key])) {
+      for (const [entry, v] of Object.entries(value)) {
+        if (!(entry in (template[key] ?? {})) && canon(out[key][entry]) === canon(v)) delete out[key][entry];
+      }
+      if (!Object.keys(out[key]).length) delete out[key];
+    } else if (!(key in template) && canon(out[key]) === canon(value)) delete out[key];
   }
 
   const owned = { keys: {}, hooks: [] };
   for (const [key, value] of Object.entries(template)) {
     if (key === 'hooks') continue;
-    out[key] = structuredClone(value);
+    out[key] = BY_ENTRY.has(key) && isObject(out[key]) ? { ...out[key], ...structuredClone(value) } : structuredClone(value);
     owned.keys[key] = value;
   }
   for (const [event, entries] of Object.entries(template.hooks ?? {})) {

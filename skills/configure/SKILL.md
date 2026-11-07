@@ -3,7 +3,8 @@ name: configure
 description: >-
   Sets up, changes, and updates oner, the shared rules and skills installed into the user's
   coding agents. Use when the user asks to set up or reconfigure oner, to change the reply
-  language, which agents get it, which external reviewers run, or which skills are off, to update
+  language, which agents get it, which external reviewers run, which skills are off, or the
+  agent settings (Chrome access, attribution, telemetry, auto-compact), to update
   it, or to open its settings page. Also when a session-start note says an update is available.
 ---
 
@@ -43,6 +44,21 @@ managed policy or grant filesystem or network permissions.
 `reviewBots` sets how `pr-wait` treats each bot that reviews pull requests on the repository's
 side: `off`, `wait` (the default for `claude`), or `request`, which posts `@<bot> review` after
 each push and so spends that bot's quota.
+
+## Agent settings
+
+These write into each agent's own settings files, so they hold in every host, T3 Code included.
+Model, effort, and permission mode are left to the host. Each takes effect in the next session.
+
+- `browser.enabled` lets agents drive the user's Chrome. Claude Code gets
+  `CLAUDE_CODE_ENABLE_CFC=1` for the Claude in Chrome extension. Codex gets a rule to use
+  Computer Use, which needs its Accessibility and Screen Recording permissions.
+- `attribution.enabled` (off by default) lets Claude Code and Cursor credit themselves in commits
+  and pull requests.
+- `telemetry.enabled` (on by default). Off sets `DISABLE_TELEMETRY` for Claude Code and
+  `[analytics] enabled = false` in Codex's `config.toml`.
+- `autoCompact.tokens` sets Claude Code's `autoCompactWindow` and Codex's
+  `model_auto_compact_token_limit`. Without it each agent keeps its own default.
 
 ## Update
 

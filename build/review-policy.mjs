@@ -8,7 +8,7 @@ export function reviewPolicy(providers) {
 }
 
 // Mask strings and comments so TOML-looking text inside another value cannot select a table.
-function mask(text) {
+export function mask(text) {
   let out = '', quote = '', multi = false, arrayDepth = 0, awaitingValue = false;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
@@ -84,7 +84,7 @@ function stringValue(text, offset) {
   return { value: value.replace(/\r\n/g, '\n'), start: offset, end: end + width };
 }
 
-function keyPath(text) {
+export function keyPath(text) {
   const parts = [];
   let offset = 0;
   while (offset < text.length) {
@@ -104,7 +104,7 @@ function keyPath(text) {
   return parts;
 }
 
-function fields(text, masked, start, end) {
+export function fields(text, masked, start, end) {
   return [...text.slice(start, end).matchAll(/^[ \t]*([^=\r\n]+)=/gm)]
     .filter(entry => masked[start + entry.index + entry[0].length - 1] === '=')
     .map(entry => ({ offset: start + entry.index + entry[0].length, key: keyPath(entry[1].trim()) }));

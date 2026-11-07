@@ -121,6 +121,52 @@
         }
       }
     },
+    "browser": {
+      "description": "Lets Claude Code and Codex open and drive your own Chrome, in every host that runs them. Claude Code uses the Claude in Chrome extension. Codex uses Computer Use, which needs its Accessibility and Screen Recording permissions.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "attribution": {
+      "description": "Lets agents credit themselves in commits and pull requests. Off writes Claude Code's attribution as empty and turns off Cursor's commit and pull request attribution.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "telemetry": {
+      "description": "Lets agents send usage data to their vendors. Off sets DISABLE_TELEMETRY for Claude Code and [analytics] enabled = false for Codex.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "autoCompact": {
+      "description": "When agents compact the conversation. Without tokens, each agent keeps its own default.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tokens": {
+          "description": "Claude Code's autoCompactWindow and Codex's model_auto_compact_token_limit.",
+          "type": "integer",
+          "minimum": 100000,
+          "maximum": 1000000
+        }
+      }
+    },
     "targets": {
       "description": "Which agent homes the build writes into.",
       "type": "object",

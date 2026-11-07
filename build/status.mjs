@@ -75,6 +75,10 @@ export function status(repo) {
     effort,
     reviewers,
     reviewBots,
+    browser: config.browser,
+    attribution: config.attribution,
+    telemetry: config.telemetry,
+    autoCompact: config.autoCompact,
     skills,
   };
 }

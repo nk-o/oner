@@ -39,7 +39,8 @@ export function readRawConfig(repoDir) {
 
 // Returns the config with every default filled in and every dir absolute:
 // { language, disabledSkills, effort: { <stage>: <level> }, reviewers: { <provider>: { enabled, ... } },
-//   reviewBots: { <bot>: <mode> }, targets: { <name>: { enabled, dir } } }
+//   reviewBots: { <bot>: <mode> }, browser, attribution, telemetry, autoCompact: <tokens> | null,
+//   targets: { <name>: { enabled, dir } } }
 export function loadConfig(repoDir) {
   return validateConfig(readRawConfig(repoDir), repoDir);
 }
@@ -49,7 +50,7 @@ export function loadConfig(repoDir) {
 export function validateConfig(raw, repoDir) {
   const at = (path, msg) => new BuildError(`config.json ${path}: ${msg}`);
   if (!isObject(raw)) throw at('', 'must be an object');
-  onlyKeys(raw, ['$schema', 'language', 'skills', 'effort', 'externalReview', 'reviewBots', 'targets'], '', at);
+  onlyKeys(raw, ['$schema', 'language', 'skills', 'effort', 'externalReview', 'reviewBots', 'browser', 'attribution', 'telemetry', 'autoCompact', 'targets'], '', at);
 
   if (raw.language !== undefined && (typeof raw.language !== 'string' || !raw.language.trim())) {
     throw at('language', 'must be a language name, such as "English"');
@@ -102,6 +103,19 @@ export function validateConfig(raw, repoDir) {
     reviewBots[name] = mode;
   }
 
+  const switches = {};
+  for (const [key, fallback] of [['browser', false], ['attribution', false], ['telemetry', true]]) {
+    const value = objectAt(raw[key], key, at);
+    onlyKeys(value, ['enabled'], key, at);
+    boolAt(value.enabled, `${key}.enabled`, at);
+    switches[key] = value.enabled ?? fallback;
+  }
+  const compact = objectAt(raw.autoCompact, 'autoCompact', at);
+  onlyKeys(compact, ['tokens'], 'autoCompact', at);
+  if (compact.tokens !== undefined && !(Number.isInteger(compact.tokens) && compact.tokens >= 100000 && compact.tokens <= 1000000)) {
+    throw at('autoCompact.tokens', 'must be a whole number of tokens from 100000 to 1000000');
+  }
+
   const targetsIn = objectAt(raw.targets, 'targets', at);
   onlyKeys(targetsIn, Object.keys(TARGETS), 'targets', at);
   const targets = {};
@@ -119,7 +133,7 @@ export function validateConfig(raw, repoDir) {
     targets[name] = { enabled: t.enabled ?? (spec.alwaysOn || existsSync(dir)), explicit: t.enabled !== undefined, dir };
   }
 
-  return { language: raw.language?.trim() ?? 'English', disabledSkills: disabled, effort, reviewers, reviewBots, targets };
+  return { language: raw.language?.trim() ?? 'English', disabledSkills: disabled, effort, reviewers, reviewBots, ...switches, autoCompact: compact.tokens ?? null, targets };
 }
 
 export function listSkills(repoDir) {

@@ -371,6 +371,12 @@
       <div class="card" id="bots"></div>
     </section>
 
+    <section aria-labelledby="h-behavior">
+      <h2 id="h-behavior">Agent settings</h2>
+      <p class="help">Written into each agent's own settings, so they hold in every app that runs it. Model, effort, and permissions stay with that app.</p>
+      <div class="card" id="behavior"></div>
+    </section>
+
     <section aria-labelledby="h-skills">
       <div class="skills-head">
         <div>
@@ -432,6 +438,10 @@ function draftFrom(s) {
     effort: Object.fromEntries(s.effort.map((e) => [e.stage, e.level])),
     reviewers: Object.fromEntries(s.reviewers.map((r) => [r.name, { enabled: r.enabled, model: r.model, ...(r.effort ? { effort: r.effort } : {}) }])),
     reviewBots: Object.fromEntries(s.reviewBots.map((b) => [b.name, b.mode])),
+    browser: s.browser,
+    attribution: s.attribution,
+    telemetry: s.telemetry,
+    autoCompact: s.autoCompact,
     disabledSkills: s.skills.filter((k) => k.disabled).map((k) => k.name),
   };
 }
@@ -459,6 +469,9 @@ function changes() {
   }
   for (const [name, mode] of Object.entries(draft.reviewBots)) {
     if (mode !== base.reviewBots[name]) (out.reviewBots ??= {})[name] = mode;
+  }
+  for (const key of ["browser", "attribution", "telemetry", "autoCompact"]) {
+    if (draft[key] !== base[key]) out[key] = draft[key];
   }
   if (JSON.stringify(draft.disabledSkills) !== JSON.stringify(base.disabledSkills)) out.disabledSkills = draft.disabledSkills;
   return out;
@@ -523,6 +536,33 @@ function renderBots() {
       el("div", { class: "model" },
         el("select", { "aria-label": `${b.label} review bot`, onchange: (e) => { draft.reviewBots[b.name] = e.target.value; refreshBar(); } },
           b.modes.map((m) => el("option", { value: m, selected: m === draft.reviewBots[b.name] }, m)))))));
+}
+
+function switchRow(key, title, sub) {
+  return el("div", { class: "row" },
+    toggle(`o-${key}`, draft[key], title, (e) => { draft[key] = e.target.checked; refreshBar(); }),
+    el("div", {}, el("div", { class: "title" }, title), el("div", { class: "sub" }, sub)));
+}
+
+function renderBehavior() {
+  const tokens = el("input", { type: "text", inputmode: "numeric", value: draft.autoCompact ?? "", placeholder: "Agent default",
+    "aria-label": "Compact the conversation at this many tokens", spellcheck: "false", autocomplete: "off",
+    oninput: (e) => {
+      const n = Number(e.target.value.trim());
+      const ok = e.target.value.trim() === "" || (Number.isInteger(n) && n >= 100000 && n <= 1000000);
+      e.target.setCustomValidity(ok ? "" : "A whole number from 100000 to 1000000");
+      draft.autoCompact = e.target.value.trim() === "" ? null : ok ? n : draft.autoCompact;
+      refreshBar();
+    } });
+  $("behavior").replaceChildren(
+    switchRow("browser", "Use your Chrome", "Claude in Chrome for Claude Code, Computer Use for Codex"),
+    switchRow("attribution", "Credit the agent in commits and pull requests", "Claude Code and Cursor"),
+    switchRow("telemetry", "Send usage data to the vendor", "Claude Code and Codex"),
+    el("div", { class: "row" },
+      el("span"),
+      el("div", {}, el("div", { class: "title" }, "Compact the conversation at"),
+        el("div", { class: "sub" }, "Tokens, for Claude Code and Codex")),
+      el("div", { class: "model" }, tokens)));
 }
 
 function renderEffort() {
@@ -592,6 +632,7 @@ function render() {
   renderEffort();
   renderReviewers();
   renderBots();
+  renderBehavior();
   renderSkills();
   $("config-path").textContent = tilde(`${state.repo}/config.json`);
   const v = state.version;
