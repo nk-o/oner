@@ -50,9 +50,11 @@ each push and so spends that bot's quota.
 These write into each agent's own settings files, so they hold in every host, T3 Code included.
 Model, effort, and permission mode are left to the host. Each takes effect in the next session.
 
-- `browser.enabled` lets agents drive the user's Chrome. Claude Code gets
-  `CLAUDE_CODE_ENABLE_CFC=1` for the Claude in Chrome extension. Codex gets a rule to use
-  Computer Use, which needs its Accessibility and Screen Recording permissions.
+- `browser.enabled` adds a rule to Claude Code, Codex, and Cursor to drive the user's Chrome
+  through Tencent BrowserSkill. It needs the `bsk` CLI (`install.sh` from
+  github.com/Tencent/BrowserSkill), its Chrome extension, and
+  `bsk install-skill -H claude-code -H codex`, which Cursor also reads. Check it with
+  `bsk doctor`.
 - `attribution.enabled` (off by default) lets Claude Code and Cursor credit themselves in commits
   and pull requests.
 - `telemetry.enabled` (on by default). Off sets `DISABLE_TELEMETRY` for Claude Code and

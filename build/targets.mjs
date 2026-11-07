@@ -12,6 +12,16 @@
 //   vendor        the external-review provider this agent already is
 //   trustNote     said whenever the build changes the hooks, when the agent must approve them
 //   options       what each agent setting in config.json writes here, by OPTIONS name
+// The skill and CLI come from Tencent/BrowserSkill (`bsk install-skill`), not from this
+// repository. Its extension works in a background window without the per-connection
+// "Allow remote debugging?" prompt that CDP tools trigger, so parallel sessions stay quiet.
+const BROWSER_RULE =
+  '## Browser\n\n' +
+  "To open or drive the user's own Chrome, use the `browser-skill` skill and its `bsk` CLI. It " +
+  "works in a background Agent Window with the user's logins and runs sessions in parallel. Do " +
+  'not use Claude in Chrome, the Codex Chrome plugin, or Computer Use for this. A page that needs ' +
+  "no login can use the host's built-in browser, such as T3 Code's preview.";
+
 export const TARGETS = {
   claude: {
     label: 'Claude Code',
@@ -26,9 +36,7 @@ export const TARGETS = {
     legacy: ['"$HOME/.agents/skills/oneshot/hook.sh"'],
     vendor: 'claude',
     options: {
-      // Claude in Chrome. A session started by an SDK host such as T3 Code ignores
-      // the extension's "Enabled by default" and reads only this variable.
-      browser: () => ({ json: { 'settings.json': { env: { CLAUDE_CODE_ENABLE_CFC: '1' } } } }),
+      browser: () => ({ rules: BROWSER_RULE }),
       noAttribution: () => ({ json: { 'settings.json': { attribution: { commit: '', pr: '' } } } }),
       noTelemetry: () => ({ json: { 'settings.json': { env: { DISABLE_TELEMETRY: '1' } } } }),
       autoCompact: (config) => ({ json: { 'settings.json': { autoCompactWindow: config.autoCompact } } }),
@@ -47,15 +55,7 @@ export const TARGETS = {
     legacy: [],
     vendor: 'codex',
     options: {
-      // The Chrome plugin's browser surface needs the desktop app's access host.
-      // Computer Use runs without it, so every host reaches Chrome that way.
-      browser: () => ({
-        rules:
-          '## Browser\n\n' +
-          "To open or drive the user's Chrome, use Computer Use: `cua_repl` with " +
-          '`cua.getApp("Google Chrome")`. The Chrome plugin\'s browser surface works only inside the ' +
-          'Codex desktop app and reports "The browser access host is unavailable" everywhere else.',
-      }),
+      browser: () => ({ rules: BROWSER_RULE }),
       noTelemetry: () => ({ toml: { tables: { analytics: { enabled: false } } } }),
       autoCompact: (config) => ({ toml: { keys: { model_auto_compact_token_limit: config.autoCompact } } }),
     },
@@ -71,6 +71,7 @@ export const TARGETS = {
     agents: { dir: 'agents', format: 'md' },
     settings: { file: 'hooks.json', template: 'targets/cursor/hooks.json' },
     options: {
+      browser: () => ({ rules: BROWSER_RULE }),
       noAttribution: () => ({
         json: { 'cli-config.json': { attribution: { attributeCommitsToAgent: false, attributePRsToAgent: false } } },
       }),

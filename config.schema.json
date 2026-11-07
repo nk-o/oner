@@ -122,7 +122,7 @@
       }
     },
     "browser": {
-      "description": "Lets Claude Code and Codex open and drive your own Chrome, in every host that runs them. Claude Code uses the Claude in Chrome extension. Codex uses Computer Use, which needs its Accessibility and Screen Recording permissions.",
+      "description": "Points Claude Code, Codex, and Cursor at Tencent BrowserSkill to drive your own Chrome in a background window. Needs the bsk CLI, its Chrome extension, and `bsk install-skill -H claude-code -H codex`.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
