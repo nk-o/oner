@@ -139,9 +139,9 @@ Coordinates come from the shot's boxes, each measured for the mark it feeds:
   the side the pixel rules below name.
 
 Look at each mark in the draft through its `editUrl` before publishing. The dashboard needs the
-user's sign-in, so open it in the user's own browser (Claude in Chrome on Claude Code), never a
-fresh one, which lands on the sign-in page. Without the user's browser, the stop or the report
-names the images for the user to look at.
+user's sign-in, so open it in the user's own browser through the `browser-skill` skill, never a
+fresh one, which lands on the sign-in page. Without `bsk`, the stop or the report names the
+images for the user to look at.
 
 ## Annotations in the image
 
@@ -195,8 +195,9 @@ a change that shows nowhere.
   pointer along a path of points or selectors (`pointer: { path, cursor: true }`, with a drawn
   arrow, because a headless page shows no pointer); `target` with `grow` crops to a section.
   The script's header lists every key. For a page only the user's browser reaches, record the
-  window with the OS recorder (on macOS, `screencapture -v -V 8 -R x,y,w,h <file>.mov`, then
-  ffmpeg to MP4).
+  tab with `bsk video start --quality clear` and `bsk video stop --out <file>.mp4`. It records
+  at the Agent Window's size in CSS pixels, not at 2x, so prefer `record.mjs` with a saved
+  `--login` session wherever the page allows one.
 - Two or more variants the reader compares, such as two presets or the desktop and the phone
   layout, sit side by side in one `<Gallery>`, each image titled by its variant, not in a stack
   of images the reader scrolls between.
@@ -288,84 +289,70 @@ Run it with `node {{skills_dir}}/docs/scripts/shoot.mjs <run>/shots.json`, or `-
 it. Find selectors in the running product first, in a browser tool, rather than guessing them
 from the source.
 
+A local dev server draws its own overlays, such as Next.js's `nextjs-portal` indicator or a
+query devtools button: put them in the list's `hide`. The selectors of one shot live in one
+document, so a spotlight on a part of a same-origin iframe, such as an editor's preview, takes
+an `eval` action that lays an empty fixed `div` with an id over that part, sized by the frame's
+box and its width over its `innerWidth`, and the spotlight names that id.
+
 ## Screens behind a sign-in
 
 An admin screen, such as a theme editor, and a store behind a password need the user's
 session. A shot that comes back as a sign-in or password page is the sign.
 
-When the session has the user's own browser (Claude in Chrome), take these shots there. The
-user is already signed in, and nobody types a password. A fresh browser that signs in by itself
-often stops at a bot check (Shopify's admin answers "Just a moment..." to Playwright), so the
-user's browser is the first choice, not the fallback.
+Take these shots in the user's own Chrome through the `browser-skill` skill and its `bsk` CLI.
+Read that skill first: every untargeted command needs the `context_id` and a fresh
+`observation_id` from `bsk cooperate sync`, and refs come from that sync. The user is already
+signed in, and nobody types a password. A fresh browser that signs in by itself often stops at
+a bot check (Shopify's admin answers "Just a moment..." to Playwright), so the user's browser is
+the first choice, not the fallback. The Agent Window works in the background, and its overlay
+stays out of the page, so a capture holds the page alone.
 
-1. Size the page in the tab, not the window. Open DevTools in the shooting tab, turn on the
-   device toolbar, and set it to Responsive, 1440 by 900, device pixel ratio 2, zoom 100%. The
-   window itself can stay in full screen, and the user's other tabs keep their size. Check it
-   before anything else:
-   ```js
-   ({ page: [innerWidth, innerHeight], dpr: devicePixelRatio })
-   ```
-   Never crop a finished shot to remove what the window adds, such as rounded window corners or
-   a strip of toolbar: the crop cuts the page the reader needs and the image looks wrong. Fix the
-   capture instead.
-2. After every navigation, run this in `javascript_tool`. It hides what the extension draws on
-   the page (a glowing frame, a toast, a pointer), hides the scrollbar, and places the 3 by 3
-   marker the crop finds the page by:
-   ```js
-   if (!document.getElementById('docs-shot-hide')) { const st = document.createElement('style'); st.id = 'docs-shot-hide'; st.textContent = '#claude-agent-glow-border,#claude-static-indicator-container,#claude-phantom-cursor{display:none!important}html{scrollbar-width:none!important}'; document.head.append(st); }
-   if (!document.getElementById('docs-shot-mark')) { const m = document.createElement('div'); m.id = 'docs-shot-mark'; m.style.cssText = 'position:fixed;top:0;left:0;width:3px;height:3px;background:#ff00ff;z-index:2147483647;pointer-events:none'; document.body.append(m); }
-   ```
-   Remove overlays the reader never sees (a preview bar, a floating picker) the same way.
-3. Measure what you will annotate. On a page you can script, read boxes with
-   `getBoundingClientRect()`. Inside a cross-origin frame, such as the theme editor's sidebar,
-   take a `screenshot` at a small scale: CSS pixels are its frame pixels times 1440 over the
-   reported frame width.
-4. Move the pointer off the subject, keep the Chrome window frontmost, check that
-   `document.visibilityState` is `visible` (a tab the extension opens stays behind the one
-   Chrome draws), and capture it on macOS:
+1. Start the session with `--agent-name`, `--project` and `--name`, as `AGENTS.md` says, and
+   size the tab:
    ```bash
-   {{skills_dir}}/docs/scripts/chrome-window.sh <run>/media/raw/<name>.png
-   node {{skills_dir}}/docs/scripts/shoot.mjs --window <run>/media/raw/<name>.png --page-width 1440 \
+   bsk emulate --width 1440 --height 900 --dpr 2 --session <id> --context <ctx> --observation <obs>
+   bsk evaluate '({ page: [innerWidth, innerHeight], dpr: devicePixelRatio })' --session <id> --context <ctx> --observation <obs>
+   ```
+   Emulation belongs to the tab, so a new tab starts at the window's size and 1x again.
+2. After every navigation, hide the scrollbar and the overlays the reader never sees (a preview
+   bar, a floating picker, a framework's dev indicator) with `bsk evaluate`:
+   ```js
+   if (!document.getElementById('docs-shot-hide')) { const st = document.createElement('style'); st.id = 'docs-shot-hide'; st.textContent = 'html{scrollbar-width:none!important}'; document.head.append(st); }
+   ```
+3. Measure what you will annotate. On a page you can script, read boxes with
+   `getBoundingClientRect()` through `bsk evaluate`. Inside a frame, such as a preview in an
+   iframe, add the frame's own box to the inner box, scaled by the frame's width over its
+   `innerWidth`. A cross-origin frame cannot be scripted: take the control's ref from the sync
+   and run `bsk scroll-to <ref> --json`, which returns `x`, `y`, `width` and `height` in the
+   page's CSS pixels.
+4. Capture the viewport and crop it:
+   ```bash
+   bsk screenshot --out <run>/media/raw/<name>.png --json --session <id> --context <ctx> --observation <obs>
+   node {{skills_dir}}/docs/scripts/shoot.mjs --crop <run>/media/raw/<name>.png --page-width 1440 \
      [--box x,y,w,h] [--spotlight x,y,w,h]... [--highlight x,y,w,h]... [--arrow x,y,w,h,from[,length]]... \
      [--marker n,x,y,w,h,at]... [--redact x,y,w,h]... [--mark name,x,y,w,h]... --out <run>/media/<name>.webp
    ```
-   Repeated `--spotlight` boxes join into one bright area that holds them all; a second,
-   separate area is `--spotlight-also`. `--mark name,x,y,w,h[,pad]` draws nothing and writes
-   `<name>.json` with the box in percent of the finished image, grown by `--pad` or its own pad: on the help-center path it is the only annotation flag
-   to pass, beside `--redact`.
-   The capture holds the whole window at the screen's real pixels, and `--window` crops the
-   page out of it at the marker, so tab strips, toolbars and the "started debugging this
-   browser" banner, which comes and goes and shifts the page, never decide the crop. Keep the
-   raw capture: a changed annotation is a second `--window` run, not a second visit.
-   Without macOS, capture tiles instead: `zoom` at scale 1 with `save_to_disk` returns the
-   screen's real pixels up to about 1.2 megapixels per call, assembled with `--tile x,y,w,h,<tile.png>`
-   in the screenshot's frame pixels and `--frame-width`.
-   Check every capture before you keep it, and take it again when one of these shows. A script
-   that does it is cheaper than finding the defect in the help center:
-   - The extension's glow along the window's edges: compare the color of the outermost pixel
-     columns with a column about 15 px inside, and retry when the edge is much warmer.
-   - Chrome's link status bubble in the bottom left corner, which shows while the real pointer
-     rests on a link in the page: move the pointer off the Chrome window.
-   - Something mid-animation, such as a rotating announcement bar: capture twice and retry
-     while the two differ there.
+   The capture must be 2880 by 1800; `--crop` refuses a source under 2x. Repeated `--spotlight`
+   boxes join into one bright area that holds them all; a second, separate area is
+   `--spotlight-also`. `--mark name,x,y,w,h[,pad]` draws nothing and writes `<name>.json` with
+   the box in percent of the finished image, grown by `--pad` or its own pad: on the
+   help-center path it is the only annotation flag to pass, beside `--redact`. Keep the raw
+   capture: a changed annotation is a second `--crop` run, not a second visit. Something
+   mid-animation, such as a rotating announcement bar, shows as a difference between two
+   captures: retake while they differ there.
 5. Open the result. Blur internal names the reader should not see, such as a development
    theme's name, with `--redact`, and check that every annotation lands where the alt text says.
-
-The capture is only as good as what is on the screen. A locked screen or a hidden tab gives a
-white or stale page: Chrome stops drawing a tab nobody can see, and an editor shows a grey
-skeleton until its window is visible. Ask the user to unlock the screen and keep the window in
-front. Only the active tab of the window is drawn, so work in it or in a new tab Chrome
-switches to.
+6. Run `bsk emulate --off`, then `bsk session stop <id>`, on success and on failure.
 
 Never click **Save**, **Publish**, or anything else that changes the product while setting up
 a shot. Opening a panel or a picker is fine, and so is changing a setting only to show its
 result, as long as it is never saved. Roll every such change back with the editor's own Undo
-until **Save** is disabled again, before the next navigation: a page that holds unsaved changes
-refuses the extension's navigation, even a forced one, and the extension cannot close it. Some
+until **Save** is disabled again, before the next navigation, so no leave-page prompt opens. Some
 editors record an unsaved change just from opening a panel; undo it the same way, or ask the
 user to leave the page through its prompt.
 
-Without the user's browser, run once per host:
+Without `bsk`, run once per host:
 
 ```bash
 node {{skills_dir}}/docs/scripts/shoot.mjs --login <url>

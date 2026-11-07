@@ -2,12 +2,12 @@
 // Captures and annotates help-center screenshots. Format and rules: ../references/screenshots.md.
 //   node shoot.mjs <shots.json> [--out <dir>] [--only <name>[,<name>]]
 //   node shoot.mjs --login <url>   opens a window, saves the session when you close the tab
-//   node shoot.mjs --crop <image> | --tile x,y,w,h,<image>... | --window <capture.png> --page-width <css px>
-//     [--frame-width <px>] [--page-height <css px>] --box x,y,w,h [--balance] [--pad <css px>]
+//   node shoot.mjs --crop <image> --page-width <css px> [--box x,y,w,h] [--balance] [--pad <css px>]
 //     [--spotlight x,y,w,h]... [--spotlight-also x,y,w,h]... [--highlight x,y,w,h]... [--arrow x,y,w,h,from]...
 //     [--marker n,x,y,w,h,at]... [--redact x,y,w,h]... [--erase x,y,w,h]... [--mark name,x,y,w,h[,pad]]...
 //     [--even <css px> [--open top,right,bottom,left]] [--panel] --out <file>
-//     assembles, crops, and annotates screenshots taken elsewhere (the user's own browser).
+//     crops and annotates a 2x viewport screenshot taken elsewhere (`bsk screenshot` in the user's
+//     own browser); a source under 2x fails.
 //     Repeated --spotlight boxes join into one bright area; each --spotlight-also is an area of its own.
 //     --mark writes no pixels: <out>.json gets the box in percent of the finished image, grown by
 //     --pad (or its own pad), for a help center that draws annotations itself.
@@ -89,25 +89,10 @@ async function render(page, input) {
       return { ...layer, image };
     }));
     const first = layers[0];
-    // A capture of a whole browser window: the page carries a 3x3 #FF00FF marker at its top-left
-    // corner, so the page lands at the marker whatever toolbars and banners sit above it.
-    if (o.window) {
-      const scan = document.createElement('canvas');
-      scan.width = first.image.naturalWidth;
-      scan.height = first.image.naturalHeight;
-      const sctx = scan.getContext('2d');
-      sctx.drawImage(first.image, 0, 0);
-      const px = sctx.getImageData(0, 0, scan.width, scan.height).data;
-      let at = null;
-      for (let i = 0; i < px.length && !at; i += 4) {
-        if (px[i] > 200 && px[i + 1] < 90 && px[i + 2] > 200 && px[i] - px[i + 1] > 150) at = [(i / 4) % scan.width, Math.floor(i / 4 / scan.width)];
-      }
-      if (!at) throw new Error('page marker not found in the window capture');
-      first.x = -at[0] / o.k;
-      first.y = -at[1] / o.k;
-      first.w = first.image.naturalWidth / o.k;
-    }
     const k = o.k ?? first.image.naturalWidth / first.w;
+    if (o.minScale && k < o.minScale - 0.01) {
+      throw new Error(`the source is ${first.image.naturalWidth} px wide for a ${first.w} px page, ${Math.round(k * 100) / 100}x; retake it at ${o.minScale}x`);
+    }
     const box = o.box ?? [first.x, first.y, first.w, first.image.naturalHeight / k];
     let canvas = document.createElement('canvas');
     canvas.width = Math.round(box[2] * k);
@@ -124,12 +109,6 @@ async function render(page, input) {
     for (const layer of layers) {
       const h = layer.h ?? layer.image.naturalHeight / k;
       ctx.drawImage(layer.image, (layer.x - box[0]) * k, (layer.y - box[1]) * k, layer.w * k, h * k);
-    }
-    if (o.window && box[0] < 4 && box[1] < 4) {
-      // The marker is gone from the result: painted with the pixel just right of it.
-      const fill = ctx.getImageData(Math.round((6 - box[0]) * k), Math.round((1 - box[1]) * k), 1, 1).data;
-      ctx.fillStyle = `rgb(${fill[0]},${fill[1]},${fill[2]})`;
-      ctx.fillRect(0, 0, (4 - box[0]) * k, (4 - box[1]) * k);
     }
     let dx = -box[0] * k;
     let dy = -box[1] * k;
@@ -690,22 +669,15 @@ async function shoot(listPath, out, only) {
 const mime = (path) => (path.endsWith('.png') ? 'png' : path.endsWith('.webp') ? 'webp' : 'jpeg');
 const dataUrl = (path) => `data:image/${mime(path)};base64,${readFileSync(path).toString('base64')}`;
 
-// A screenshot from elsewhere: one whole-page image, tiles placed where they were taken, or a
-// capture of a whole browser window whose page carries the corner marker. Tile boxes are in the
-// screenshot tool's frame pixels; `frameWidth` over `pageWidth` turns them into CSS pixels.
+// A viewport screenshot taken elsewhere, such as `bsk screenshot` in the user's own browser.
 async function crop(options) {
   const { chromium } = loadPlaywright();
   const browser = await chromium.launch();
   const page = await browser.newPage();
-  const ratio = options.pageWidth / (options.frameWidth ?? options.pageWidth);
-  const layers = options.tiles.length
-    ? options.tiles.map(([x, y, w, h, path]) => ({ src: dataUrl(resolve(path)), x: x * ratio, y: y * ratio, w: w * ratio, h: h * ratio }))
-    : [{ src: dataUrl(options.input), x: 0, y: 0, w: options.pageWidth }];
   const result = await render(page, {
-    layers,
-    window: options.window,
-    k: options.window ? options.scale : undefined,
-    box: options.box ?? (options.window ? [0, 0, options.pageWidth, options.pageHeight] : undefined),
+    layers: [{ src: dataUrl(options.input), x: 0, y: 0, w: options.pageWidth }],
+    minScale: 2,
+    box: options.box,
     balance: options.balance,
     even: options.even,
     open: options.open,
@@ -740,19 +712,18 @@ const flag = (name) => {
 };
 const all = (name) => args.flatMap((arg, index) => (arg === name ? [args[index + 1]] : []));
 const values = (value) => value.split(',').map((part) => (part === '' || Number.isNaN(Number(part)) ? part : Number(part)));
-const usage = 'Usage: node shoot.mjs <shots.json> [--out <dir>] [--only <name>] | --login <url> | --crop <image> | --tile x,y,w,h,<image>... | --window <capture.png> [--scale 2] --page-width <px> [--page-height <px>] [--frame-width <px>] [--box x,y,w,h] [--balance] [--pad <px>] [--spotlight x,y,w,h]... [--spotlight-also x,y,w,h]... [--highlight x,y,w,h]... [--arrow x,y,w,h,from[,length]]... [--marker n,x,y,w,h,at]... [--redact x,y,w,h]... [--mark name,x,y,w,h[,pad]]... --out <file>. Repeated --spotlight boxes join into one area; --spotlight-also adds a separate one.';
+const usage = 'Usage: node shoot.mjs <shots.json> [--out <dir>] [--only <name>] | --login <url> | --crop <image> --page-width <px> [--box x,y,w,h] [--balance] [--pad <px>] [--spotlight x,y,w,h]... [--spotlight-also x,y,w,h]... [--highlight x,y,w,h]... [--arrow x,y,w,h,from[,length]]... [--marker n,x,y,w,h,at]... [--redact x,y,w,h]... [--mark name,x,y,w,h[,pad]]... --out <file>. Repeated --spotlight boxes join into one area; --spotlight-also adds a separate one.';
 if (flag('--login')) {
   await login(flag('--login'));
-} else if (flag('--crop') || flag('--window') || all('--tile').length) {
+} else if (flag('--crop')) {
+  if (!(Number(flag('--page-width')) > 0)) {
+    console.error('--crop needs --page-width, the page width in CSS pixels');
+    process.exit(2);
+  }
   const spotlights = all('--spotlight').map(values);
   await crop({
-    input: resolve(flag('--crop') ?? flag('--window') ?? '.'),
-    window: Boolean(flag('--window')),
-    scale: Number(flag('--scale') ?? 2),
-    tiles: all('--tile').map(values),
+    input: resolve(flag('--crop')),
     pageWidth: Number(flag('--page-width')),
-    pageHeight: Number(flag('--page-height') ?? 900),
-    frameWidth: flag('--frame-width') && Number(flag('--frame-width')),
     box: flag('--box') && values(flag('--box')),
     balance: args.includes('--balance'),
     even: flag('--even') != null ? Number(flag('--even')) : args.includes('--panel') ? 24 : undefined,
