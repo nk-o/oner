@@ -19,6 +19,16 @@ clear. Shopify's own help center uses few images, and so should this one.
 - Demo content only: the product's demo store or seeded data. Never a real customer, order,
   or account. Hide anything personal with `hide`. Where the page cannot be styled, such as a
   name inside an admin's cross-origin frame, `redact` blurs that box past reading.
+- The product as a new user gets it: a project made the way the product makes one, with its
+  default theme, colors, fonts and templates. Change a setting only in the image that shows
+  that setting, and set it back for the next. A custom palette or font carried through every
+  image makes the docs show a different product from the one the reader opens.
+- Nothing temporary: a launch offer, a discount button, a promotion banner or a notice the
+  release will drop is hidden with `hide`, and `run.md` lists each one with its selector so
+  every retake hides it too.
+- A plain background behind anything that opens over the page, such as a picker, a menu or a
+  popover: open it over a plain section, never over a photo or a busy section, where its edges
+  get lost.
 - Realistic content: the demo data the product ships with, the way a user would fill it. A
   placeholder image, lorem text, or sample content that reads like a test ("Heading",
   "Product 1") is a defect to reshoot. When the demo itself holds it, list it under **Findings
@@ -98,6 +108,15 @@ frames images, give it the larger frame (Poise: `frame="on"`) and a `width` that
 its real size. Keep the full screen for the first image of a screen and for a setting whose
 effect shows in the preview beside it.
 
+Most images in an article are crops: the panel, the menu or the part of the screen the step
+works in. The whole screen is for the first image of a screen and for a setting whose effect
+shows beside it. Before keeping a full-screen image, ask what the reader would lose if it were
+cut to the half that matters; when the answer is nothing, crop it.
+
+A dialog, a modal or a sheet that dims the page behind it is the whole screen, or a crop with
+at least 48 CSS px of the dimmed page on every side. A crop at the dialog's own edge shows the
+dim page only in its rounded corners, which reads as a rendering fault.
+
 A crop to the element alone, such as a 100 px strip of a header or one product card, fails the
 first two: the reader cannot tell where it sits. A whole screen for a 30 px badge fails the
 other way: the subject is lost at the size the help center shows it. When in doubt between
@@ -115,9 +134,15 @@ checks the limits it can count.
 | `<Spotlight>` | The image is large and the text is about one part of it: a settings group in a full editor, one card in a grid. Two only for a setting and the part it changes; Poise cuts both out of one shade. | The part is most of the image. |
 | `<Area>` | Similar elements sit next to the one the text names, such as a group of settings in a long panel. A label, when it adds a name the image lacks, of at most four words. | The target is a small icon, which an outline hides. |
 | `<Pointer>` | One control needs its name beside the image: a label of two to four words, the control's own label or what it does. On a phone it becomes a numbered note, so it reads alone. | The image is a crop of that one control. |
-| `<Marker>` | The order of actions on one screen matters, two or more of them. Its text is listed under the image and takes **bold** for labels. | The path to the screen: the steps already say it. |
+| `<Marker>` | The order of actions on one screen matters, two or more of them. Or a tour of a whole screen: one numbered Marker per region, at most six, matching a table or list beside the image. Its text is listed under the image and takes **bold** for labels. | The path to the screen: the steps already say it. |
 | `<Arrow>` | The target is small or easy to miss, an icon or a toggle, and nothing else isolates it. It comes from empty space and its point lands on the icon. | A Spotlight already isolates it. |
 | `<Line>` | Rarely: it joins two marked points, such as a setting and the part of the preview it changes, where the eye would not link them. | Anything an Area beside the setting already says. |
+
+A tour of a screen, such as the parts of an editor, never takes a Pointer per control: their
+labels overlap and the image turns into a puzzle. Number the three to six regions the text
+describes with Markers, or outline them with Areas, and let the table beside the image name
+them. Before keeping marks, look at the image at the size the help center shows it: two marks
+whose labels or badges touch are one too many.
 
 A setting and its effect on one screen take two Spotlights, one on the setting and one on the
 part of the preview it changes, as two bright areas do in an image. Never an Area in the shade:

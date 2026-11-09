@@ -141,6 +141,9 @@ function checkMeta(meta, required, report) {
       : 'must be 3-48 lowercase letters, digits and single hyphens',
   );
   field('nav_title', length(3, 32));
+  const title = meta.title?.value ?? '';
+  if (title.length > 32 && !meta.nav_title?.value)
+    report(meta.title.line, 'meta', `title is ${title.length} characters, add a nav_title within 32 for the sidebar`);
   field('collection', present);
   field('sources', present);
   field('seo_title', length(20, 60));

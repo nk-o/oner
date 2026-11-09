@@ -44,6 +44,14 @@ different files, so they run at once. Shots run after all batches, one list at a
 they share the product's dev server: `shoot.mjs <run>/shots-<collection>.json --out <run>/media`
 for each file.
 
+Write a page for every collection into `collections/<slug>.md`, in the article Markdown, once
+its articles exist: one or two paragraphs on what the collection covers and who needs it, then
+a `## Where to start` card group of three to six of its articles, each with its one-line
+excerpt, the article a new reader needs first leading. The first collection's page also shows
+the product in one image, as the start of the whole help center. Its own checklist line in
+`run.md` per collection; a collection whose page is empty is not done. `poise.md` says what the
+page leaves out.
+
 Read every returned article before you tick it as `checked`. Run the fresh readers in parallel,
 one per article, as `agents.md` says: a large build is where skipping them costs most.
 Nothing stops in this stage.
@@ -56,6 +64,8 @@ has a path, then the bodies, metadata and product references from the files `bod
 `meta.mjs` wrote, each write's checksum checked. These are mechanical lanes on the cheaper
 model. An existing article the build updates is written after the stop, as `SKILL.md` step 7
 says.
+Then write each collection's page from `collections/<slug>.md` with `save_collection`'s
+`markdown`, its card links filled with the paths the drafts got.
 
 **Stop.** Show the table of all articles with each new one's `editUrl` and the manual steps
 from `poise.md`. After the yes, write the updates and publish everything with
