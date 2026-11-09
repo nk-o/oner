@@ -8,7 +8,7 @@
 // lint-fixture.md and lint-fixture.edits.json together hold at least one violation of every
 // rule: after changing a rule, run this on both and check that every rule id still appears.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 const TYPES = ['how-to', 'reference', 'guide', 'concept', 'troubleshooting', 'changelog'];
 
@@ -345,6 +345,16 @@ if (files.length === 0) {
   process.exit(2);
 }
 let count = 0;
+// body.mjs writes one upload/<slug>.md per slug, so two drafts of one slug, such as an
+// article and an Updates entry, would let one copy's edits silently replace the other's.
+const seen = new Map();
+for (const file of files.filter((path) => path.endsWith('.md'))) {
+  const slug = basename(file, '.md');
+  if (seen.has(slug)) {
+    console.log(`${file}:1 duplicate slug "${slug}" is also ${seen.get(slug)}; keep one draft`);
+    count++;
+  } else seen.set(slug, file);
+}
 for (const file of files) {
   for (const { at, rule, message } of lintFile(file)) {
     console.log(`${file}:${at} ${rule} ${message}`);
