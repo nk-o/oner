@@ -84,7 +84,7 @@ export function validateConfig(raw, repoDir) {
     const r = objectAt(reviewIn[name], path, at);
     onlyKeys(r, ['enabled', ...Object.keys(spec.defaults)], path, at);
     boolAt(r.enabled, `${path}.enabled`, at);
-    const out = { enabled: r.enabled ?? true };
+    const out = { enabled: r.enabled ?? spec.defaultEnabled ?? true };
     for (const [key, value] of Object.entries(spec.defaults)) {
       if (r[key] !== undefined && (typeof r[key] !== 'string' || !/^[A-Za-z0-9._:-]+$/.test(r[key]))) {
         throw at(`${path}.${key}`, 'must be a plain name such as "gpt-5.6-sol"');

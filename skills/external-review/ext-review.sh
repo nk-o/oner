@@ -11,6 +11,8 @@ ENABLED="cursor codex claude"
 if [ -f "$here/providers.env" ]; then . "$here/providers.env"; fi
 provider="all"
 model="${CURSOR_MODEL:-cursor-grok-4.6-low}"
+grok_model="${GROK_MODEL:-grok-4.7}"
+grok_effort="${GROK_EFFORT:-high}"
 # Measured on one commit across six GPT-5.6 model and effort pairs: Sol reported real
 # defects at medium and at high, medium in two thirds of the time, Terra reported
 # nothing at either, and Luna spent the most tokens of the three. Pinned for this
@@ -24,7 +26,7 @@ intent=""
 
 usage() {
   cat <<'USAGE'
-Usage: ext-review.sh [--provider cursor|codex|claude|all] [--base <ref>]
+Usage: ext-review.sh [--provider cursor|grok|codex|claude|all] [--base <ref>]
                      [--model <slug>] [--intent <text>]
 
   --provider   Which voices to run. Default: all, meaning every voice config.json
@@ -69,15 +71,16 @@ while [ $# -gt 0 ]; do
 done
 
 case "$provider" in
-  cursor|codex|claude) wanted="$provider" ;;
+  cursor|grok|codex|claude) wanted="$provider" ;;
   all)
     wanted="$ENABLED"
     # Claude Code marks its shells with CLAUDECODE. Its copy of providers.env
     # keeps the Claude voice for the other agents that read it, and asks for
     # this check; other agents' copies already leave their own voice out.
     if [ -n "${CHECK_CLAUDECODE:-}" ] && [ -n "${CLAUDECODE:-}" ]; then wanted="$(printf '%s' " $wanted " | sed 's/ claude / /')"; fi
+    if [ -n "${CHECK_GROK_SESSION:-}" ] && [ -n "${GROK_SESSION_ID:-}" ]; then wanted="$(printf '%s' " $wanted " | sed 's/ grok / /')"; fi
     ;;
-  *) echo "ext-review: --provider must be cursor, codex, claude, or all" >&2; exit 2 ;;
+  *) echo "ext-review: --provider must be cursor, grok, codex, claude, or all" >&2; exit 2 ;;
 esac
 if [ -z "${wanted// /}" ]; then
   echo "ext-review: config.json turns every voice off for this agent, so there is no external review." >&2
@@ -97,7 +100,7 @@ root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$root"
 available=""
 for voice in $wanted; do
-  case "$voice" in cursor) cli=agent ;; codex) cli=codex ;; claude) cli=claude ;; *) echo 'ext-review: invalid generated provider list' >&2; exit 2 ;; esac
+  case "$voice" in cursor) cli=agent ;; grok) cli=grok ;; codex) cli=codex ;; claude) cli=claude ;; *) echo 'ext-review: invalid generated provider list' >&2; exit 2 ;; esac
   if command -v "$cli" >/dev/null 2>&1; then available="$available $voice";
   else echo "ext-review: no $voice voice, the $cli CLI is not on PATH. Install it to add this reviewer." >&2; fi
 done
@@ -111,6 +114,7 @@ logged_out=""
 for voice in $wanted; do
   case "$voice" in
     cursor) status_cmd="agent status"; login_cmd="agent login" ;;
+    grok) status_cmd="grok models"; login_cmd="grok login" ;;
     codex) status_cmd="codex login status"; login_cmd="codex login" ;;
     claude) status_cmd="claude auth status"; login_cmd="claude auth login" ;;
   esac
@@ -194,6 +198,45 @@ run_cursor() {
   return "$rc"
 }
 
+run_grok() (
+  local rc=0 vendor feature
+  export GROK_AUTH_PATH="${GROK_AUTH_PATH:-${GROK_HOME:-$HOME/.grok}/auth.json}"
+  export GROK_HOME="$outdir/grok-home"
+  mkdir -p "$GROK_HOME"
+  unset GROK_CONFIG GROK_CONFIG_PATH
+  for vendor in CLAUDE CURSOR CODEX; do
+    for feature in SKILLS RULES AGENTS MCPS HOOKS; do
+      export "GROK_${vendor}_${feature}_ENABLED=0"
+    done
+  done
+
+  printf '===== grok: %s (%s), this repository'"'"'s review contract =====\n\n' "$grok_model" "$grok_effort"
+  grok --model "$grok_model" --effort "$grok_effort" --output-format json \
+    --prompt-file <(contract) --no-subagents --disable-web-search --sandbox read-only \
+    --permission-mode dontAsk --tools read_file,list_dir,grep,run_terminal_cmd \
+    --rules 'Perform a static, read-only review. Inspect files with read_file, list_dir and grep. Shell is restricted to git diff, git log, git show, git ls-files and git status, each as a separate command. Report execution-dependent claims as unproven and complete the review from the available evidence.' \
+    --allow Read --allow Grep --allow Glob \
+    --allow 'Bash(git diff *)' --allow 'Bash(git diff)' --allow 'Bash(git log *)' \
+    --allow 'Bash(git show *)' --allow 'Bash(git ls-files *)' --allow 'Bash(git status *)' \
+    --allow 'Bash(git status)' >"$outdir/grok.json" || rc=$?
+  if [ "$rc" = 0 ]; then
+    node -e '
+      const result = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+      console.log(result.text);
+      if (result.stopReason !== "end_turn") {
+        console.error("ext-review: Grok stopped before completing review: " + result.stopReason);
+        process.exitCode = 1;
+      }
+    ' "$outdir/grok.json" || rc=$?
+  else
+    cat "$outdir/grok.json"
+  fi
+  rm -f -- "$outdir/grok.json"
+  rm -rf -- "$GROK_HOME"
+  printf '\n'
+  return "$rc"
+)
+
 # ---------------------------------------------------------------- claude voice
 
 # Read tools and read-only git only: dontAsk refuses every tool outside the list.
@@ -268,6 +311,7 @@ $(printf '%-8s %-9s %s' "$2" "$status" "$3")"
 # The voices are read-only and share nothing, so they run at once. The wall clock
 # is then the slowest of them rather than their sum.
 cursor_pid=""
+grok_pid=""
 codex_pid=""
 claude_pid=""
 
@@ -280,6 +324,11 @@ if wants cursor; then
 ext-review: no cursor voice, the \`agent\` CLI is not on PATH.
             Install the Cursor CLI and run \`agent login\` to add it."
   fi
+fi
+
+if wants grok; then
+  run_grok >"$outdir/grok.md" 2>&1 &
+  grok_pid=$!
 fi
 
 if wants codex; then
@@ -305,6 +354,7 @@ ext-review: no claude voice, the \`claude\` CLI is not on PATH.
 fi
 
 if [ -n "$cursor_pid" ]; then rc=0; wait "$cursor_pid" || rc=$?; tally "$rc" cursor "$outdir/cursor.md"; fi
+if [ -n "$grok_pid" ]; then rc=0; wait "$grok_pid" || rc=$?; tally "$rc" grok "$outdir/grok.md"; fi
 if [ -n "$codex_pid" ]; then rc=0; wait "$codex_pid" || rc=$?; tally "$rc" codex "$outdir/codex.md"; fi
 if [ -n "$claude_pid" ]; then rc=0; wait "$claude_pid" || rc=$?; tally "$rc" claude "$outdir/claude.md"; fi
 

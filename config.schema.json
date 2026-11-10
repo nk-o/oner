@@ -64,6 +64,24 @@
             }
           }
         },
+        "grok": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "model": {
+              "type": "string",
+              "default": "grok-4.7"
+            },
+            "effort": {
+              "enum": ["low", "medium", "high", "xhigh"],
+              "default": "high"
+            }
+          }
+        },
         "codex": {
           "type": "object",
           "additionalProperties": false,

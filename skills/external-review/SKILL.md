@@ -5,7 +5,7 @@ description: >-
   user's config turns on and has installed. Each is told what to review and reads the repository through its own harness, so
   the readings differ in method and not only in model. Use when a change deserves opinions from
   outside this session. Needs at least one
-  provider CLI on PATH: Cursor's `agent`, `codex`, or `claude`.
+  provider CLI on PATH: Cursor's `agent`, `grok`, `codex`, or `claude`.
 argument-hint: "[base ref; defaults to this branch's diff]"
 disable-model-invocation: true
 ---
@@ -31,7 +31,7 @@ The consent in `config.json` does not override the host's approval policy. On an
 denial, report the exact reason and obtain the missing consent or use a materially safer
 alternative. Do not repeat the same denied action through another command.
 
-Options: `--provider cursor|codex|claude|all` to pick voices, `--base <ref>` to review against something
+Options: `--provider cursor|grok|codex|claude|all` to pick voices, `--base <ref>` to review against something
 other than `origin/HEAD`, `--model <slug>` for the Cursor voice.
 
 `--base` is how you scope a later round. Pass the sha HEAD was at before the fixes and both
@@ -63,6 +63,13 @@ changes, and the untracked files that neither of those reports. Those name the s
 method. Its model defaults to `cursor-grok-4.6-low`. The CLI starts in `--mode ask`, which
 runs read commands and refuses to write.
 
+**Grok** gets the same contract through Grok Build with the configured model and effort,
+defaulting to `grok-4.7` at `high`. Enable it under `externalReview.grok` in `config.json`.
+It uses a temporary Grok home with the existing login, no vendor compatibility imports,
+read tools and read-only Git commands, and the `read-only` sandbox.
+Its review is static, so execution-dependent claims remain unproven. A cancelled response
+fails the review even when the CLI exits zero.
+
 **Codex** runs `codex review`, its own built-in review, with its own method and its own scope
 selection. It receives the same sanitized repository, with no custom review prompt. It differs
 in how it looks, not only in the model behind it. The script gives it `--base` when the branch is
@@ -90,8 +97,9 @@ against two different rubrics cannot be compared.
 a second opinion, and counting the two as agreeing is worse than having one. The build writes
 `providers.env` beside the script for each agent it installs into, with the voices
 `config.json` turns on and that agent's own voice left out. Claude Code's copy is the exception,
-because OpenCode and Grok Build read it too: it keeps the Claude voice, and the script leaves it
-out when it runs inside Claude Code. The default `all` means that list, so pass nothing. Voices and models change through `config.json`, which the `configure` skill edits.
+because OpenCode and Grok Build read it too: it keeps both voices, and the script leaves out
+Claude inside Claude Code and Grok inside Grok Build. The default `all` means that list, so
+pass nothing. Voices and models change through `config.json`, which the `configure` skill edits.
 
 ## Exit codes
 

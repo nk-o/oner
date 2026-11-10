@@ -336,15 +336,17 @@ function enabledReviewers(config) {
 // Sourced by external-review's script. The agent the target serves is left out,
 // because a voice from the vendor already running the session is no second opinion.
 // The Claude Code copy is the exception: OpenCode and Grok read it too, so it
-// keeps every voice and the script leaves Claude out when CLAUDECODE says so.
+// keeps every voice and the script checks CLAUDECODE and GROK_SESSION_ID.
 function providersEnv(reviewers, vendor) {
   const self = vendor === 'claude' ? null : vendor;
   const enabled = Object.keys(PROVIDERS).filter((p) => reviewers[p].enabled && p !== self);
   const lines = [
     '# Written by bin/build.mjs from config.json.',
     `ENABLED="${enabled.join(' ')}"`,
-    ...(vendor === 'claude' ? ['CHECK_CLAUDECODE=1'] : []),
+    ...(vendor === 'claude' ? ['CHECK_CLAUDECODE=1', 'CHECK_GROK_SESSION=1'] : []),
     `CURSOR_MODEL="${reviewers.cursor.model}"`,
+    `GROK_MODEL="${reviewers.grok.model}"`,
+    `GROK_EFFORT="${reviewers.grok.effort}"`,
     `CODEX_MODEL="${reviewers.codex.model}"`,
     `CODEX_EFFORT="${reviewers.codex.effort}"`,
     `CLAUDE_MODEL="${reviewers.claude.model}"`,

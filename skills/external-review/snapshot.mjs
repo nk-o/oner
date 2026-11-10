@@ -92,7 +92,7 @@ function writeBlob(source, sha, target) {
 function sensitive(path) {
   const parts = path.toLowerCase().split('/');
   const name = parts.at(-1);
-  if (parts.some(part => ['.claude', '.cursor', '.codex', '.agents'].includes(part)) || name === '.mcp.json') return 'agent runtime configuration';
+  if (parts.some(part => ['.claude', '.cursor', '.codex', '.grok', '.agents'].includes(part)) || name === '.mcp.json') return 'agent runtime configuration';
   if (parts.some(part => ['.git', '.ssh', '.aws', '.gnupg', '.azure', '.docker'].includes(part))) return 'private or Git directory';
   if (name === '.env' || name.startsWith('.env.') || name.endsWith('.env') || name === '.envrc' || name.startsWith('.envrc.')) return 'environment file';
   if (['.npmrc', '.netrc', 'credentials', 'credentials.json', 'credentials.yaml', 'credentials.yml', 'secrets.json', 'secrets.yaml', 'secrets.yml'].includes(name)) return 'credential file';

@@ -60,3 +60,10 @@ test('agent settings default to browser off, no attribution, telemetry on, no au
   assert.throws(() => validateConfig({ autoCompact: { tokens: 99999 } }, repo), /autoCompact\.tokens/);
   assert.throws(() => validateConfig({ telemetry: { enabled: 'no' } }, repo), /telemetry\.enabled: must be true or false/);
 });
+
+test('Grok review needs explicit consent and accepts its model and effort', () => {
+  const repo = resolve('.');
+  assert.equal(validateConfig({}, repo).reviewers.grok.enabled, false);
+  const config = validateConfig({ externalReview: { grok: { enabled: true, model: 'grok-4.7', effort: 'high' } } }, repo);
+  assert.deepEqual(config.reviewers.grok, { enabled: true, model: 'grok-4.7', effort: 'high' });
+});
