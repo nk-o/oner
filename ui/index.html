@@ -577,12 +577,12 @@ function renderEffort() {
 
 // The stage of work each skill belongs to. A skill missing here is listed under Other.
 const STAGES = [
-  ["Plan", ["brainstorm", "spec", "grilling", "codebase-design", "architecture-scan"]],
+  ["Plan", ["brainstorm", "spec", "grilling", "codebase-design", "improve"]],
   ["Design", ["design-context", "frontend-design", "figma-design", "prototype", "refine", "motion-design", "design-review"]],
   ["Build", ["implement", "diagnose", "humanizer", "changelog", "docs", "product-video"]],
   ["Check", ["prod-review", "blast-radius", "break-api", "break-ui", "model-check", "green-repo", "resolve-review", "external-review"]],
   ["Ship", ["oneshot", "commit-message", "pr", "pr-feedback", "pr-wait", "stale-pr", "issue-tracker"]],
-  ["Upkeep", ["configure", "dev-tidy", "worktree", "worktree-setup", "reflect", "gardener", "deslop"]],
+  ["Upkeep", ["configure", "dev-tidy", "worktree", "worktree-setup", "reflect", "deslop"]],
 ];
 const openStages = new Set();
 
