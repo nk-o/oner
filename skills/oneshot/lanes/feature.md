@@ -15,12 +15,7 @@ is your call, per **Delegating the work**.
    opens with decisions brainstorm deferred; the report names that stage as the next run. When
    the first unbuilt stage is one of those, run this step as written on that stage instead,
    because its brainstorm is the gate. An edit steps 3 and 5 make to that tracked plan.md is
-   committed before the build. When the task names a folder under `.specs/` whose plan.md
-   opens with `Source. improve`, it is the same case with one difference: `improve` wrote it in
-   the primary checkout, which this run's worktree does not carry. Move its files into the run
-   folder, delete the empty folder so the next `improve` pass sees the rows as taken, and
-   build the moved plan.md, ticking this step and the next as `skip: approved improve plan
-   <path>`.
+   committed before the build.
 2. **Spec.** Run `spec` in unattended mode, into the folder step 1 of the skill created. It
    does not take a number of its own. Its two checkpoints become status notes that wait for
    nothing, because the decisions behind them were approved at step 1 of this lane.

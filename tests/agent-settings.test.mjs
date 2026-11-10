@@ -61,6 +61,12 @@ test('agent settings default to browser off, no attribution, telemetry on, no au
   assert.throws(() => validateConfig({ telemetry: { enabled: 'no' } }, repo), /telemetry\.enabled: must be true or false/);
 });
 
+test('a disabled skill that was merged into improve keeps the config valid, and an unknown one still fails', () => {
+  const repo = resolve('.');
+  assert.deepEqual(validateConfig({ skills: { disabled: ['gardener', 'architecture-scan', 'deslop'] } }, repo).disabledSkills, ['deslop']);
+  assert.throws(() => validateConfig({ skills: { disabled: ['nope'] } }, repo), /no skill named "nope"/);
+});
+
 test('Grok review needs explicit consent and accepts its model and effort', () => {
   const repo = resolve('.');
   assert.equal(validateConfig({}, repo).reviewers.grok.enabled, false);

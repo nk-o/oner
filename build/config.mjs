@@ -37,6 +37,8 @@ export function readRawConfig(repoDir) {
   }
 }
 
+const MERGED_INTO_IMPROVE = new Set(['architecture-scan', 'gardener']);
+
 // Returns the config with every default filled in and every dir absolute:
 // { language, disabledSkills, effort: { <stage>: <level> }, reviewers: { <provider>: { enabled, ... } },
 //   reviewBots: { <bot>: <mode> }, browser, attribution, telemetry, autoCompact: <tokens> | null,
@@ -58,10 +60,11 @@ export function validateConfig(raw, repoDir) {
 
   const skills = objectAt(raw.skills, 'skills', at);
   onlyKeys(skills, ['disabled'], 'skills', at);
-  const disabled = skills.disabled ?? [];
-  if (!Array.isArray(disabled) || disabled.some((s) => typeof s !== 'string')) {
+  const listed = skills.disabled ?? [];
+  if (!Array.isArray(listed) || listed.some((s) => typeof s !== 'string')) {
     throw at('skills.disabled', 'must be a list of skill names');
   }
+  const disabled = listed.filter((name) => !MERGED_INTO_IMPROVE.has(name));
   const known = new Set(listSkills(repoDir));
   for (const name of disabled) {
     if (!known.has(name)) throw at('skills.disabled', `no skill named "${name}" in skills/`);

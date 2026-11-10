@@ -8,45 +8,59 @@ description: >-
   what the user rejected so the next pass does not raise it again. The user starts it by name.
   For a review of one change or one feature, use `prod-review`.
 disable-model-invocation: true
-argument-hint: "[architecture | recurrence | bugs] [path or base ref]"
+argument-hint: "[architecture | recurrence | bugs] [path, module, or pain point] [base ref]"
 ---
 
 # Improve
 
 Agents extend the patterns they read, and the code that changes most is where a shallow module
 or a missed bug costs the most. This pass finds both, verifies every candidate, and writes a plan
-for each row the user picks. It changes no tracked file. Everything it writes goes in the
+for each concern the user picks. It changes no tracked file. Everything it writes goes in the
 ignored `.specs/` of the primary checkout: the ledger `.specs/improve.md` and one plan folder
-per picked row. `/oneshot <folder>` builds a plan.
+per concern. `/oneshot <folder>` builds a plan.
 
 ## 1. Scope
 
 - **Kinds.** The argument names `architecture`, `recurrence`, `bugs`, or several of them. With
-  none, run all three. A path in the argument narrows every kind to it.
-- **Primary checkout.** The first entry of `git worktree list`. When its `.gitignore` has no
-  `.specs/` line, add one to `$(git rev-parse --git-common-dir)/info/exclude` instead, so this
-  pass changes no tracked file.
-- **Ledger.** Read `<primary>/.specs/improve.md` before anything else, and create it in this
-  shape when it is missing:
+  none, run all three. A path, a module, a subsystem, or a pain point in the argument narrows
+  every kind to it.
+- **Primary checkout.** The first entry of `git worktree list`. When neither its `.gitignore`
+  nor `$(git rev-parse --git-common-dir)/info/exclude` carries a `.specs/` line, add one to the
+  exclude file, so this pass changes no tracked file.
+- **Ledger.** Read `<primary>/.specs/improve.md` before anything else. When it is missing,
+  create it in this shape with `Last pass. none` and empty sections. Step 4 writes the lines.
 
   ```markdown
   # improve
 
-  Last pass. <default branch sha> <YYYY-MM-DD>
+  Last pass. none
+
+  ## Open
+  - <kind> | <path> | <finding> | <verdict> | <YYYY-MM-DD>
+
+  ## Planned
+  - <plan folder> | <finding> | <branch, once a build took it>
 
   ## Rejected
-  - <kind> | <path> | <finding> | <reason> | <sha HEAD was at>
+  - <kind> | <path> | <finding> | <reason> | <default branch sha>
   ```
 
-- **Hot spots** for architecture and bugs, unless the argument named a path:
+- **Hot spots** for architecture and bugs, unless the argument narrowed the scope:
   `git log --since=6.months --name-only --format= | sort | uniq -c | sort -rn | head -40`.
   When the changes are scattered with no clear hot spot, widen the net.
-- **Range** for recurrence: the base ref in the argument, else the ledger's `Last pass.` sha,
-  else the last commit on the default branch whose subject begins with `chore(garden)`, else 30
-  days back. It ends at the default branch's head. Say the range and its commit count. Write
-  its added lines once, with moves detected (`git diff -M --color-moved=zebra`, or
-  `git blame -M -C` on a line in doubt), to a file in the scratch directory. Code that moved
-  is not new code.
+- **Range** for recurrence: the base ref in the argument, else the ledger's `Last pass.` sha
+  when it holds one, else the last commit on the default branch whose subject begins with
+  `chore(garden)`, else 30 days back. It ends at the default branch's head. Say the range and
+  its commit count. Code that moved is not new code, so write the range's added lines with
+  moved ones dropped to a file in the scratch directory, and give its path to the recurrence
+  sweep:
+
+  ```sh
+  git -c color.diff.newMoved=cyan -c color.diff.oldMoved=cyan diff -M --color=always \
+    --color-moved=plain <range> | grep -v $'^\e\\[36m[-+]' | sed $'s/\e\\[[0-9;]*m//g'
+  ```
+
+  For a line in doubt, `git blame -M -C` names where it came from.
 
 This pass reads. Call the project's tools through their binaries, such as
 `node_modules/.bin/<tool>`, not through the package manager, which can install on its own and
@@ -55,10 +69,11 @@ rewrite dependencies under a running dev server.
 ## 2. Sweep
 
 Give each kind to its own read-only subagent where the host has them, all at once. On Claude
-Code, architecture and recurrence go to `Explore`, and bugs to `general-purpose`, because it
-loads `prod-review` and Explore skips `AGENTS.md`. Each brief carries the scope, the ledger's
-**Rejected** lines for its kind, the row format in step 3, and the rule that it returns leads
-with `file:line` and no fixes. Without subagents, sweep the kinds yourself one after another.
+Code, architecture goes to `Explore`. Recurrence and bugs go to `general-purpose`, because they
+judge by rules in `AGENTS.md` and Explore skips it. Each brief carries the scope, the ledger's
+**Rejected** lines for its kind, the row format in step 3, the added-lines file for
+recurrence, and the rule that it returns leads with `file:line` and no fixes. Without
+subagents, sweep the kinds yourself one after another.
 
 ### Architecture
 
@@ -102,9 +117,11 @@ Findings start in the range. A fix may land in older code when that is where the
   probe or a call, before the workaround stays.
 - **Copies.** Strongest first: a commit in the range that made the same edit in several places;
   new code that rewrites a helper the repository already has; the same logic in three or more
-  places, one of them in the range. Use the project's duplicate finder when it has one.
-  Import lists, component boilerplate, and migrations that redefine a function are not copies.
-  Copies that differ in one detail often differ on purpose, so read the difference first.
+  places, one of them in the range. Use the project's duplicate finder when it has one, and
+  otherwise compare the bodies of the functions the range added against the rest of the
+  repository. Import lists, component boilerplate, and migrations that redefine a function are
+  not copies. Copies that differ in one detail often differ on purpose, so read the difference
+  first.
 - **Dead code.** Run the project's dead-code tool with its own configuration. What the project
   chose not to check stays out.
 - **Map drift.** When the project has a `verify-<app>` skill, run its `map` command.
@@ -116,14 +133,17 @@ correctness, security, data loss, and concurrency. Its style and size remarks ar
 
 ## 3. Verify every candidate
 
+Every **Open** line in the ledger is a candidate again, beside what the sweep returned.
+
 Nothing becomes a row that you did not open. A subagent returns leads, not findings: open
 every `file:line` it cites, and trace the callers of anything a row proposes to change. A
 candidate you could not verify is dropped, or kept as `Speculative` with the reason.
 
 Drop a candidate that matches a **Rejected** line, unless a file it cites changed since that
-line's sha (`git diff --quiet <sha> HEAD -- <path>` fails). Then it comes back with the old
-reason quoted beside it. Drop one that an unbuilt plan already covers: a folder in
-`<primary>/.specs/` whose plan.md opens with `Source. improve`.
+line's sha: `git diff --quiet <sha> HEAD -- <path>` exits 1. Then it comes back with the old
+reason quoted beside it. A sha git cannot read, exit 128, keeps the row rejected. Drop one that
+a **Planned** line covers. A **Planned** line whose branch is merged into the default branch, or
+exists neither locally nor on the remote, comes out of the ledger, and its rows can come back.
 
 Each row carries:
 
@@ -138,7 +158,7 @@ Each row carries:
 
 | Verdict | Test |
 | --- | --- |
-| `FIX` | A defect, with the input that shows it |
+| `FIX` | A defect, with the input that shows it. A `verify-<app>` map entry that is wrong, or a route it does not cover, is one too |
 | `DEEPEN` | A module worth deepening. The interface is not proposed yet |
 | `GUARD` | The pattern can come back. Name the rule and the tool that runs it: a type first, then the project's linter, then a test or CI check it already runs. Already shown failing on a scratch copy of the commit it names, the one that brought the pattern back, or the parent of the fix when it never came back |
 | `REMOVE` | Dead code, or an in-reach workaround whose root-cause fix is small and chooses no behavior |
@@ -151,39 +171,51 @@ cases that remain.
 ## 4. Present
 
 Order the rows: `FIX` by blast radius, then `GUARD` and `REMOVE`, then `DEEPEN` and `DECIDE`,
-`Strong` first within each. When there is a `DEEPEN` row, also render the architecture rows as
-an HTML report per [HTML-REPORT.md](HTML-REPORT.md), write it to
-`<tmpdir>/improve-<timestamp>.html`, open it, and give its absolute path.
+`Strong` first within each, and the `LEAVE` rows last, under their own heading. When there is a
+`DEEPEN` row, also render the architecture rows as an HTML report per
+[HTML-REPORT.md](HTML-REPORT.md), write it to `<tmpdir>/improve-<timestamp>.html`, open it, and
+give its absolute path.
 
 Post the table, then ask with the question routing in `AGENTS.md` which rows to plan and which
 to reject, with your recommendation first. A picked `DECIDE` row asks its options in the same
-round. An unpicked row with no reason is not rejected and may come back next pass.
+round, and the option chosen sets its verdict for step 5. A picked `LEAVE` row is planned as
+`REMOVE`.
 
-Then write the ledger: each rejected row and each `LEAVE` under **Rejected** with its reason
-and the sha HEAD is at, and `Last pass.` set to the default branch's head when recurrence ran.
+Then write the ledger, every line in one pass:
+
+- **Rejected.** Each row the user rejected, with the reason, and each `LEAVE` row nobody picked.
+  The sha is the default branch's head, which no branch deletion makes unreadable.
+- **Open.** Each row neither picked nor rejected, so a pass whose range has moved on still
+  shows it. A line the code no longer shows comes out.
+- **Planned.** One line per picked row, naming the folder step 5 writes.
+- **Last pass.** The default branch's head, only when recurrence swept the whole repository.
+  A narrowed pass leaves it as it was, because the rest of the range was not read.
 
 ## 5. Plan the picked rows
 
 - **One folder per concern**, per **Commits and pull requests** in `AGENTS.md`. The picked
-  `GUARD` and `REMOVE` rows share one folder, `cleanup-<YYYY-MM-DD>`. Each `FIX` and each
-  `DEEPEN` gets its own.
+  `GUARD` and `REMOVE` rows and the map `FIX` rows share one folder, `cleanup-<YYYY-MM-DD>`.
+  Each other `FIX` and each `DEEPEN` gets its own.
 - **A `DEEPEN` row is designed with the user first.** Run `grilling` on it: constraints,
   dependencies, the shape of the deepened module, what sits behind the seam, which tests
   survive. For alternative interfaces, use `codebase-design`'s DESIGN-IT-TWICE.md. A term that
   turns out fuzzy gets its precise name before the design goes further.
-- **Write each folder with `spec`** at plan-only depth, under `<primary>/.specs/` with the next
-  free number, and run it per its **Unattended** section, because the answer in step 4 is the
-  approval. Its `.gitignore` line is not needed there, since step 1 already keeps `.specs/`
-  out of git. plan.md opens with `Source. improve <YYYY-MM-DD>` and the row numbers. Its
-  **Decisions** carry each row's evidence and verdict, the choice a `DECIDE` row got, and what
-  `grilling` settled. A `GUARD` task names the commit its rule must fail on, and its check runs
-  the rule there and then on the branch. When the existing cases are too many for one run and
-  the linter has no baseline, each gets a suppression whose reason starts with
-  `improve: existing`, which later passes skip.
+- **Write each plan.md** under `<primary>/.specs/NNN-slug/`, with the next free number across
+  `.specs/` and `specs/`, in the shape of `spec`'s plan-only plan (its **Depth** and **Step 2**).
+  Skip its checkpoints, because the answer in step 4 is the approval, and its `.gitignore` step,
+  because step 1 keeps `.specs/` out of git. Under the title and before **Done when**, put two
+  lines: `Source. improve <YYYY-MM-DD>`, and `Lane. fix` for a single `FIX`, `Lane. refactor`
+  for a `DEEPEN`, or `Lane. feature` for the cleanup folder. **Decisions** carry one line per
+  row with its finding, evidence, and verdict, plus the choice a `DECIDE` row got and what
+  `grilling` settled.
+- **A `GUARD` task** names the commit its rule must fail on, and its check runs the rule there
+  and then on the branch. When the existing cases are too many for one run and the linter has
+  no baseline, each gets a suppression whose reason starts with `improve: existing`, which later
+  passes skip.
 
 ## 6. Report
 
-The HTML report's path when there is one. One line per plan folder, with the rows it carries
-and the command that builds it, `/oneshot <absolute folder path>`. The rows added to
-**Rejected**. The kinds or slices this pass did not sweep, and `partial` when it stopped before
-step 4 was done.
+The HTML report's path when there is one. One line per plan folder, with the findings it
+carries and the command that builds it, `/oneshot <absolute folder path>`. The rows added to
+**Rejected** and **Open**. The kinds or slices this pass did not sweep, and `partial` when it
+stopped before step 4 was done.
