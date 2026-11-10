@@ -51,13 +51,15 @@ per concern. `/oneshot <folder>` builds a plan.
 - **Range** for recurrence: the base ref in the argument, else the ledger's `Last pass.` sha
   when it holds one, else the last commit on the default branch whose subject begins with
   `chore(garden)`, else 30 days back. It ends at the default branch's head. Say the range and
-  its commit count. Code that moved is not new code, so write the range's added lines with
-  moved ones dropped to a file in the scratch directory, and give its path to the recurrence
-  sweep:
+  its commit count. Code that moved is not new code, so write the range's added lines to a file
+  in the scratch directory, commit by commit with the lines each commit only moved dropped, and
+  give its path to the recurrence sweep. Moves are detected inside one commit, because a line a
+  fix removed and a later commit added again is the strongest finding, not a move:
 
   ```sh
-  git -c color.diff.newMoved=cyan -c color.diff.oldMoved=cyan diff -M --color=always \
-    --color-moved=plain <range> | grep -v $'^\e\\[36m[-+]' | sed $'s/\e\\[[0-9;]*m//g'
+  git -c color.diff.newMoved=cyan -c color.diff.newMovedAlternative=cyan log --reverse -p -M \
+    --format='commit %h %s' --color=always --color-moved=zebra <range> \
+    | grep -v $'^\e\\[36m+' | sed $'s/\e\\[[0-9;]*m//g' | grep -E '^(commit |\+\+\+ |\+)'
   ```
 
   For a line in doubt, `git blame -M -C` names where it came from.
@@ -140,10 +142,12 @@ every `file:line` it cites, and trace the callers of anything a row proposes to 
 candidate you could not verify is dropped, or kept as `Speculative` with the reason.
 
 Drop a candidate that matches a **Rejected** line, unless a file it cites changed since that
-line's sha: `git diff --quiet <sha> HEAD -- <path>` exits 1. Then it comes back with the old
-reason quoted beside it. A sha git cannot read, exit 128, keeps the row rejected. Drop one that
-a **Planned** line covers. A **Planned** line whose branch is merged into the default branch, or
-exists neither locally nor on the remote, comes out of the ledger, and its rows can come back.
+line's sha: `git diff --quiet <sha> <default branch> -- <path>` exits 1. Then it comes back with
+the old reason quoted beside it. A sha git cannot read, exit 128, keeps the row rejected. Drop
+one that a **Planned** line covers. A **Planned** line with no branch stays while its folder is still in
+`<primary>/.specs/`. One with a branch stays until that branch is merged into the default branch
+or exists neither locally nor on the remote. A line that no longer holds comes out of the
+ledger, and its rows can come back.
 
 Each row carries:
 
@@ -181,15 +185,16 @@ to reject, with your recommendation first. A picked `DECIDE` row asks its option
 round, and the option chosen sets its verdict for step 5. A picked `LEAVE` row is planned as
 `REMOVE`.
 
-Then write the ledger, every line in one pass:
+Then update the ledger. Lines already there stay unless a rule in step 3 took them out:
 
 - **Rejected.** Each row the user rejected, with the reason, and each `LEAVE` row nobody picked.
   The sha is the default branch's head, which no branch deletion makes unreadable.
-- **Open.** Each row neither picked nor rejected, so a pass whose range has moved on still
-  shows it. A line the code no longer shows comes out.
+- **Open.** Each row neither picked nor rejected, `LEAVE` rows aside, so a pass whose range has
+  moved on still shows it. A line the code no longer shows comes out.
 - **Planned.** One line per picked row, naming the folder step 5 writes.
-- **Last pass.** The default branch's head, only when recurrence swept the whole repository.
-  A narrowed pass leaves it as it was, because the rest of the range was not read.
+- **Last pass.** The default branch's head, only when recurrence swept the whole repository
+  over a range that began at the old `Last pass.` or a fallback. A pass narrowed to a path or
+  started at a base ref leaves it as it was, because it did not read everything since.
 
 ## 5. Plan the picked rows
 

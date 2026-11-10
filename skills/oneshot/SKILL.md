@@ -264,12 +264,15 @@ screenshot path, the output of the run that settled it>
 **An improve plan.** `improve` wrote the folder in the primary checkout, which this run's
 worktree does not carry. Move its files into the run folder and delete the source folder. In the
 primary checkout's `.specs/improve.md`, put this branch on each **Planned** line that names the
-folder, so the next pass knows the rows are being built. The plan's **Decisions** are the gate:
-copy them into **Gate**. The lane's gate step posts its screen as a status note and waits for
-nothing. A step that would write the plan, the feature lane's **Ground and gate** and **Spec**,
-is ticked `skip: approved improve plan <path>`. The step that builds runs `implement` in
-unattended mode on the moved plan.md. Every other step runs as written, so the fix lane still
-proves the finding holds before it fixes it, and the refactor lane still pins the behavior.
+folder, so the next pass knows the rows are being built. When the run ends `stopped`, take
+those lines out of **Planned**, so the next pass can raise the rows again. The plan's
+**Decisions** are the gate: copy them into **Gate**. The lane's gate step posts its screen as a
+status note and asks only what a user would notice that the Decisions leave open. In the
+feature lane, **Ground and gate** and **Spec** are ticked `skip: approved improve plan <path>`
+and **Build** runs `implement` on the moved plan.md. In the fix and refactor lanes, the lane's
+own steps build it, with plan.md's tasks as their list, ticked as each lands. Every other step
+runs as written, so the fix lane still proves the finding holds before it fixes it, and the
+refactor lane still pins the behavior.
 
 When **Issue trackers** in `AGENTS.md` puts an issue in scope, put it on the `Issue.` line.
 Move it to started through the `issue-tracker` skill once the gate is settled, not before.
