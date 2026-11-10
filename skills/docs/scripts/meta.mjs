@@ -2,7 +2,7 @@
 // Collects, per article, only the metadata the draft changes, so a write never sends back a value
 // the user edited in the dashboard after the pull.
 //   node meta.mjs <run> [slug...]
-// Compares the draft (frontmatter of articles/<slug>.md, or `meta` and `product_refs` of
+// Compares the draft (frontmatter of articles/<slug>.md or updates/<slug>.md, or `meta` and `product_refs` of
 // edits/<slug>.json) with live/<slug>.json, the article as pulled in get_article's own field names.
 // A field the draft leaves out is never sent. Writes upload/<slug>.meta.json as
 // { articleId, fields, productRefs? } in the tool's field names, and prints one line per article.
@@ -41,10 +41,12 @@ function frontmatter(text) {
 }
 
 const drafts = [];
-for (const name of existsSync(join(run, 'articles')) ? readdirSync(join(run, 'articles')) : []) {
-  if (!name.endsWith('.md')) continue;
-  const meta = frontmatter(readFileSync(join(run, 'articles', name), 'utf8'));
-  drafts.push({ slug: name.slice(0, -3), meta, refs: meta.product_refs });
+for (const dir of ['articles', 'updates']) {
+  for (const name of existsSync(join(run, dir)) ? readdirSync(join(run, dir)) : []) {
+    if (!name.endsWith('.md')) continue;
+    const meta = frontmatter(readFileSync(join(run, dir, name), 'utf8'));
+    drafts.push({ slug: name.slice(0, -3), meta, refs: meta.product_refs });
+  }
 }
 for (const name of existsSync(join(run, 'edits')) ? readdirSync(join(run, 'edits')) : []) {
   if (!name.endsWith('.json')) continue;

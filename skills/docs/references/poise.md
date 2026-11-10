@@ -61,6 +61,14 @@ New articles go through steps 1 to 5 before the stop in step 7 of `SKILL.md`, wh
 one's `editUrl`. Updates of published articles go through steps 2 to 5 only after it, right
 before the publish, so each article is written once.
 
+A draft the run already wrote may have been changed in the dashboard since: the owner moves a
+mark, resizes a table, rewords a line. Before writing a draft again, read it with `get_article`
+and `ifNoneMatch` set to the `hash` in `live/<slug>.json`. `notModified` means it is the run's
+own text. A full answer is the owner's: fold its `draft.markdown` back into
+`articles/<slug>.md` under the same frontmatter, with each image URL turned back into
+`media/<file>` through `images.json`, check that `body.mjs` rebuilds it byte for byte, and
+write its `hash` into `live/`. Only then make the run's own change on top of it.
+
 1. **New articles first.** Create each new article with its title and the draft's `slug` and no
    body. Write its `id`, `hash`, `editUrl` and the `path` the answer holds into
    `live/<slug>.json`, so every link target has a path before any body is written.
@@ -99,7 +107,7 @@ is, and `run.md` lists the change for the user to make in the dashboard.
 Images, recordings and files go up through the upload tools in one lane, and each returned URL
 goes into `images.json` under its file name in `media/` at once. A file two articles share is
 uploaded once. Annotations are the image's `<Frame>` tags; `screenshots.md` says which to use.
-Leave `color` off the Frame, so the marks take the help center's accent.
+Leave `color` off the Frame, so the marks take the help center's accent, unless that accent is black, white or gray: marks in a neutral color read as part of the screenshot, so every Frame with marks takes `color="red"`. Record the choice in `run.md` so every lane uses it.
 
 A collection page's own text says what the collection is for and where to start; the page lists
 its articles and child collections itself, so the text never repeats them. An image on the page

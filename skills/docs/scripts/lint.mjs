@@ -282,8 +282,8 @@ function checkTag(kind, attributes, label, line, report) {
   }
   if (label === undefined) return;
   const words = label.trim().split(/\s+/).filter(Boolean).length;
-  if (kind === 'Pointer' && (words < 2 || words > 4)) {
-    report(line, 'annotation', `<Pointer> label is ${words} words, use two to four`);
+  if (kind === 'Pointer' && words > 4) {
+    report(line, 'annotation', `<Pointer> label is ${words} words, keep it within four`);
   }
   if (kind === 'Area' && words > 4) report(line, 'annotation', `<Area> label is ${words} words, keep it within four`);
   if (kind === 'Marker' && words > 12) report(line, 'annotation', `<Marker> text is ${words} words, keep it within twelve`);

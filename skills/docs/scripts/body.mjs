@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Prepares what a write sends, so no body passes through a model on its way to the help center.
 //   node body.mjs <run> [slug...]
-// For articles/<slug>.md it writes upload/<slug>.md, the body without frontmatter, and prints
+// For articles/<slug>.md and updates/<slug>.md it writes upload/<slug>.md, the body without frontmatter, and prints
 // `<sha256> <bytes> <file>`: the checksum is the `markdownSha256` Poise answers when it stored the
 // Markdown as sent. Poise trims the stored Markdown and turns CRLF into LF, so the file does too.
 // For edits/<slug>.json it writes upload/<slug>.edits.json, the same edits with each newText filled.
@@ -11,7 +11,7 @@
 // `<!-- lint-ignore -->` line is dropped: Poise shows an HTML comment as text. A missing image or
 // link target exits 1.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const [run, ...only] = process.argv.slice(2);
@@ -61,9 +61,10 @@ const list = (dir, ext) => (existsSync(join(run, dir)) ? readdirSync(join(run, d
   .filter((slug) => only.length === 0 || only.includes(slug));
 
 let failed = 0;
-for (const slug of list('articles', '.md')) {
+// An Updates entry lives in updates/, beside the articles; both become upload/<slug>.md.
+for (const [dir, slug] of ['articles', 'updates'].flatMap((dir) => list(dir, '.md').map((slug) => [dir, slug]))) {
   const problems = [];
-  const markdown = Buffer.from(fill(split(readFileSync(join(run, 'articles', `${slug}.md`), 'utf8')).body, problems).trim(), 'utf8');
+  const markdown = Buffer.from(fill(split(readFileSync(join(run, dir, `${slug}.md`), 'utf8')).body, problems).trim(), 'utf8');
   if (problems.length) {
     console.error(`${slug}: ${problems.join('; ')}`);
     failed++;
@@ -85,5 +86,16 @@ for (const slug of list('edits', '.json')) {
   const target = join(out, `${slug}.edits.json`);
   writeFileSync(target, `${JSON.stringify({ articleId: draft.id, edits }, null, 1)}\n`);
   console.log(`${edits.length} edits ${target}`);
+}
+// A body whose draft left the run, or moved between folders, would stay in upload/ and go out
+// again unchanged; a full run removes every upload/<slug>.md no draft wrote this time.
+if (only.length === 0 && failed === 0) {
+  const written = new Set(['articles', 'updates'].flatMap((dir) => list(dir, '.md')));
+  for (const name of readdirSync(out)) {
+    if (name.endsWith('.md') && !written.has(name.slice(0, -3))) {
+      rmSync(join(out, name));
+      console.error(`removed stale ${join(out, name)}`);
+    }
+  }
 }
 process.exit(failed ? 1 : 0);

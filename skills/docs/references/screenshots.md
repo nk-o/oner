@@ -133,15 +133,15 @@ checks the limits it can count.
 | None | The image shows a result: a section as visitors see it, a layout, a preset. | |
 | `<Spotlight>` | The image is large and the text is about one part of it: a settings group in a full editor, one card in a grid. Two only for a setting and the part it changes; Poise cuts both out of one shade. | The part is most of the image. |
 | `<Area>` | Similar elements sit next to the one the text names, such as a group of settings in a long panel. A label, when it adds a name the image lacks, of at most four words. | The target is a small icon, which an outline hides. |
-| `<Pointer>` | One control needs its name beside the image: a label of two to four words, the control's own label or what it does. On a phone it becomes a numbered note, so it reads alone. | The image is a crop of that one control. |
+| `<Pointer>` | One control or region needs its name beside the image: a label of one to four words, the control's own label or what it does. On a phone it becomes a numbered note, so it reads alone. | The image is a crop of that one control. |
 | `<Marker>` | The order of actions on one screen matters, two or more of them. Or a tour of a whole screen: one numbered Marker per region, at most six, matching a table or list beside the image. Its text is listed under the image and takes **bold** for labels. | The path to the screen: the steps already say it. |
 | `<Arrow>` | The target is small or easy to miss, an icon or a toggle, and nothing else isolates it. It comes from empty space and its point lands on the icon. | A Spotlight already isolates it. |
 | `<Line>` | Rarely: it joins two marked points, such as a setting and the part of the preview it changes, where the eye would not link them. | Anything an Area beside the setting already says. |
 
-A tour of a screen, such as the parts of an editor, never takes a Pointer per control: their
-labels overlap and the image turns into a puzzle. Number the three to six regions the text
-describes with Markers, or outline them with Areas, and let the table beside the image name
-them. Before keeping marks, look at the image at the size the help center shows it: two marks
+A tour of a screen, such as the parts of an editor, marks its three to six regions, never every
+control: Pointers named after the regions, each with a `side` that sends its label to the
+nearest free edge so no two labels meet, or numbered Markers that a list beside the image
+names. Before keeping marks, look at the image at the size the help center shows it: two marks
 whose labels or badges touch are one too many.
 
 A setting and its effect on one screen take two Spotlights, one on the setting and one on the
