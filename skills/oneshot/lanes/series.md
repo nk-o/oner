@@ -178,8 +178,9 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    **A stage run** is an ordinary oneshot run in the stage's checkout. It has its own
    `.specs/NNN-slug/oneshot.md`, with `Lane. feature` and one more line,
    `Series. <program folder> stage <id>`. Copy the program's spec.md into its folder, and
-   write its plan.md from the program plan's Done when, its Decisions, and this stage's
-   tasks alone, so its `implement` builds this stage and ticks only this copy. Tick Ground
+   write its plan.md from the program plan's `Planned at.` line, its Done when, its
+   Decisions, and this stage's tasks alone, so its `implement` builds this stage, ticks only
+   this copy, and checks what earlier stages changed under its tasks. Tick Ground
    and gate and Spec as `skip: approved program <folder>, stage <id>`, then work Split the
    work, Pin, Build, and the tail through Ship. Its Verify step also writes the stage's
    production check from the stage's Verify into the program's `release/`, runs it against

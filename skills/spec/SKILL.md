@@ -40,9 +40,9 @@ collides. The slug is a short kebab-case feature name.
 ## Depth
 
 - **Plan-only.** The default for small work: one stage of tasks, behavior that fits inside
-  their checks. Skip spec.md. plan.md opens with **Done when** (the numbered acceptance
-  criteria), **Principles** when the work has behavior a user touches, and **Decisions** (one
-  line each), then the stage. One checkpoint total, at
+  their checks. Skip spec.md. Under its `Planned at.` line, plan.md opens with **Done when**
+  (the numbered acceptance criteria), **Principles** when the work has behavior a user touches,
+  and **Decisions** (one line each), then the stage. One checkpoint total, at
   step 2.
 - **Full.** Both files, when the work runs to several stages, or when behavior and edge
   cases need prose the checkboxes cannot carry. A spec in `specs/` is always full, because the
