@@ -70,3 +70,5 @@ Annotation rules from here down.
    ![Layout menu open on the hero section](layout.webp)
    <Marker x={20} y={30}>Pick the layout that matches the photo you uploaded for the hero banner today</Marker>
    </Frame>
+
+Edit DESIGN.md before the agent starts.

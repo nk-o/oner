@@ -210,6 +210,10 @@ function lintBody(lines, body, report, fragment = false) {
       frame = { image: null, tags: [] };
     }
 
+    // Poise links a bare name that ends like a domain, so DESIGN.md becomes http://design.md/.
+    const prose = code.replace(/!?\[[^\]]*\]\([^)]*\)/g, '').replace(/<[^>]+>/g, '').replace(/https?:\/\/\S+/g, '');
+    const domainLike = prose.match(/\b[\w-]+\.(md|py|sh|ai|io|so|me|to|app|dev)\b/i);
+    if (domainLike) local(lineNo, 'file-name', `put ${domainLike[0]} in backticks, or the help center turns it into a link`);
     if (/^#\s/.test(raw)) local(lineNo, 'heading', 'no H1 in the body, the title is the H1');
     if (/^#{4,}\s/.test(raw)) local(lineNo, 'heading', 'use ## and ### only');
     if (/^#{2,3}\s+(good to know|notes?|overview|introduction|summary|conclusion|more|misc(ellaneous)?)\s*$/i.test(raw)) {
