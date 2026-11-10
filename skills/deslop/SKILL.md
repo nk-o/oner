@@ -4,7 +4,7 @@ description: >-
   Slims a project without changing what it does. Removes comments that narrate, tests that
   guard nothing, code nothing reaches, and copies of helpers the repository already has, then
   opens one pull request with a commit per kind. Works on the whole repository or on a path.
-  The user starts it by name. To forbid patterns merged since the last pass, use `gardener`.
+  The user starts it by name. To forbid patterns merged since the last pass, use `improve`.
 disable-model-invocation: true
 argument-hint: "[path or package; defaults to the whole repository]"
 ---
@@ -84,7 +84,7 @@ check the pass cannot fix runs out, ship what is committed. The body and the rep
 and name the ledger the next run resumes from.
 
 For a kind that will come back, such as unused exports the project's dead-code tool skips, add
-a **Guard** line per **Mistakes that recur** in `AGENTS.md`. `gardener` applies guards.
+a **Guard** line per **Mistakes that recur** in `AGENTS.md`. `improve` plans guards.
 
 ## 5. Report
 
