@@ -14,10 +14,16 @@ it opens carries the spec alone. The build is a later run: `implement` on the fo
    opens with one task that names them and the stage that unblocks them, so `/brainstorm` on
    that stage is the first thing its implementer runs. Both checkpoints are status notes, and
    nothing waits.
-3. **Ship.** Commit the spec folder, run `pr`, push the branch, and open the PR
+3. **Read it cold.** Its builder will have the folder and none of this conversation. Hand the
+   folder's absolute path to a fresh `general-purpose` subagent, and nothing else, with the
+   question: where would you have to guess to build this, task by task? Each gap it names is a
+   fact missing from the files: add it to spec.md or plan.md, or answer why the code already
+   settles it. When it named gaps, a second fresh read after the edits names none a builder
+   would act on differently. Without subagents, skip it with that reason.
+4. **Ship.** Commit the spec folder, run `pr`, push the branch, and open the PR
    with `gh pr create`. The body says what was planned, what was settled, and what was deferred
    to which stage. When the run log names an issue, plan.md names it as a partial reference
    under **Done when**, and the PR finishes only part of it, per the
    `issue-tracker` skill. The run ends at the open PR. Do not merge, and do not run `wt finish`.
-4. **Report** per the skill's Report section, plus the spec's path and the command that builds
+5. **Report** per the skill's Report section, plus the spec's path and the command that builds
    it.

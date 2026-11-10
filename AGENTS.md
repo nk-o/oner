@@ -199,6 +199,14 @@ usually one small script that imports what the app ships and calls the function 
   A review or a search is parallel by default.
 - Delegate a side task whose output I will not reread. Do not delegate what one focused edit
   would finish, and do not delegate checking your own work.
+- Start a delegate the way this host does. Claude Code runs `Agent` with the agent's
+  `subagent_type`, and `run_in_background: false` when the next step waits on it. In T3 Code,
+  where `delegate_task` exists, that foreground `Agent` stays, while a background delegate and
+  each parallel writer go through `delegate_task` with `isolation: "worktree"`. It takes no
+  `subagent_type`, so its task text opens with the agent definition's body below the
+  frontmatter. Codex runs `spawn_agent` with the brief alone (`fork_context` false, or
+  `fork_turns: "none"`), because an inherited history is replayed on every call, and waits with
+  `wait_agent` at the longest timeout, again when that ends first, never `sleep` between.
 
 ## Worktrees
 

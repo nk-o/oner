@@ -30,6 +30,11 @@ one-time step.
 - The working tree must be clean; if it is not, stop and ask. One expected leftover: the
   `.gitignore` line /spec adds for `.specs/` folds into the first stage commit instead of
   blocking the run.
+- When plan.md has a `Planned at.` line, run `git diff --stat <sha>..HEAD -- <every file the
+  unchecked tasks name>`. When it lists a file, read what changed before the first edit. A task
+  the change only moved or renamed is fixed in place, and a task the change already did is
+  ticked, each with a line under Deviations. A change that contradicts a decision is a conflict
+  with the spec.
 - Run the project's standard checks once for a baseline. A pre-existing failure gets
   reported, not silently fixed.
 
@@ -53,9 +58,8 @@ you unedited. On Claude Code that subagent is `oneshot-worker`. Parallel ones ea
 That worktree starts from the default branch with tracked files only: commit what the branch
 holds before they start, put that commit's sha and the install command in each brief, and
 apply each returned diff with `git -C <worktree> diff --cached | git apply` before the stage's
-Verify step. In T3 Code, where `delegate_task` exists, parallel ones go through `delegate_task`
-with `isolation: "worktree"` instead, each task text starting with the body of
-`{{agents_dir}}/oneshot-worker.md` below the frontmatter, and a lone one is a foreground `Agent`.
+Verify step. Each starts per **Delegating** in `AGENTS.md`, and a T3 Code `delegate_task` opens
+with `{{agents_dir}}/oneshot-worker.md`'s body.
 
 ## Deviations
 

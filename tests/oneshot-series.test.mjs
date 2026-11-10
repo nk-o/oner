@@ -729,6 +729,23 @@ test('an ordinary run still ends at its open pull request', () => {
   assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript), '');
 });
 
+test('the reminder names a run log past 16 KB and stays quiet below it', () => {
+  const f = fixture();
+  rmSync(f.program, { recursive: true });
+  f.g('switch', '-q', '-c', 'feature');
+  const run = join(f.repo, '.specs', '002-feature');
+  mkdirSync(run);
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, '<command-name>/oneshot</command-name>\n');
+  const head = '# feature\n\nLane. feature\nBranch. feature\nStatus. running\n\n## Checks\n';
+
+  writeFileSync(join(run, 'oneshot.md'), head + 'ok\n');
+  assert.doesNotMatch(runHook(f.repo, 'UserPromptSubmit', transcript), /KB/);
+
+  writeFileSync(join(run, 'oneshot.md'), head + 'x'.repeat(20 * 1024) + '\n');
+  assert.match(runHook(f.repo, 'UserPromptSubmit', transcript), /run log is 20 KB, past 16 KB/);
+});
+
 test('a new or compacted session hears the open asks in .specs/requests.md, and only then', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });

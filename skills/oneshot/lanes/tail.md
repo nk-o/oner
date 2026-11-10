@@ -74,7 +74,9 @@ the run log for a review.
      off, goes into the report rather than being swallowed. In T3 Code, where
      `t3_background_wait` exists, call it with the script's task ID before a turn ends on it.
   2. `prod-review` on this session's model, in an `oneshot-reviewer` subagent, where the host
-     has subagents. Its brief carries the run log's **Assumptions**, and the `blast-radius`
+     has subagents, started once the script is running and run in the foreground
+     (`run_in_background: false` on Claude Code). The turn holds until it returns, so no fix
+     starts under it, and then waits on the script for the rest. Its brief carries the run log's **Assumptions**, and the `blast-radius`
      result when the step above ran, so its step 6 does not run it a second time. Where the
      host has no subagents, `prod-review` runs inline, returns an **Attention** line for each
      assumption it would have decided differently or whose evidence is thin, and runs first,

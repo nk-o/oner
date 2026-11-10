@@ -106,6 +106,9 @@ change something using the question routing in `AGENTS.md`. Do not start plan.md
 
 Write `plan.md` beside it:
 
+- **Planned at.** Under the title, the line `Planned at. <sha>`, with the commit HEAD is at
+  as you write the file. `implement` checks the files the tasks name against it before the
+  first edit, because a plan built later than it was written may describe code that moved.
 - **Stages** in dependency order. Each stage holds tasks as `- [ ]` checkboxes.
 - Each task names the files it writes and the check that proves it. One task is one
   focused edit-and-check cycle. The check is a command: a test that already exists, a run of
