@@ -204,10 +204,10 @@ usually one small script that imports what the app ships and calls the function 
   the brief alone (`fork_context` false, or `fork_turns: "none"`), because an inherited history
   is replayed on every call, and waits with `wait_agent` at the longest timeout, again when that
   ends first, never `sleep` between. In T3 Code, where `delegate_task` exists
-  (`mcp__t3-code__delegate_task` in Claude Code), every host sends two kinds through it: a
-  background delegate, and each parallel writer, with `isolation: "worktree"` and
-  `mode: "wait"` when the next step waits on it, because T3 binds no worktree made another way.
-  It takes no `subagent_type`, so a delegate with an agent definition has that body, below the
+  (`mcp__t3-code__delegate_task` in Claude Code), every host sends a background delegate
+  through it. Each parallel writer goes through it too, started together with the others, with
+  `isolation: "worktree"`, because T3 binds no worktree made another way. It takes no
+  `subagent_type`, so a delegate with an agent definition has that body, below the
   frontmatter, open its task text.
 
 ## Worktrees
