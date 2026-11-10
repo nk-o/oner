@@ -107,6 +107,18 @@ if [ "${1:-}" = "--fetch-index" ]; then
 fi
 
 SELF="$(cd "$(dirname "$0")" 2>/dev/null && /bin/pwd -P)/$(basename "$0")"
+T3_HELPER="$(dirname "$SELF")/t3-state.py"
+T3_HOME="${DEV_TIDY_T3_HOME:-$HOME/.t3}"
+
+t3_query() {
+  if command -v python3 >/dev/null 2>&1 && [ -f "$T3_HELPER" ]; then
+    python3 "$T3_HELPER" "$@" || return 0
+  elif [ -d "$T3_HOME" ]; then
+    printf 'unknown\n'
+  else
+    printf 'none\n'
+  fi
+}
 
 apply=false
 quiet=false
@@ -171,6 +183,9 @@ if [ ${#roots[@]} -eq 0 ]; then
     [ -d "$HOME/$d" ] && roots+=("$HOME/$d")
   done
   [ -d "$HOME/.codex/worktrees" ] && roots+=("$HOME/.codex/worktrees")
+  while IFS= read -r d; do
+    [ -d "$d" ] && roots+=("$d")
+  done < <(t3_query roots)
 fi
 [ -n "$mode" ] && [ ${#roots[@]} -eq 0 ] && roots=("$target")
 if [ ${#roots[@]} -eq 0 ]; then
@@ -376,6 +391,14 @@ under_a_root() {
 # Find the checkout boundary, even when a server recreated its cache directory.
 orphan_checkout() {
   local dir="$1" root
+  root="$(t3_query checkout "$dir")"
+  case "$root" in
+    /*)
+      [ -e "$root/.git" ] && return 1
+      printf '%s' "$root"
+      return 0
+      ;;
+  esac
   case "$dir" in
     */.codex/worktrees/*/*)
       root="${dir%%/.codex/worktrees/*}/.codex/worktrees/"
@@ -387,6 +410,13 @@ orphan_checkout() {
     */.claude/worktrees/*)
       root="${dir%%/.claude/worktrees/*}/.claude/worktrees/"
       dir="${dir#"$root"}"
+      root="$root${dir%%/*}"
+      ;;
+    */.t3/worktrees/*/*)
+      root="${dir%%/.t3/worktrees/*}/.t3/worktrees/"
+      dir="${dir#"$root"}"
+      root="$root${dir%%/*}/"
+      dir="${dir#*/}"
       root="$root${dir%%/*}"
       ;;
     */worktrees/*)
@@ -410,6 +440,10 @@ tidy_zombies() {
     dir="${line#*	}"
     under_a_root "$dir" || continue
     root="$(orphan_checkout "$dir")" || continue
+    case "$(t3_query path "$root")" in
+      none|settled) ;;
+      *) kept "servers in $root" "T3 Code task active or state unavailable"; continue ;;
+    esac
     printf '%s\n' "$dirs" | grep -qxF "$root" && continue
     dirs="${dirs}${root}
 "
@@ -633,6 +667,17 @@ release_ports() {
   changed "  ports     $dir (launch configuration saved in its git directory)"
 }
 
+t3_terminal_under() {
+  local pid cwd
+  while IFS="$(printf '\t')" read -r pid cwd; do
+    case "$cwd/" in "$1/"*)
+      not_self "$pid" && is_session "$pid" && return 0
+      ;;
+    esac
+  done <<< "$proc_cwds"
+  return 1
+}
+
 tidy_repo() {
   local repo="$1" slug="$2" primary default_branch current
   local kept_branches="" series
@@ -656,7 +701,7 @@ tidy_repo() {
   # Worktrees first: a branch cannot be deleted while a worktree is on it.
   while IFS= read -r dir; do
     [ "$dir" = "$primary" ] && continue
-    local name branch sha head label gitdir held why marker sessions
+    local name branch sha head label gitdir held why marker sessions t3
     # Worktrees nest, so the basename alone is ambiguous — show the path below
     # the checkout instead.
     name="${dir#"$primary"/.claude/worktrees/}"
@@ -680,6 +725,23 @@ tidy_repo() {
     [ "$held" = HEAD ] && held="$(sed 's#^refs/heads/##' \
       "$gitdir"/rebase-*/head-name "$gitdir/BISECT_START" 2>/dev/null | head -1)"
 
+    t3="$(t3_query path "$dir")"
+    why=""
+    case "$t3" in
+      none) ;;
+      settled) t3_terminal_under "$dir" && why="T3 Code terminal or agent still open" ;;
+      busy) why="T3 Code task running or has pending work" ;;
+      open) why="T3 Code task not settled" ;;
+      mismatch) why="T3 Code branch differs from checkout" ;;
+      *) why="T3 Code state unavailable or worktree unrecognized" ;;
+    esac
+    if [ -n "$why" ]; then
+      kept "worktree $name" "$why"
+      kept_branches="${kept_branches}${held}
+"
+      continue
+    fi
+
     if [ "$ports_only" = true ]; then
       marker=""
       for why in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD BISECT_LOG; do
@@ -687,9 +749,14 @@ tidy_repo() {
       done
       if [ -n "$marker" ]; then
         kept "ports $name" "operation in progress"
+      elif open_run_in "$dir" || in_series "$held"; then
+        kept "ports $name" "open oneshot run or series"
+      elif printf '%s' "$keep_dirs" | grep -qxF "$dir"; then
+        kept "ports $name" "kept by --keep"
       elif [ -n "$head" ] && head_is_open "$head"; then
         kept "ports $name" "pull request still open"
       elif { [ -n "$head" ] && tip_is_settled "$head" "$sha"; } || content_is_landed "$sha"; then
+        [ "$(t3_query path "$dir")" = "$t3" ] || { kept "ports $name" "T3 Code state changed"; continue; }
         release_ports "$dir" "$primary"
       elif [ -f "$dir/.claude/launch.json" ]; then
         kept "ports $name" "completion unconfirmed; reservation retained"
@@ -709,14 +776,19 @@ tidy_repo() {
       why="uncommitted changes"
     [ -z "$why" ] && printf '%s' "$keep_dirs" | grep -qxF "$dir" && why="kept by --keep"
     [ -z "$why" ] && open_run_in "$dir" && why="open oneshot run"
-    [ -z "$why" ] && case "$dir" in "$HOME"/.t3/worktrees/*) why="T3 Code thread worktree" ;; esac
     [ -z "$why" ] && in_series "$held" && why="stage of an open oneshot series"
+    if [ -z "$why" ] && [ -f "$dir/.gitmodules" ] &&
+      ! git -C "$dir" submodule foreach --quiet --recursive \
+        'test -z "$(git status --porcelain --untracked-files=all)" && test -z "$(git rev-list --max-count=1 HEAD --all --reflog --not --remotes)"' >/dev/null 2>&1; then
+      why="submodule has local work or cannot be inspected"
+    fi
 
     # The content proof alone would take a head that is still under review. It
     # runs on a detached checkout no pull request claims as well: what the
     # directory is called stops mattering once the commits in it are shown to be
     # in the default branch.
     sessions="$(session_state cwd "$dir")"
+    [ "$t3" = settled ] && sessions=""
     if [ -n "$why" ]; then
       :
     elif [ "$sessions" = open ]; then
@@ -729,6 +801,8 @@ tidy_repo() {
       label="squashed into $default_branch"
     elif [ "$sessions" = archived ] && commits_kept "$sha"; then
       label="sessions archived"
+    elif [ "$t3" = settled ] && commits_kept "$sha"; then
+      label="T3 Code task settled, commits retained"
     elif [ -z "$head" ]; then
       why="detached, no pull request matches the name$(gap_note "$sha")"
     else
@@ -743,6 +817,14 @@ tidy_repo() {
 
     if busy_under "$dir"; then
       kept "worktree $name" "build, test, install, or migration running"
+      kept_branches="${kept_branches}${held}
+"
+      continue
+    fi
+    if [ "$(t3_query path "$dir")" != "$t3" ] ||
+      [ "$(git -C "$dir" rev-parse HEAD 2>/dev/null)" != "$sha" ] ||
+      [ -n "$(git -C "$dir" status --porcelain 2>/dev/null)" ]; then
+      kept "worktree $name" "worktree or T3 Code state changed"
       kept_branches="${kept_branches}${held}
 "
       continue
@@ -792,6 +874,10 @@ tidy_repo() {
     is_protected "$branch" && continue
 
     local tip note sessions
+    if [ "$(t3_query branch "$repo" "$branch")" != none ]; then
+      kept "branch   $branch" "referenced by T3 Code or its state unavailable"
+      continue
+    fi
     tip="$(git -C "$repo" rev-parse "$branch" 2>/dev/null)"
     [ -z "$tip" ] && continue
     head_is_open "$branch" && { kept "branch   $branch" "pull request still open"; continue; }
@@ -931,12 +1017,21 @@ inspect_target() {
 }
 
 drop_target() {
+  local t3
   if [ -n "$branch" ]; then
     { [ "$branch" = "$default_branch" ] || is_protected "$branch"; } &&
       { echo "Refusing to drop $branch: it is a long-lived branch." >&2; exit 1; }
   fi
   if [ -n "$wt" ]; then
     load_procs
+    t3="$(t3_query path "$wt")"
+    case "$t3" in
+      none|settled) ;;
+      *) echo "Refusing to drop $wt: T3 Code task active or state unavailable." >&2; exit 1 ;;
+    esac
+    if [ "$t3" = settled ] && t3_terminal_under "$wt"; then
+      echo "Refusing to drop $wt: T3 Code terminal or agent still open." >&2; exit 1
+    fi
     changed "  worktree  ${wt/#$HOME/~}  [dropped]"
     kill_pids "$(pids_under "$wt")" "still running in ${wt##*/}"
     if [ "$apply" = true ]; then
@@ -945,8 +1040,12 @@ drop_target() {
     fi
   fi
   if [ -n "$branch" ]; then
-    changed "  branch    $branch  [dropped]"
-    [ "$apply" = true ] && git -C "$repo" branch -D "$branch" >/dev/null
+    if [ "$(t3_query branch "$repo" "$branch")" != none ]; then
+      kept "branch   $branch" "referenced by T3 Code or its state unavailable"
+    else
+      changed "  branch    $branch  [dropped]"
+      [ "$apply" = true ] && git -C "$repo" branch -D "$branch" >/dev/null
+    fi
   fi
   [ "$apply" = true ] || say "Re-run with --yes to apply."
   return 0
@@ -977,13 +1076,17 @@ if [ "$skip_git" = false ]; then
     for root in "${roots[@]}"; do
       [ -d "$root" ] || continue
       while IFS= read -r gitdir; do
-        repo="$(dirname "$gitdir")"
+        [ -z "$(git -C "$(dirname "$gitdir")" rev-parse --show-superproject-working-tree 2>/dev/null)" ] || continue
+        repo="$(git -C "$(dirname "$gitdir")" worktree list --porcelain 2>/dev/null |
+          awk '/^worktree /{print substr($0, 10); exit}')"
+        [ -n "$repo" ] || continue
         slug="$(repo_slug "$repo")"
         [ -z "$slug" ] && continue
         pairs="${pairs}${repo}	${slug}
 "
-      done < <(find "$root" -maxdepth "$depth" -name .git -type d 2>/dev/null)
+      done < <(find "$root" -maxdepth "$depth" -name .git -prune -print 2>/dev/null)
     done
+    pairs="$(printf '%s\n' "$pairs" | awk 'NF && !seen[$0]++')"
 
     printf '%s\n' "$pairs" | awk -F'\t' 'NF > 1 {print $2}' | sort -u > "$PR_CACHE/slugs"
     if [ -s "$PR_CACHE/slugs" ]; then

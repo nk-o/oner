@@ -53,11 +53,44 @@ function fixture() {
   writeFileSync(join(bin, 'git'), `#!/bin/sh\nfor arg in "$@"; do [ "$arg" = fetch ] && exit 0; done\nexec '${git}' "$@"\n`, { mode: 0o755 });
   writeFileSync(join(bin, 'gh'), '#!/bin/sh\n[ "${FAIL_GH:-}" = 1 ] && exit 1\nprintf "feature\\t%s\\t%s\\n" "$FIXTURE_SHA" "${FIXTURE_STATE:-MERGED}"\n', { mode: 0o755 });
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, FIXTURE_SHA: sha,
-    DEV_TIDY_CLAUDE_SESSIONS: join(root, 'sessions'), DEV_TIDY_CODEX_HOME: join(root, 'codex') };
+    DEV_TIDY_CLAUDE_SESSIONS: join(root, 'sessions'), DEV_TIDY_CODEX_HOME: join(root, 'codex'), DEV_TIDY_T3_HOME: join(root, 't3') };
   const worktree = (name) => { const dir = join(repo, '.claude/worktrees', name); runGit('worktree', 'add', '-qb', name, dir); return dir; };
   const launch = (dir, port = 38101) => { mkdirSync(join(dir, '.claude'), { recursive: true }); writeFileSync(join(dir, '.claude/launch.json'), JSON.stringify({ version: '0.0.1', configurations: [{ name: 'web', runtimeExecutable: 'node', runtimeArgs: ['server.mjs', '--port', String(port)], port }] })); };
   const run = (script, args, cwd = repo, extraEnv = {}) => spawnSync('bash', [script, ...args], { cwd, env: { ...env, ...extraEnv }, encoding: 'utf8', timeout: 30000 });
   return { root, repo, env, sha, runGit, worktree, launch, run };
+}
+
+function t3State(f, dir, { settled = true, running = false, session = false, custom = false, subagent = false, shared = false } = {}) {
+  const userdata = join(f.env.DEV_TIDY_T3_HOME, 'userdata');
+  mkdirSync(userdata, { recursive: true });
+  writeFileSync(join(userdata, 'settings.json'), JSON.stringify(custom ? { worktreesDirectory: join(f.root, 'custom-checkouts') } : {}));
+  const thread = { id: 'thread', projectId: 'project', branch: 'feature', worktreePath: dir,
+    deletedAt: null, archivedAt: null, settledAt: settled ? '2026-01-01T00:00:00Z' : null,
+    lineage: { parentThreadId: null, relationshipToParent: null } };
+  const threads = [thread];
+  if (subagent) threads.push({ ...thread, id: 'child', settledAt: null, lineage: { parentThreadId: 'thread', relationshipToParent: 'subagent' } });
+  if (shared) threads.push({ ...thread, id: 'independent', settledAt: null });
+  const result = spawnSync('python3', ['-c', `
+import sqlite3,sys,json
+data=json.load(sys.stdin)
+c=sqlite3.connect(sys.argv[1])
+c.execute('CREATE TABLE IF NOT EXISTS projection_projects (project_id TEXT, workspace_root TEXT)')
+c.execute('DELETE FROM projection_projects')
+c.execute('INSERT INTO projection_projects VALUES (?,?)',('project',data['repo']))
+c.execute('CREATE TABLE IF NOT EXISTS orchestration_v2_projection_threads (payload_json TEXT)')
+c.execute('DELETE FROM orchestration_v2_projection_threads')
+c.executemany('INSERT INTO orchestration_v2_projection_threads VALUES (?)',[(json.dumps(t),) for t in data['threads']])
+for table in ['runs','runtime_requests','subagents']:
+ c.execute('CREATE TABLE IF NOT EXISTS orchestration_v2_projection_'+table+' (thread_id TEXT, status TEXT)')
+ c.execute('DELETE FROM orchestration_v2_projection_'+table)
+if data['running']: c.execute("INSERT INTO orchestration_v2_projection_runs VALUES ('thread','running')")
+c.execute('CREATE TABLE IF NOT EXISTS orchestration_v2_effect_outbox (thread_id TEXT, status TEXT)')
+c.execute('CREATE TABLE IF NOT EXISTS orchestration_v2_projection_provider_sessions (payload_json TEXT, status TEXT)')
+c.execute('DELETE FROM orchestration_v2_projection_provider_sessions')
+if data['session']: c.execute('INSERT INTO orchestration_v2_projection_provider_sessions VALUES (?,?)',(json.dumps({'cwd':data['dir']}),'ready'))
+c.commit()
+`, join(userdata, 'statev2.sqlite')], { input: JSON.stringify({ repo: f.repo, dir, threads, running, session }), encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
 }
 
 function serverRange(dir, port, names = ['web']) {
@@ -385,4 +418,97 @@ test('Turborepo cache entries older than a week go, newer ones stay', () => {
   assert.equal(existsSync(join(cache, 'old.tar.zst')), false);
   assert.equal(existsSync(join(cache, 'new.tar.zst')), true);
   assert.doesNotMatch(f.run(tidy, ['--skip-turbo', ...args]).stdout, /turbo /);
+});
+
+test('T3 cleanup removes a landed settled checkout and keeps its resumable branch', () => {
+  const f = fixture(); const original = f.worktree('feature');
+  const dir = join(f.env.DEV_TIDY_T3_HOME, 'worktrees/project/t3-fixture');
+  mkdirSync(join(dir, '..'), { recursive: true }); f.runGit('worktree', 'move', original, dir);
+  t3State(f, dir, { subagent: true });
+  const sessions = join(f.env.DEV_TIDY_CODEX_HOME, 'sessions'); mkdirSync(sessions, { recursive: true });
+  writeFileSync(join(sessions, 't3.jsonl'), JSON.stringify({ type: 'session_meta', payload: { cwd: dir } }) + '\n');
+  const args = ['--root', join(f.env.DEV_TIDY_T3_HOME, 'worktrees'), '--skip-docker', '--skip-wp-env', '--skip-turbo', '--kept'];
+  const dry = f.run(tidy, args); assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /Would remove 1 worktree\(s\), 0 branch/); assert.ok(existsSync(dir));
+  const applied = f.run(tidy, ['--yes', ...args]); assert.equal(applied.status, 0, applied.stderr);
+  assert.equal(existsSync(dir), false); assert.equal(f.runGit('rev-parse', 'feature'), f.sha);
+  const repeat = f.run(tidy, ['--yes', ...args, '--root', f.repo]);
+  assert.equal(repeat.status, 0, repeat.stderr); assert.equal(f.runGit('rev-parse', 'feature'), f.sha);
+});
+
+test('T3 custom checkouts keep open, running and connected tasks in both cleanup modes', () => {
+  const f = fixture(); const original = f.worktree('feature');
+  const dir = join(f.root, 'custom-checkouts/t3-fixture'); mkdirSync(join(dir, '..'), { recursive: true });
+  f.runGit('worktree', 'move', original, dir); f.launch(dir);
+  for (const state of [{ settled: false }, { running: true }, { session: true }, { shared: true }]) {
+    t3State(f, dir, { custom: true, ...state });
+    for (const mode of [[], ['--ports-only']]) {
+      const result = f.run(tidy, ['--yes', '--kept', '--root', f.root, '--skip-docker', '--skip-wp-env', '--skip-turbo', ...mode]);
+      assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /T3 Code task/);
+      assert.ok(existsSync(join(dir, '.claude/launch.json'))); assert.equal(f.runGit('rev-parse', 'feature'), f.sha);
+    }
+  }
+});
+
+test('unreadable T3 state preserves its checkout, launch settings and branch', () => {
+  const f = fixture(); const dir = f.worktree('feature'); f.launch(dir); t3State(f, dir);
+  writeFileSync(join(f.env.DEV_TIDY_T3_HOME, 'userdata/statev2.sqlite'), 'invalid database');
+  for (const mode of [[], ['--ports-only']]) {
+    const result = f.run(tidy, ['--yes', '--kept', '--root', f.repo, '--skip-docker', '--skip-wp-env', '--skip-turbo', ...mode]);
+    assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /T3 Code state unavailable/);
+    assert.ok(existsSync(join(dir, '.claude/launch.json'))); assert.equal(f.runGit('rev-parse', 'feature'), f.sha);
+  }
+});
+
+test('T3 port cleanup preserves open runs and stops a settled task server', async () => {
+  const f = fixture(); const dir = f.worktree('feature'); f.launch(dir); t3State(f, dir);
+  const live = await server(dir);
+  writeFileSync(join(f.repo, '.git/info/exclude'), '.specs/\n');
+  const log = join(dir, '.specs/001-feature/oneshot.md'); mkdirSync(join(log, '..'), { recursive: true });
+  writeFileSync(log, 'Status. waiting\n');
+  const args = ['--yes', '--ports-only', '--root', f.repo, '--kept'];
+  const kept = f.run(tidy, args); assert.equal(kept.status, 0, kept.stderr); assert.ok(existsSync(join(dir, '.claude/launch.json')));
+  writeFileSync(log, 'Status. done\n');
+  const result = f.run(tidy, args); assert.equal(result.status, 0, result.stderr);
+  assert.equal(existsSync(join(dir, '.claude/launch.json')), false);
+  assert.notEqual(spawnSync('lsof', ['-nP', `-iTCP:${live.port}`, '-sTCP:LISTEN']).status, 0);
+});
+
+test('T3 orphan cleanup finds a deleted custom checkout despite surviving cache directories', async () => {
+  const f = fixture(); const dir = join(f.root, 'custom-checkouts/project/t3-fixture');
+  mkdirSync(dir, { recursive: true }); t3State(f, dir, { custom: true });
+  const live = await server(dir); rmSync(dir, { recursive: true }); mkdirSync(join(dir, '.next/cache'), { recursive: true });
+  const result = f.run(tidy, ['--ports-only', '--yes', '--root', f.root]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.notEqual(spawnSync('lsof', ['-nP', `-iTCP:${live.port}`, '-sTCP:LISTEN']).status, 0);
+});
+
+test('forced cleanup cannot drop an active T3 checkout', () => {
+  const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir, { running: true });
+  const result = f.run(tidy, ['--drop', dir, '--yes']);
+  assert.equal(result.status, 1); assert.ok(existsSync(dir)); assert.equal(f.runGit('rev-parse', 'feature'), f.sha);
+});
+
+test('T3 cleanup preserves a branch renamed outside its task records', () => {
+  const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+  f.runGit('-C', dir, 'branch', '-m', 'renamed');
+  const result = f.run(tidy, ['--yes', '--kept', '--root', f.repo, '--skip-docker', '--skip-wp-env']);
+  assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /branch differs from checkout/);
+  assert.ok(existsSync(dir)); assert.equal(f.runGit('rev-parse', 'renamed'), f.sha);
+});
+
+test('T3 cleanup keeps committed submodule work that no remote holds', () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  f.runGit('-C', dir, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', f.repo, 'core');
+  f.runGit('-C', dir, 'commit', '-qm', 'Add submodule');
+  t3State(f, dir);
+  f.runGit('-C', join(dir, 'core'), 'config', 'user.name', 'Fixture');
+  f.runGit('-C', join(dir, 'core'), 'config', 'user.email', 'fixture@example.test');
+  writeFileSync(join(dir, 'core/content'), 'unpublished submodule work\n');
+  f.runGit('-C', join(dir, 'core'), 'commit', '-qam', 'Keep unpublished work');
+  f.runGit('-C', dir, 'add', 'core'); f.runGit('-C', dir, 'commit', '-qm', 'Update submodule');
+  const tip = f.runGit('-C', dir, 'rev-parse', 'HEAD');
+  const result = f.run(tidy, ['--yes', '--kept', '--root', f.repo, '--skip-docker', '--skip-wp-env'], f.repo, { FIXTURE_SHA: tip });
+  assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /submodule has local work/);
+  assert.equal(readFileSync(join(dir, 'core/content'), 'utf8'), 'unpublished submodule work\n');
 });

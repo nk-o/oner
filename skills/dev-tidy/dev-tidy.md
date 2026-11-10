@@ -40,8 +40,9 @@ Always worth reading the report first. The list is usually longer than expected.
 | `--against BRANCH` | With `--inspect`, compare with `origin/BRANCH` instead of the default branch. |
 | `--drop PATH [BRANCH]` | Remove one worktree and its branch, or one branch and its worktree, without either proof. Only with `--yes`. |
 
-Needs `gh` (authenticated) for pull request state, and `docker` for the image
-pass. Either being absent just skips that part.
+Needs `gh` (authenticated) for pull request state, Python 3 for T3 Code state,
+and `docker` for the image pass. Missing Python preserves potential T3 Code work.
+Missing `gh` or `docker` skips its pass.
 
 ## Releasing ports without removing worktrees
 
@@ -146,8 +147,9 @@ Left alone, always:
 - a worktree or branch that a Claude app or Codex session not yet archived
   worked in, because the app reuses one worktree for many sessions and the
   newest may still be in use
-- a worktree under `~/.t3/worktrees/`, because T3 Code made it for a thread that
-  may still be open
+- a T3 Code worktree whose task is not settled, archived, or deleted, whose task
+  has active work or a connected provider session, or whose records cannot be read
+- any branch still referenced by a T3 Code task, even after its checkout is removed
 - a worktree whose `.specs/*/oneshot.md` reads `Status. running` or `waiting`,
   because git ignores that log and no proof above can see it
 - the worktrees and branches of every stage an open oneshot series has not
@@ -196,6 +198,31 @@ the last segment of the branch. The script accepts that guess only when exactly
 one pull request head matches it, and then still requires the commit check
 above to agree. A directory named after nothing recognisable, such as a Cursor
 worktree, is skipped.
+
+### T3 Code
+
+`t3-state.py` reads `~/.t3/userdata/statev2.sqlite` in a read-only transaction.
+It never changes T3 Code records. The standard worktree folder, the configured
+folder, and previous configured folders are discovered from `settings.json`.
+Repositories can be discovered through linked worktrees outside the primary checkout.
+`DEV_TIDY_T3_HOME` selects another T3 home for a separate installation or tests.
+
+A settled parent covers its idle subagent threads in the same checkout. An
+independent thread sharing that checkout must also be finished. Running tasks,
+queued runs, pending requests, unfinished effects, connected provider sessions,
+and terminals or agent processes preserve the checkout and its ports. Missing
+records and unsupported schemas preserve potential T3 work. The state is checked
+again before normal removal or port release.
+
+A branch renamed outside T3 Code also preserves its checkout. The recorded branch
+must match Git before the checkout can be recreated safely. Submodules with local
+changes or commits absent from their remote refs preserve the parent worktree.
+
+Finished tasks still need the normal Git proof. A settled task also qualifies
+when its commits exist on the default branch or a remote. Manual cleanup applies
+these proofs immediately, independently of T3 Code's automatic retention period.
+Its branches remain for T3 Code to recreate the checkout. Open oneshot runs and
+series remain protected in both full and port-only cleanup.
 
 ### Dev servers
 

@@ -41,6 +41,7 @@ See [dev-tidy.md](dev-tidy.md) for logging and removal.
 3. Inspect every kept item that holds work, as described under **Inspect what
    holds work**. Done when each one is marked drop or ask.
 4. Send one short message and wait for a yes.
+   When the user already authorized cleanup, report the plan and continue without asking again.
 5. `dev-tidy --drop` each item marked drop, with `--yes`, then `dev-tidy --yes`.
    The drops go first so the pass also takes the wp-env stacks they free.
 6. Two lines back, plus whatever is still open.
@@ -49,6 +50,12 @@ See [dev-tidy.md](dev-tidy.md) for logging and removal.
 
 Most of the report is already decided. The script only lists what it proved is
 recoverable, so do not hand any of it back as a question.
+
+T3 Code worktrees use its local task records, including custom worktree locations.
+Only settled, archived, or deleted tasks without active work qualify for the normal
+Git proofs. Their branches remain while T3 Code references them. Unknown task state
+keeps the checkout and its ports. Do not bypass that protection with `--drop`.
+This manual cleanup does not wait for T3 Code's automatic retention period.
 
 - Everything the dry run listed for removal. Worktrees, branches, wp-env stacks,
   Turborepo cache, images, build cache.
