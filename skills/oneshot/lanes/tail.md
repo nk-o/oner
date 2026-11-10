@@ -77,9 +77,10 @@ the run log for a review.
      has subagents, started once the script is running and run in the foreground per
      **Delegating** in `AGENTS.md`. The turn holds until it returns, so no fix starts under it,
      and then waits on the script for the rest. Its brief carries the run log's
-     **Assumptions**, and the `blast-radius` result when the step above ran, so its step 6 does not run it a second time. Where the
-     host has no subagents, `prod-review` runs inline, returns an **Attention** line for each
-     assumption it would have decided differently or whose evidence is thin, and runs first,
+     **Assumptions**, and the `blast-radius` result when the step above ran, so its step 6
+     does not run it a second time. Where the host has no subagents, `prod-review` runs
+     inline, returns an **Attention** line for each assumption it would have decided
+     differently or whose evidence is thin, and runs first,
      ahead of `external-review`, because a reviewer that has already read the other cannot
      agree with it independently.
 

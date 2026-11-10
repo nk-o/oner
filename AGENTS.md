@@ -199,15 +199,16 @@ usually one small script that imports what the app ships and calls the function 
   A review or a search is parallel by default.
 - Delegate a side task whose output I will not reread. Do not delegate what one focused edit
   would finish, and do not delegate checking your own work.
-- Start a delegate the way this host does. A delegate the next step waits on runs in the
-  foreground: Claude Code's `Agent` with its `subagent_type` and `run_in_background: false`, or
-  Codex's `spawn_agent` followed by `wait_agent` at the longest timeout, again when that ends
-  first, never `sleep` between. Codex starts it with the brief alone (`fork_context` false, or
-  `fork_turns: "none"`), because an inherited history is replayed on every call. In T3 Code,
-  where `delegate_task` exists (`mcp__t3-code__delegate_task` in Claude Code), a background
-  delegate goes through it on either host, and a writer that runs beside another also gets
-  `isolation: "worktree"`. It takes no `subagent_type`, so a delegate with an agent definition
-  has that body, below the frontmatter, open its task text.
+- Start a delegate the way this host does. Claude Code runs `Agent` with its `subagent_type`,
+  and `run_in_background: false` when the next step waits on it. Codex runs `spawn_agent` with
+  the brief alone (`fork_context` false, or `fork_turns: "none"`), because an inherited history
+  is replayed on every call, and waits with `wait_agent` at the longest timeout, again when that
+  ends first, never `sleep` between. In T3 Code, where `delegate_task` exists
+  (`mcp__t3-code__delegate_task` in Claude Code), every host sends two kinds through it: a
+  background delegate, and each parallel writer, with `isolation: "worktree"` and
+  `mode: "wait"` when the next step waits on it, because T3 binds no worktree made another way.
+  It takes no `subagent_type`, so a delegate with an agent definition has that body, below the
+  frontmatter, open its task text.
 
 ## Worktrees
 

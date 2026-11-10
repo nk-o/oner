@@ -16,12 +16,14 @@ it opens carries the spec alone. The build is a later run: `implement` on the fo
    nothing waits.
 3. **Read it cold.** Its builder will have the folder and none of this conversation. Hand the
    folder's absolute path to a fresh `general-purpose` subagent, and nothing else, with the
-   question: where would you have to guess to build this, task by task? A gap that is a fact
-   goes into spec.md or plan.md, or gets the reason the code already settles it. A gap that is
-   a choice a user would notice is a decision: take it and log it under **Assumptions**, or
-   make it the opening task of its stage, as step 2 does with deferred ones. When the first
-   read named gaps, one more fresh read checks the edits, and whatever it still names goes into
-   the PR body as open. Without subagents, skip it with that reason.
+   question: where would you have to guess to build this, task by task? Every answer goes into
+   the folder, because the builder reads nothing else. A gap that is a fact goes into spec.md or
+   plan.md, or gets the reason the code already settles it. A gap that is a choice a user would
+   notice is a decision: take it, write it under **Decisions**, and log it under
+   **Assumptions**, or make it the opening task of its stage, as step 2 does with deferred ones.
+   When the first read named gaps, one more fresh read checks the edits. Whatever it still names
+   becomes an opening task of the stage it belongs to, and the PR body lists it as open. Without
+   subagents, skip it with that reason.
 4. **Ship.** Commit the spec folder, run `pr`, push the branch, and open the PR
    with `gh pr create`. The body says what was planned, what was settled, and what was deferred
    to which stage. When the run log names an issue, plan.md names it as a partial reference
