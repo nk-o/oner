@@ -177,6 +177,10 @@ Set \`Status. running\` and run each one, or tick it as \`- [x] <title> skip: <r
     esac
     if [ -n "$log" ]; then
       printf '%s\n' "An oneshot run is open on this branch, Status $status. Its run log $rel is the state. If the task at hand is that run, load its SKILL.md through the host's skill tool or by reading the file. After a resume or compaction, re-read the lane file the log names before taking the next open step."
+      kb=$(( $(wc -c <"$log" 2>/dev/null || echo 0) / 1024 ))
+      if [ "$kb" -gt 16 ]; then
+        printf '%s\n' "The run log is $kb KB, past 16 KB, and every resume reads all of it. Move command output, traces, and finished review rounds into files in the run folder, named from the line they back, and keep each section to what is true now."
+      fi
     fi
     # Every new session hears about an open series once, at its start; after
     # that only the session coordinating it does.

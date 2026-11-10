@@ -138,20 +138,10 @@ get `isolation: "worktree"` and follow `implement`'s steps, with `install` from
 `.claude/worktree.json` as the install command, else the lockfile's package manager. Two
 writers in one checkout share its git index and break each other's builds.
 
-**In T3 Code**, where `delegate_task` exists (`mcp__t3-code__delegate_task` in Claude Code),
-a delegate the next step waits on runs in the foreground: `Agent` with
-`run_in_background: false`, or `spawn_agent` and a wait on Codex. A background delegate goes
-through `delegate_task`, and so does each parallel writer, with `isolation: "worktree"`.
-`delegate_task` takes no `subagent_type`, so its task text starts with the body of
-`{{agents_dir}}/oneshot-worker.md` below the frontmatter, then the brief. Before a turn ends to
-wait on a `delegate_task`, set `Status. waiting` in the run log, and back to `running` when it
-returns.
-
-**On Codex the delegates are the same two agents**, from `{{agents_dir}}/`. Start each with its
-brief alone: `fork_context` false or left out, or `fork_turns: "none"` where the host takes
-`fork_turns`, because the brief is its whole context and an inherited history is replayed on
-every call it makes. Wait on it with `wait_agent` at the longest timeout the host allows, and
-wait again when that ends first, never with `sleep` and status checks between.
+**Every host starts them per Delegating in `AGENTS.md`.** Codex uses the same two agents from
+`{{agents_dir}}/`, and a T3 Code `delegate_task` for one plan.md task opens with
+`{{agents_dir}}/oneshot-worker.md`'s body. Before a turn ends to wait on a `delegate_task`, set
+`Status. waiting` in the run log, and back to `running` when it returns.
 
 **No subagents available changes how a step runs, not whether it runs.** Write the code
 yourself, then review it in a separate pass whose only input is the diff, and say so. `external-review`

@@ -152,9 +152,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    every later turn pays for, so it holds `next`, merges, production checks, the series log,
    and the user's questions, and hands out the rest. Each stage run goes to a fresh
    background `general-purpose` delegate with the brief under **Parallel stages**, and so
-   does long browser or provider work, such as a production canary in a dashboard. In T3
-   Code that delegate goes through `delegate_task`, with `isolation: "worktree"` for a stage
-   run, never a background `Agent`. The
+   does long browser or provider work, such as a production canary in a dashboard. It starts
+   per **Delegating** in `AGENTS.md`, with `isolation: "worktree"` for a stage run. The
    delegate returns its pull request and a summary of a few lines. Read the pull request's
    `--stat` and the stage log's **Review** and **Checks**, not its transcript. The stage's
    tail already gave the diff two readers who did not write it, so open code only where the
@@ -179,8 +178,9 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    **A stage run** is an ordinary oneshot run in the stage's checkout. It has its own
    `.specs/NNN-slug/oneshot.md`, with `Lane. feature` and one more line,
    `Series. <program folder> stage <id>`. Copy the program's spec.md into its folder, and
-   write its plan.md from the program plan's Done when, its Decisions, and this stage's
-   tasks alone, so its `implement` builds this stage and ticks only this copy. Tick Ground
+   write its plan.md from the program plan's `Planned at.` line, its Done when, its
+   Decisions, and this stage's tasks alone, so its `implement` builds this stage, ticks only
+   this copy, and checks what earlier stages changed under its tasks. Tick Ground
    and gate and Spec as `skip: approved program <folder>, stage <id>`, then work Split the
    work, Pin, Build, and the tail through Ship. Its Verify step also writes the stage's
    production check from the stage's Verify into the program's `release/`, runs it against

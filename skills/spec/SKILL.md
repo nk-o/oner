@@ -40,9 +40,9 @@ collides. The slug is a short kebab-case feature name.
 ## Depth
 
 - **Plan-only.** The default for small work: one stage of tasks, behavior that fits inside
-  their checks. Skip spec.md. plan.md opens with **Done when** (the numbered acceptance
-  criteria), **Principles** when the work has behavior a user touches, and **Decisions** (one
-  line each), then the stage. One checkpoint total, at
+  their checks. Skip spec.md. Under its `Planned at.` line, plan.md opens with **Done when**
+  (the numbered acceptance criteria), **Principles** when the work has behavior a user touches,
+  and **Decisions** (one line each), then the stage. One checkpoint total, at
   step 2.
 - **Full.** Both files, when the work runs to several stages, or when behavior and edge
   cases need prose the checkboxes cannot carry. A spec in `specs/` is always full, because the
@@ -106,6 +106,9 @@ change something using the question routing in `AGENTS.md`. Do not start plan.md
 
 Write `plan.md` beside it:
 
+- **Planned at.** Under the title, the line `Planned at. <sha>`, with the commit HEAD is at
+  as you write the file. `implement` checks the files the tasks name against it before the
+  first edit, because a plan built later than it was written may describe code that moved.
 - **Stages** in dependency order. Each stage holds tasks as `- [ ]` checkboxes.
 - Each task names the files it writes and the check that proves it. One task is one
   focused edit-and-check cycle. The check is a command: a test that already exists, a run of
