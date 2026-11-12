@@ -5,7 +5,7 @@ description: >-
   user's config turns on and has installed. Each is told what to review and reads the repository through its own harness, so
   the readings differ in method and not only in model. Use when a change deserves opinions from
   outside this session. Needs at least one
-  provider CLI on PATH: Cursor's `cursor-agent`, `grok`, `codex`, or `claude`.
+  provider CLI on PATH: Cursor's `agent`, `grok`, `codex`, or `claude`.
 argument-hint: "[base ref; defaults to this branch's diff]"
 disable-model-invocation: true
 ---

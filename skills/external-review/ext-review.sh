@@ -34,7 +34,7 @@ Usage: ext-review.sh [--provider cursor|grok|codex|claude|all] [--base <ref>]
   --base       Base to review against. Default: origin/HEAD, else main.
   --model      Model for the cursor voice. Default: config.json, else
                cursor-grok-4.6-low.
-               `cursor-agent models` lists what the account can reach.
+               `agent models` lists what the account can reach.
   --intent     One sentence on what the change is for. The reviewer challenges
                whether the code achieves it, not whether it is the right goal.
 
@@ -98,11 +98,9 @@ while IFS= read -r key; do unset "$key"; done < <(compgen -e | sed -n '/^GIT_/p'
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$root"
-# Cursor installs its CLI as both `agent` and `cursor-agent`. The Grok installer
-# also links `agent` to Grok, so only `cursor-agent` names Cursor for certain.
 available=""
 for voice in $wanted; do
-  case "$voice" in cursor) cli=cursor-agent ;; grok) cli=grok ;; codex) cli=codex ;; claude) cli=claude ;; *) echo 'ext-review: invalid generated provider list' >&2; exit 2 ;; esac
+  case "$voice" in cursor) cli=agent ;; grok) cli=grok ;; codex) cli=codex ;; claude) cli=claude ;; *) echo 'ext-review: invalid generated provider list' >&2; exit 2 ;; esac
   if command -v "$cli" >/dev/null 2>&1; then available="$available $voice";
   else echo "ext-review: no $voice voice, the $cli CLI is not on PATH. Install it to add this reviewer." >&2; fi
 done
@@ -115,7 +113,7 @@ if [ -z "$wanted" ]; then echo 'ext-review: no provider CLI is installed.' >&2; 
 logged_out=""
 for voice in $wanted; do
   case "$voice" in
-    cursor) status_cmd="cursor-agent status"; login_cmd="cursor-agent login" ;;
+    cursor) status_cmd="agent status"; login_cmd="agent login" ;;
     grok) status_cmd="grok models"; login_cmd="grok login" ;;
     codex) status_cmd="codex login status"; login_cmd="codex login" ;;
     claude) status_cmd="claude auth status"; login_cmd="claude auth login" ;;
@@ -216,7 +214,7 @@ run_cursor() {
   local rc=0
 
   printf '===== cursor: %s, this repository'"'"'s review contract =====\n\n' "$model"
-  contract | cursor-agent -p --trust --mode ask --model "$model" --output-format text || rc=$?
+  contract | agent -p --trust --mode ask --model "$model" --output-format text || rc=$?
   printf '\n'
   return "$rc"
 }
@@ -348,13 +346,13 @@ codex_pid=""
 claude_pid=""
 
 if wants cursor; then
-  if command -v cursor-agent >/dev/null 2>&1; then
+  if command -v agent >/dev/null 2>&1; then
     run_cursor >"$outdir/cursor.md" 2>&1 &
     cursor_pid=$!
   else
     missing="$missing
-ext-review: no cursor voice, the \`cursor-agent\` CLI is not on PATH.
-            Install the Cursor CLI and run \`cursor-agent login\` to add it."
+ext-review: no cursor voice, the \`agent\` CLI is not on PATH.
+            Install the Cursor CLI and run \`agent login\` to add it."
   fi
 fi
 
