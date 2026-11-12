@@ -80,7 +80,8 @@ subagents, sweep the kinds yourself one after another.
 ### Architecture
 
 Read the project's `AGENTS.md` or `CLAUDE.md` first, then load `codebase-design` and use its
-glossary in every candidate. The codebase's own names are the domain language: a seam named
+glossary in every candidate. Classify each candidate's dependencies per its `DEEPENING.md`,
+because the report tags the category. The codebase's own names are the domain language: a seam named
 after one of its types, tables, routes, or directories survives review. Walk the hot spots and
 note where you meet friction:
 
@@ -121,11 +122,8 @@ Findings start in the range. A fix may land in older code when that is where the
   new code that rewrites a helper the repository already has; the same logic in three or more
   places, one of them in the range. Use the project's duplicate finder when it has one, and
   otherwise compare the bodies of the functions the range added against the rest of the
-  repository. Import lists, component boilerplate, and migrations that redefine a function are
-  not copies. Copies that differ in one detail often differ on purpose, so read the difference
-  first.
-- **Dead code.** Run the project's dead-code tool with its own configuration. What the project
-  chose not to check stays out.
+  repository. What counts as a copy is **Copies** in `{{skills_dir}}/deslop/criteria.md`.
+- **Dead code.** Per **Unreached code** in the same file, limited to what the range added.
 - **Map drift.** When the project has a `verify-<app>` skill, run its `map` command.
 
 ### Bugs

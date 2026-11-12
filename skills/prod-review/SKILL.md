@@ -173,8 +173,8 @@ Each finding is one entry, and looks like this:
 ```
 ### 3. Retry releases a claim it no longer holds (`worker/claim.ts:88`)
 
-`CONFIRMED` · Live · a retry can clear the claim another attempt already won, and the sweeper
-then skips that row forever.
+`CONFIRMED` · rung 3 · Live · a retry can clear the claim another attempt already won, and
+the sweeper then skips that row forever.
 
 Two attempts land inside the same 50 ms window. The second takes the row; the first's
 `finally` clears `claimed_by` without checking who holds it, leaving queued work nobody owns.
@@ -183,7 +183,7 @@ Two attempts land inside the same 50 ms window. The second takes the row; the fi
 | Part | Rule |
 | --- | --- |
 | Title | The defect in a few words, then the `file:line` you opened in parentheses |
-| Line under it | Verdict, bucket, one sentence: what breaks and for whom |
+| Line under it | Verdict, the evidence rung from `AGENTS.md` the check reached (3 traced, 4 ran code, 5 reproduced), bucket, one sentence: what breaks and for whom |
 | Trigger | Inputs, state, or interleaving → the wrong output. Two or three sentences, and only when the line above does not already make the mechanism obvious |
 
 Knowing the trigger is not optional, since step 7 does not pass without one. Writing it out is.
@@ -206,8 +206,7 @@ counts as a defect, and its fix rules are the same whoever wrote the review, and
 copy of them is how the two skills stay in step.
 
 The reader picks work by number, as in "fix 2 and 5", so never renumber the list you are fixing
-from. Then review the fixes. They are new code written under a lens narrowed to one problem,
-and they are where the next round's worst findings come from.
+from. `resolve-review` says when the fixes get a review of their own.
 
 ## When to stop
 
@@ -225,4 +224,3 @@ running a round that will not find it.
 - Every claim cites a `file:line` you opened. Never from a filename, a diff header, or memory.
 - A convention counts when you can quote the rule from a file the repository owns *and* the
   line that breaks it. Otherwise it is a preference, and preferences are not findings.
-- The evidence rungs in `AGENTS.md` apply here without exception.

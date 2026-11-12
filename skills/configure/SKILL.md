@@ -87,7 +87,7 @@ the same `config.json` and rebuilds on save.
 - Codex skips a new or changed hook until the user trusts it once with `/hooks` in Codex. The
   build says when that is needed.
 
-Do not edit anything under `{{repo_dir}}` other than `config.json` and `local/`, and nothing in
-the agents' own directories: the build owns what it wrote there and replaces it on the next run.
+While configuring, do not edit anything under `{{repo_dir}}` other than `config.json` and
+`local/`, and nothing in the agents' own directories: the build owns what it wrote there and replaces it on the next run.
 Personal rules go in `{{repo_dir}}/local/AGENTS.md` and personal skills in
 `{{repo_dir}}/local/skills/<name>/`, both of which the build picks up.

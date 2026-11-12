@@ -23,8 +23,8 @@ the first fix, so the thread shows the pull request it works on.
 
 When the PR line shows `mergeable: CONFLICTING` or `mergeStateStatus: DIRTY`, the conflict
 leads the report with the base branch named. Checks on a conflicting PR may not have run, and
-the code every comment was written against is about to change. Leave the merge or rebase to
-the user, and work the comments and checks against the branch as it stands.
+the code every comment was written against is about to change. Work the comments and checks
+against the branch as it stands.
 
 ## CI
 
@@ -38,8 +38,8 @@ job name, then place it before editing anything:
 - **Outside the diff.** Check whether the base fails the same way with
   `gh run list --branch <base> --workflow <workflow> --limit 3`, and whether the PR is
   `BEHIND` its base. Either one puts the cause off this branch. Report it and change nothing.
-- **Neither.** Call it flaky or infrastructural and recommend one rerun for the user to start.
-  A second identical failure is not flake, so read its log again instead of a third rerun.
+- **Neither.** Call it flaky or infrastructural, which one rerun settles. A second identical
+  failure is not flake, so read its log again instead of a third rerun.
 
 ## Comments
 
@@ -53,15 +53,11 @@ defect, and its fix rules apply unchanged. Two rulings are PR-specific:
 Scope is the branch's stated intent, meaning the PR description, spec, or task, not the list
 of files it touches.
 
-## Rounds
-
-A second pass exists only for comments that arrived because of your own fixes. Stop and hand
-the PR back when a pass produces no new `FIX`, when a comment repeats a claim you already
-refuted, or when you are about to open a third pass on the same PR. Never reopen a thread you
-already answered to argue it better.
-
 ## Finish
 
-Report per `resolve-review`'s Report, in the numbers from the Comments step. Add a
-ready-to-paste reply with its citation for every `WRONG` and `LATER` item, under the thread or
-comment link from the context block, and do not start another pass on your own.
+The sections above are rules. Who acts on them is the caller's to say, as `pr-wait` and the
+oneshot review lane do. Run on its own, this skill drafts and the user acts: report per
+`resolve-review`'s Report, in the numbers from the Comments step, recommend the one rerun and
+the merge or rebase for the user to start, and add a ready-to-paste reply with its citation
+for every `WRONG` and `LATER` item, under the thread or comment link from the context block.
+One pass, and no second one on your own.

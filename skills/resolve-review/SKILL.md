@@ -4,7 +4,8 @@ description: >-
   Reads a review already in hand, works out which findings are real, fixes those, and drops the
   rest with a reason. Every finding is a claim to check, whoever wrote it. Use when review
   output exists and should be acted on, whether from a previous `prod-review` run, a CI bot,
-  another agent, or a review pasted into the chat.
+  another agent, or a review pasted into the chat. For threads still on GitHub, use
+  `pr-feedback`.
 allowed-tools: Bash(git status*), Bash(git log*), Bash(git diff*), Bash(git show*), Bash(git grep*), Bash(gh pr view*), Bash(gh pr diff*)
 ---
 
@@ -17,7 +18,8 @@ allowed-tools: Bash(git status*), Bash(git log*), Bash(git diff*), Bash(git show
 ## Verdict everything before editing anything
 
 Open the code each finding points at. One fix can invalidate the next finding, so decide the
-whole list first.
+whole list first. A finding this session already verified against a line it quoted keeps that
+check, and only its verdict is left to rule.
 
 | Verdict | Test |
 | --- | --- |
@@ -70,10 +72,11 @@ before you report.
 
 ## Report
 
-One pass, then stop. Not finding much to change is the success case.
+One pass per call, then stop. Not finding much to change is the success case.
 
 Answer in the numbers the review used so each line matches its finding: number, verdict, and
 what you did or why you did not. Close with the check output you actually got,
 `git diff --shortstat` for the fixes so the reader sees what the pass cost, the `LATER` list,
-the Guards, and each `DECIDE` with its options. Leave posting replies, resolving threads, and
-pushing to the user.
+the Guards, and each `DECIDE` with its options. Committing, pushing, replying, and resolving
+threads belong to the skill or lane that called this one. Run on its own, it stops at the
+report and leaves them to the user.

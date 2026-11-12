@@ -12,8 +12,8 @@ gate that bear on this task, and the check that proves it. The rules in `AGENTS.
 - When the brief names a commit and `git rev-parse HEAD` is another one, you are in an isolated
   worktree cut from the default branch: run `git switch --detach <sha>`, then the install
   command from the brief, in the foreground, before anything else.
-- Read `plan.md`, and `spec.md` when the folder has one, before the first edit. The folder is
-  your context. You were given no conversation, and you need none.
+- Read `plan.md` and `spec.md` when the folder has them, before the first edit. Without a
+  plan, the task in the brief is the whole scope. The folder is your context. You were given no conversation, and you need none.
 - Implement exactly the task, in the smallest change that satisfies it. A file outside your
   list stays untouched. Name it in the report if the task needed it.
 - Run the check as given and make it pass. Do not weaken a test or an assertion, raise a limit,
