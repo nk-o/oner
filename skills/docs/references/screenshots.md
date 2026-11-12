@@ -75,8 +75,11 @@ Who draws the annotations decides how an image is shot.
   24 CSS px), because the help center draws a mark exactly on the numbers it gets and a box
   without room runs the outline along the part's edges. Write the article's tags from those
   numbers, never by eye. **Annotations in the help center** below says which tags to use.
-- **The image carries them.** On any other platform the runner draws them into the pixels, as
-  **Annotations in the image** says.
+- **The image carries them.** On any other platform the runner draws them into the pixels.
+  Read [other-platforms.md](other-platforms.md) for which annotation to draw.
+
+A shot that comes back as a sign-in or password page needs the user's session: read
+[signed-in.md](signed-in.md). The format of `shots.json` is in [shot-list.md](shot-list.md).
 
 ## Framing
 
@@ -168,45 +171,6 @@ user's sign-in, so open it in the user's own browser through the `browser-skill`
 fresh one, which lands on the sign-in page. Without `bsk`, the stop or the report names the
 images for the user to look at.
 
-## Annotations in the image
-
-An annotation tells the reader where to look, and one is usually enough. The steps already
-give the path, so the image marks where that path ends: the setting, the button, the panel.
-A result image carries none. Before keeping an image, look at it at the size the help center
-shows it and ask whether the eye lands on the right place first. When the annotations compete
-with each other or with the content, cut them down to the one that matters, or split the image.
-
-The look follows CleanShot: one red (`#F23A4C`; `highlightColor` in a shot list or `--color`
-for tiles to change it), flat markers and arrows with no border or shadow,
-no text drawn on the image beyond marker numbers.
-
-| Annotation | Use it when | Not when |
-| --- | --- | --- |
-| None | The image shows a result: a section as visitors see it, a layout, a preset. | |
-| Spotlight (`spotlight`) | The image is large and the text is about one part of it: a settings group in a full editor, one card in a grid. Everything else is dimmed, and the part stays at full brightness in a rounded frame with room around it (`pad`, 24 CSS px by default). A list of selectors or boxes is joined into the one area that holds them, such as a mega menu panel and the header it opens from; `spotlights` adds separate areas, for a setting and its effect. | The part is most of the image. |
-| Outline (`highlight`, `highlights`) | The text names one or more areas, and similar ones sit next to them: a group of settings in a long panel, the two places a layout puts the buttons. | The target is a small icon, which an outline hides. |
-| Arrow (`arrows`) | The target is small or easy to miss: an icon, a toggle, a link in a toolbar, and nothing else isolates it. The arrow is straight, comes from empty space, and its point lands on the visible icon, not on the padded button around it. | The target is large enough to outline, or a spotlight already isolates it: an arrow into a spotlight that holds only its target says the same thing twice. |
-| Numbered markers (`markers`) | One screen holds several places the reader acts on or the text names, in order. The numbers may simply show the order of actions on that screen, with no numbered list beside the image. When a table or a list beside it does describe the marked areas, its numbers match the markers one to one, 1 to n, with no row the image does not mark. Never use them to retrace the steps that led to the screen. | The path to the screen (Theme settings, then a group, then a setting): the steps already say it, and three markers on one image read as clutter. An overview of a whole screen: outline the one or two areas the text is about, or mark nothing. |
-
-A marker sits beside its target (`left`, `right`, `top`, `bottom`) or on one of its corners
-(`top-left`, `top-right`, `bottom-left`, `bottom-right`), in empty space. It never covers the
-target or its neighbors, and two markers never touch. When the targets are too close for that,
-use one marker on the group, or an outline, or no annotation.
-
-Measure every box on the page as it is when the shot is taken, after the last change to the
-DOM, such as hiding a badge or an overlay, and after entrance animations have finished. An icon
-moves when a neighbor appears, and a block that rises into place on load sits 20 px lower while
-it rises, so a box measured too early frames the spotlight off its part.
-
-A spotlight's edge falls in the gap between two rows, never across a label or the next control.
-In a tight panel, such as a settings sidebar, lower `pad` to 10 or 12 for that shot rather than
-cut the row below in half.
-
-Mark the control that changes what the reader sees. Before outlining a field, find in the code
-which one the result reads: a product often keeps two similar strings, such as a button's
-visible label and its label for screen readers, and outlining the wrong one sends the reader to
-a change that shows nowhere.
-
 ## Motion and comparisons
 
 - An effect that is motion itself, such as a marquee, a scroll-linked section or a hover state,
@@ -221,8 +185,8 @@ a change that shows nowhere.
   arrow, because a headless page shows no pointer); `target` with `grow` crops to a section.
   The script's header lists every key. For a page only the user's browser reaches, record the
   tab with `bsk video start --quality clear` and `bsk video stop --out <file>.mp4`. It records
-  at the Agent Window's size in CSS pixels, not at 2x, so prefer `record.mjs` with a saved
-  `--login` session wherever the page allows one.
+  at the Agent Window's size in CSS pixels, not at 2x, so prefer `record.mjs` with `session` set
+  to the host of a saved `shoot.mjs --login` session wherever the page allows one.
 - Two or more variants the reader compares, such as two presets or the desktop and the phone
   layout, sit side by side in one `<Gallery>`, each image titled by its variant, not in a stack
   of images the reader scrolls between.
@@ -247,147 +211,3 @@ a change that shows nowhere.
   left out.
 - File names: `<slug>-<what>` in lowercase with hyphens, plus `-mobile` for a mobile shot. A
   re-capture keeps the name.
-
-## The shot list
-
-`shots.json` in the run folder. Copy `viewport` and the admin URLs from `shots` in
-`.claude/docs.json` into it, and set `baseUrl` from `serve`. The runner reads only this file.
-
-```json
-{
-  "baseUrl": "http://127.0.0.1:3301",
-  "viewport": { "width": 1440, "height": 900 },
-  "shots": [
-    {
-      "name": "hero-section-full-screen",
-      "url": "/?view=docs-hero",
-      "target": "#shopify-section-template--docs__hero_full",
-      "waitFor": "#shopify-section-template--docs__hero_full img"
-    },
-    {
-      "name": "change-theme-colors-schemes",
-      "url": "https://admin.shopify.com/store/<store>/themes/<id>/editor?context=theme&category=colors",
-      "session": "admin.shopify.com",
-      "frame": "iframe[name=app-iframe]",
-      "target": "[data-panel=settings]",
-      "highlight": "[data-setting=color_schemes]"
-    }
-  ]
-}
-```
-
-| Field | Means |
-| --- | --- |
-| `name` | output file name without extension |
-| `url` | absolute, or relative to `baseUrl` |
-| `target` | selector of the element to capture, or a list joined into the one box that holds them all, such as a row of cards with no parent of its own; without it, `clip` or the viewport |
-| `clip` | `{ x, y, width, height }` in CSS pixels |
-| `boxes` | `{ "<name>": selector }`: each target's box in percent of the finished image, grown by `pad`, into `media/<shot>.json`, for annotations the help center draws; a list of selectors is one box holding them all, and `{ "selector": ..., "pad": 8 }` sets that box's own room. A box the image does not hold fails the shot |
-| `spotlight` | selector of the part left bright, or a list of selectors joined into one area |
-| `spotlights` | a list of further bright areas, each a selector or a list joined into one area, such as the part of a preview a setting changes |
-| `pad` | room in CSS pixels between the spotlight's edge and the part, and around each of `boxes`, 24 by default |
-| `redact` | selectors blurred past reading, for what `hide` cannot reach |
-| `highlight`, `highlights` | selector, or a list of selectors, to outline |
-| `arrows` | `[{ "to": selector, "from": "bottom-left", "length": 110 }]`; `from` is where the arrow comes from: `left`, `right`, `top`, `bottom`, or a corner; `length` in CSS pixels |
-| `markers` | `[{ "on": selector, "n": 3, "at": "right" }]` |
-| `balance` | `true` for equal space on all sides, for a whole section or component |
-| `even` | room in CSS pixels on all four sides of the content found inside the box: thin divider lines, a scrollbar and a border along an edge are dropped first, and content still touching an edge fails the shot instead of being cut. Use it for a section or a component, with `grow` |
-| `grow` | CSS pixels of page taken in around `target` before `even` looks for room, a number or `[top, right, bottom, left]`; a section's box often ends at its content |
-| `isolate` | `true` hides every other section and paints the page behind the target its nearest background, so the room `grow` adds is plain page, not the edge of the next section |
-| `open` | sides, such as `["right"]`, the content runs past on purpose, like a carousel's next card: the image stays flush there instead of failing |
-| `panel` | `true` for a settings sidebar: with `even`, it also drops the tinted header strips of the editor panel. `--panel` on the command line sets `even` to 24 |
-| `waitFor` | selector that must be visible on load, checked before `actions` run; for something an action opens, add a `wait` action instead |
-| `actions` | in order: `{ "click" }`, `{ "hover" }`, `{ "focus" }`, `{ "scroll" }`, `{ "scrollTo": "bottom" }`, `{ "fill": [selector, text] }`, `{ "eval": "<js>" }`, `{ "wait": ms }`; `scrollTo` reaches a footer revealed from under the page, which `scroll` treats as already in view; `focus` opens what shows on focus, such as a `:focus-within` menu, without following a link; `eval` runs a short script on the page for a state no action reaches in a headless browser, such as an indicator it keeps hidden |
-| `motion` | `true` keeps animations running, for a shot of an effect that is motion itself |
-| `block` | URL glob patterns to abort, such as `**/graphql.json*` against a Shopify `theme dev` proxy, whose storefront session a fresh browser would otherwise replace |
-| `hide` | selectors made invisible, for personal data and overlays |
-| `frame` | selector of an iframe the other selectors live in |
-| `session` | host whose saved session the shot needs, such as a store behind a password or an admin |
-| `viewport`, `scale`, `delay` | per-shot overrides |
-
-The list's top level also takes `session`, `balance`, `hide`, and `block` for every shot (a
-shot's own `hide` and `block` add to the list's), `annotations` (`"platform"` when the help
-center draws them), `format` (`webp`, the default, or `png`), `quality`, and `highlightColor`.
-
-Run it with `node {{skills_dir}}/docs/scripts/shoot.mjs <run>/shots.json`, or `--only
-<name>` to retake one. It writes into `<run>/media/` and exits 1 when any shot failed, naming
-it. Find selectors in the running product first, in a browser tool, rather than guessing them
-from the source.
-
-A local dev server draws its own overlays, such as Next.js's `nextjs-portal` indicator or a
-query devtools button: put them in the list's `hide`. The selectors of one shot live in one
-document, so a spotlight on a part of a same-origin iframe, such as an editor's preview, takes
-an `eval` action that lays an empty fixed `div` with an id over that part, sized by the frame's
-box and its width over its `innerWidth`, and the spotlight names that id.
-
-## Screens behind a sign-in
-
-An admin screen, such as a theme editor, and a store behind a password need the user's
-session. A shot that comes back as a sign-in or password page is the sign.
-
-Take these shots in the user's own Chrome through the `browser-skill` skill and its `bsk` CLI.
-Read that skill first: every untargeted command needs the `context_id` and a fresh
-`observation_id` from `bsk cooperate sync`, and refs come from that sync. The user is already
-signed in, and nobody types a password. A fresh browser that signs in by itself often stops at
-a bot check (Shopify's admin answers "Just a moment..." to Playwright), so the user's browser is
-the first choice, not the fallback. The Agent Window works in the background, and its overlay
-stays out of the page, so a capture holds the page alone.
-
-1. Start the session with `--agent-name`, `--project` and `--name`, as `AGENTS.md` says, and
-   size the tab:
-   ```bash
-   bsk emulate --width 1440 --height 900 --dpr 2 --session <id> --context <ctx> --observation <obs>
-   bsk evaluate '({ page: [innerWidth, innerHeight], dpr: devicePixelRatio })' --session <id> --context <ctx> --observation <obs>
-   ```
-   Emulation belongs to the tab, so a new tab starts at the window's size and 1x again.
-2. After every navigation, hide the scrollbar and the overlays the reader never sees (a preview
-   bar, a floating picker, a framework's dev indicator) with `bsk evaluate`:
-   ```js
-   if (!document.getElementById('docs-shot-hide')) { const st = document.createElement('style'); st.id = 'docs-shot-hide'; st.textContent = 'html{scrollbar-width:none!important}'; document.head.append(st); }
-   ```
-3. Measure what you will annotate. On a page you can script, read boxes with
-   `getBoundingClientRect()` through `bsk evaluate`. Inside a frame, such as a preview in an
-   iframe, add the frame's own box to the inner box, scaled by the frame's width over its
-   `innerWidth`. A cross-origin frame cannot be scripted: take the control's ref from the sync
-   and run `bsk scroll-to <ref> --json`, which returns `x`, `y`, `width` and `height` in the
-   page's CSS pixels.
-4. Capture the viewport and crop it:
-   ```bash
-   bsk screenshot --out <run>/media/raw/<name>.png --json --session <id> --context <ctx> --observation <obs>
-   node {{skills_dir}}/docs/scripts/shoot.mjs --crop <run>/media/raw/<name>.png --page-width 1440 \
-     [--box x,y,w,h] [--spotlight x,y,w,h]... [--highlight x,y,w,h]... [--arrow x,y,w,h,from[,length]]... \
-     [--marker n,x,y,w,h,at]... [--redact x,y,w,h]... [--mark name,x,y,w,h]... --out <run>/media/<name>.webp
-   ```
-   The capture must be 2880 by 1800; `--crop` refuses a source under 2x. Repeated `--spotlight`
-   boxes join into one bright area that holds them all; a second, separate area is
-   `--spotlight-also`. `--mark name,x,y,w,h[,pad]` draws nothing and writes `<name>.json` with
-   the box in percent of the finished image, grown by `--pad` or its own pad: on the
-   help-center path it is the only annotation flag to pass, beside `--redact`. Keep the raw
-   capture: a changed annotation is a second `--crop` run, not a second visit. Something
-   mid-animation, such as a rotating announcement bar, shows as a difference between two
-   captures: retake while they differ there.
-5. Open the result. Blur internal names the reader should not see, such as a development
-   theme's name, with `--redact`, and check that every annotation lands where the alt text says.
-6. Run `bsk emulate --off`, then `bsk session stop <id>`, on success and on failure.
-
-Never click **Save**, **Publish**, or anything else that changes the product while setting up
-a shot. Opening a panel or a picker is fine, and so is changing a setting only to show its
-result, as long as it is never saved. Roll every such change back with the editor's own Undo
-until **Save** is disabled again, before the next navigation, so no leave-page prompt opens. Some
-editors record an unsaved change just from opening a panel; undo it the same way, or ask the
-user to leave the page through its prompt.
-
-Without `bsk`, run once per host:
-
-```bash
-node {{skills_dir}}/docs/scripts/shoot.mjs --login <url>
-```
-
-It opens a window, the user signs in, and the session is saved in `~/.cache/docs-skill/` when
-they close the tab, outside every repository and readable only by them. Closing the whole
-window can end the browser before the last save. Signing in is the user's step: stop and ask them,
-never type a password. The session expires after some days, and a shot that lands on a sign-in
-page means it is time to run `--login` again.
-
-Playwright comes from the product's `node_modules`, else from `~/.cache/docs-skill`. When
-neither has it, the runner prints the one install command.

@@ -16,13 +16,13 @@ A product video is a short argument made of the product's own screens: each shot
 one thing the product does, long enough to read, and the cut moves on the moment it has been
 seen. It is not a tour of every section. A viewer watches it muted, in a small player, once.
 
-Two CLIs in `scripts/` do the mechanical work, with no npm dependencies. They need Google
-Chrome and `ffmpeg` on the machine. The other two files there, `assemble.js` and
-`card-stage.js`, are page helpers a shot runs in an `eval` step; [craft](references/craft.md)
+Two CLIs in `{{skills_dir}}/product-video/scripts/` do the mechanical work, with no npm
+dependencies. They need Google Chrome and `ffmpeg` on the machine. The third file there,
+`assemble.js`, is a page helper a shot runs in an `eval` step; [craft](references/craft.md)
 says when.
 
-- `scripts/record.mjs <shot.json> <out.mp4>` records one take. Format: [shots](references/shots.md).
-- `scripts/edit.mjs <edit.json> <out.mp4>` cuts takes into the video. Format: [edit](references/edit.md).
+- `node {{skills_dir}}/product-video/scripts/record.mjs <shot.json> <out.mp4>` records one take. Format: [shots](references/shots.md).
+- `node {{skills_dir}}/product-video/scripts/edit.mjs <edit.json> <out.mp4>` cuts takes into the video. Format: [edit](references/edit.md).
 
 Work in a run folder outside git, such as `.specs/NNN-video-<slug>/` in the product's
 repository: `shots/` for shot files and takes, `cards/` for title cards, `edit.json`, `out/`.
@@ -49,7 +49,8 @@ and the section, the action (load, scroll, hover, click, type), and the state th
 on screen long enough to read. Read [craft](references/craft.md) first: it holds the pacing,
 the hold times, and the mistakes users have rejected before.
 
-- Open on the product in motion: the page loading with its own intro, not a black card.
+- Open per **Title cards** in craft: the product's logo card, or the page's own load intro
+  when that is strong enough.
 - Alternate kinds of shot: a scroll-driven section, then an interaction, then a layout. Never
   put two shots of the same shape side by side, such as two rails of product cards.
 - Every section appears once per video.

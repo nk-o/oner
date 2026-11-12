@@ -10,7 +10,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Draft name -> the name get_article returns and update_article takes.
+// Draft name -> the name get_article returns and save_article takes.
 const FIELDS = {
   title: 'title',
   nav_title: 'navTitle',
@@ -20,6 +20,8 @@ const FIELDS = {
   seo_description: 'seoDescription',
   keywords: 'keywords',
   label: 'label',
+  date: 'date',
+  version: 'version',
 };
 const LISTS = new Set(['keywords']);
 

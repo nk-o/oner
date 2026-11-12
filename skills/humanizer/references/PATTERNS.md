@@ -209,7 +209,7 @@ The em dash clusters heavily in AI prose; a lone dash in an otherwise clean para
 **After:**
 > The new policy, announced without warning, affects thousands of workers. The changes, long overdue according to critics, will take effect immediately.
 
-Before returning the final rewrite, scan it for `—` and `–`. Any hit means the draft isn't done.
+Before returning the final rewrite, scan it for `—` and `–`. Any hit that is not a true range means the draft isn't done.
 
 
 ### 15. Overuse of Boldface

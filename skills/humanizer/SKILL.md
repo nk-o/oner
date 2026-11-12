@@ -39,7 +39,10 @@ The patterns come from Wikipedia's "Signs of AI writing", maintained by WikiProj
    voice.
 3. **Draft rewrite.** Replace each AI-ism with a natural alternative rather than deleting it.
    Cover everything the original covered, at the same paragraph count, unless the user asks
-   you to shorten it. Check that it reads naturally aloud, varies sentence length, prefers
+   you to shorten it. Every number, name, date, and quote in the rewrite comes from the source
+   or from the user. Where a vague claim needs a specific the source does not hold, leave
+   `[fact needed: <what>]` in its place and ask. The catalogue's own examples invent theirs to
+   show the shape, which a rewrite never does. Check that it reads naturally aloud, varies sentence length, prefers
    specific details and simple constructions (is/are/has), and keeps the register.
 4. **Still-AI check.** Ask: **"What makes the below so obviously AI generated?"** Answer in
    brief bullets with any remaining tells.

@@ -6,7 +6,8 @@ the order a run takes through them and what the run keeps in its folder. Tools t
 when the user belongs to more than one, and the help center id from `.claude/docs.json`.
 
 Check the session's tool list at the start of the run. Without `search_article_text`,
-`edit_article`, and `publish_articles`, stop and tell the user. When `get_article` already
+`edit_article`, `save_article`, `add_article_media`, and `publish_articles`, stop and tell the
+user. When `get_article` already
 answers `editUrl` the server is current and the session started before its update: a new
 session gets the new tools. A `get_article` without `editUrl` means a server older than this
 skill: stop.
@@ -44,7 +45,7 @@ Follow `nextCursor` until it is `null`, write the first page's `total` and `scan
 A reference is `kind:identifier`: the inventory entry's category in the singular and its id, so
 an inventory line turns into a reference without guessing, with one spelling per help center.
 Every article a run writes leaves with the references of every inventory item it describes,
-set with `set_article_product_refs` from what `meta.mjs` prepared. An article the run reads and
+set as `productRefs` on `save_article` from what `meta.mjs` prepared. An article the run reads and
 finds without references gets them in the same pass, so the next update finds it without a
 text search.
 
@@ -53,7 +54,7 @@ text search.
 Every session and subagent of one MCP app shares the member's hourly budget (`search_article_text`
 costs five calls of it) and its four calls in flight, so all lanes of a run together keep four calls going at most, and uploads run in one
 lane. A refusal says what to wait for; wait, then send the same call again. A refused
-`add_article_image` keeps its staged file: retry with the same `uploadId`.
+`add_article_media` keeps its staged file: retry with the same `uploadId`.
 
 ## Writing
 
@@ -84,9 +85,9 @@ write its `hash` into `live/`. Only then make the run's own change on top of it.
    before anything overwrites it.
 4. **Write.** An update sends `upload/<slug>.edits.json` through `edit_article`. A whole body
    goes as a file: `create_upload` with `text/markdown`, `curl -X PUT` of `upload/<slug>.md`,
-   then `update_article` with `markdownUploadId` and the printed checksum as
-   `expectedMarkdownSha256`. Metadata goes from `upload/<slug>.meta.json`, references through
-   `set_article_product_refs`. Every write answers a new `hash`, and the next write to the
+   then `save_article` with `markdownUploadId` and the printed checksum as
+   `expectedMarkdownSha256`. Metadata and references go from `upload/<slug>.meta.json`
+   through `save_article`. Every write answers a new `hash`, and the next write to the
    same article sends that one: write it into `live/<slug>.json` as soon as it comes back.
    Nothing is retyped from a draft into a tool call.
 5. **Confirm.** A whole body's `markdownSha256` matches the checksum `body.mjs` printed. An edit
@@ -97,7 +98,7 @@ write its `hash` into `live/`. Only then make the run's own change on top of it.
    `live/<slug>.json`, which `verify.mjs` fetches.
 
 A new article the user turns down at the stop is reworked as another write to its draft, or
-deleted with `delete_article`. An update of a published article is never left as a draft for the
+deleted with `delete_help_center_item`. An update of a published article is never left as a draft for the
 user to judge: no Poise tool restores a draft to its published version, and a reverse edit
 cannot undo every fragment.
 
@@ -111,7 +112,7 @@ Leave `color` off the Frame, so the marks take the help center's accent, unless 
 
 A collection page's own text says what the collection is for and where to start; the page lists
 its articles and child collections itself, so the text never repeats them. An image on the page
-is uploaded through any article of the run with `add_article_image`, and its URL goes into the
+is uploaded through any article of the run with `add_article_media`, and its URL goes into the
 page's Markdown.
 
 ## Links between articles

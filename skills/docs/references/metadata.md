@@ -80,5 +80,11 @@ and stops for approval.
 
 ## sources
 
-The files the article's facts come from, comma-separated, for the fact check in step 6. It is
-not published, so a later run finds articles by their text, not by this field.
+The files the article's facts come from, comma-separated. The writer goes back to them when a
+reader's question in step 6 needs an answer from the code. It is not published, so a later run
+finds articles by their text, not by this field.
+
+## date and version
+
+Only for an entry in `updates/`: the release's date as `YYYY-MM-DD`, which orders the entries,
+and its version, such as `2.4.0`. `meta.mjs` sends both with the entry's other fields.

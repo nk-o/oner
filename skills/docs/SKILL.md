@@ -34,8 +34,8 @@ inventory-before.json  Update: the same at the older end of the range
 inventory-diff.txt  Update: what changed between the two ends of the range
 live/<slug>.json    an article's id, hash, checksum, path, url, and metadata as pulled; each write
                     replaces its hash, and a publish adds the url
-live/<slug>.md      its body, only where the platform exports one to a file
 articles/<slug>.md  a new article or a full rewrite, with frontmatter metadata
+updates/<slug>.md   a new entry of the Updates section, with the same frontmatter plus date and version
 edits/<slug>.json   an update of an existing article: fragments, metadata, product references
 images.json         the URL each uploaded file in media/ got
 upload/             what body.mjs and meta.mjs prepared for each write
@@ -50,6 +50,9 @@ an indent, a URL character, or a line, and nothing notices until a reader does. 
 platform has no tool for a step, such as exporting a body to a file, write it in `run.md` under
 `## Platform limits` and in the report as an offer to the user, and take the path the platform
 does support. Never cover the gap by copying text by hand.
+
+The steps below are written for Poise. For any other help center, read
+[references/other-platforms.md](references/other-platforms.md) before step 1.
 
 `run.md` opens with `Job.`, `Status.` (`running`, `waiting`, `done`, `stopped: <reason>`), and
 `Help center.` lines,
@@ -92,11 +95,12 @@ model, how to compare two models on writing, and how the fresh reader scales are
 | A new article, or one rewritten | **Article** |
 | A product change, a code change, or a release range that made articles wrong | **Update** |
 | Collections, order, or article titles to change | **Structure** |
-| Release notes to publish in the help center | **Changelog**: take the entry `changelog` wrote for this release, or run `changelog` first when there is none, then shape it as the changelog section of [references/article-types.md](references/article-types.md) says: **Article** for a new Updates entry on Poise, **Update** on the changelog article elsewhere |
+| Release notes to publish in the help center | **Changelog**: take the entry `changelog` wrote for this release, or run `changelog` first when there is none, then shape it as the changelog section of [references/article-types.md](references/article-types.md) says: **Article** for a new Updates entry |
 | Docs for a whole product, or a rebuild of all of them | **Full build**: read [references/full-build.md](references/full-build.md) and follow it instead of the steps below |
 
 Open the run folder and write `run.md`. Done when its checklist names every article the job
-will touch.
+will touch. For **Update** that list is whole only at the end of step 2, so step 1 is done once
+`run.md` names the job and the help center.
 
 ## 2. Ground
 
@@ -172,8 +176,8 @@ change is about it, and `product_refs` the article's full list.
 ## 5. Screenshots
 
 Read [references/screenshots.md](references/screenshots.md). Decide which images the article
-needs, which is often none, and who draws their annotations: the help center itself, as Poise
-does, or the image's pixels, per "Two paths" there. Add them to `shots.json`, and run:
+needs, which is often none. With none, this step is done. Otherwise add them to `shots.json`,
+in the format of [references/shot-list.md](references/shot-list.md), and run:
 
 ```bash
 node {{skills_dir}}/docs/scripts/shoot.mjs <run>/shots.json
@@ -184,17 +188,15 @@ content, with a script not yet in its visible state, or with proportions off at 
 help center shows it is retaken, as `screenshots.md` says. Done when each image shows what its
 alt text says and the article's steps still work with the images removed.
 
-On a help center that draws annotations itself, the user sees the images with their marks where
-the article is: a new article's in its draft at the stop in step 7, an update's on the page the
-report links. Elsewhere, when the run adds or retakes more than a handful
-of images, show them to the user as one page grouped by article (the Artifact tool, when the
-host has it), each with its file name, and change no article until the user approves them.
+The user sees the images with their marks where the article is: a new article's in its draft
+at the stop in step 7, an update's on the page the report links.
 Their verdicts on framing and annotation are lessons for `references/screenshots.md`, not for
 this run alone.
 
 ## 6. Check
 
-1. `node {{skills_dir}}/docs/scripts/lint.mjs <run>/articles <run>/edits` exits 0.
+1. `node {{skills_dir}}/docs/scripts/lint.mjs <run>/articles <run>/edits` exits 0, with
+   `<run>/updates` added when the run has one.
 2. Every interface label in bold exists in `inventory.json` or in a screenshot, spelled the same.
 3. A fresh reader. Give a subagent the article and its images alone, no code and no
    conversation, and ask it to list every step it could not follow, every term it met
@@ -229,23 +231,19 @@ An update of a published article is not held for review: no tool can take a draf
 published version, so it is written only when it is about to be published, and a correction the
 user asks for afterwards is the next round. Each article is written once.
 
-1. **New articles first.** On a help center with drafts (Poise), write every new article as a
+1. **New articles first.** Write every new article as a
    draft, in the order and from the files [references/poise.md](references/poise.md) describes:
    created first so every link has a path, then its body, metadata and product references, each
    write's checksum checked. Its dashboard `editUrl` shows it as the site will, blocks and
-   annotations included. On a help center without drafts, build
-   `node {{skills_dir}}/docs/scripts/preview.mjs <run> --site <help center host and path>` and
-   publish `preview/index.html` as a private page when the host can (the Artifact tool), with
-   `preview/media/` as its files; nothing is written yet.
+   annotations included.
 2. **Stop** when the list above asks for it, with one table: each new article's title and
-   `editUrl` (or the preview), each update and structure change with one line on what changes,
+   `editUrl`, each update and structure change with one line on what changes,
    and its action. Set `Status. waiting` while it waits. A change the user asks for to a new
    article is another write to its draft; to an update, a change to its `edits/<slug>.json`.
    With nothing on the list, there is no stop.
 3. **Write the updates** from `upload/`, as `poise.md` describes, after the yes or at once when
-   there was no stop, and check that no article changed since its last read or write (on Poise
-   its hash; where the platform exports bodies to `live/<slug>.md`, export again and run
-   `node {{skills_dir}}/docs/scripts/drift.mjs <run>/live/<slug>.md <fresh export>`).
+   there was no stop, and check by its hash that no article changed since its last read or
+   write.
 4. **Publish** every article together, in reading order, so an update never links to an article
    that is not yet live. Write each article's id into its checklist line, and run
    `node {{skills_dir}}/docs/scripts/verify.mjs <run>` until it prints `all … pages match`. The
