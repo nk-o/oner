@@ -39,8 +39,10 @@ if (args[0] === 'models') {
 }
 const prompt = readFileSync(args[args.indexOf('--prompt-file') + 1], 'utf8');
 const cwd = process.cwd();
+const diffs = Object.fromEntries([...prompt.matchAll(/\\x60([^\\x60]+\\/(\\w+\\.(?:diff|txt)))\\x60/g)].map(([, path, name]) => [name, readFileSync(path, 'utf8')]));
 appendFileSync(process.env.CALL_LOG, JSON.stringify({
   args, prompt, cwd, answer: readFileSync('answer.txt', 'utf8'),
+  diffs,
   secret: existsSync('.env'), hooks: existsSync('.grok'),
   home: process.env.GROK_HOME, auth: process.env.GROK_AUTH_PATH,
   compat: process.env.GROK_CLAUDE_HOOKS_ENABLED,
@@ -72,11 +74,13 @@ test('Grok reviews the sanitized change with the configured effort and isolated 
   assert.notEqual(call.cwd, f.repo);
   assert.deepEqual(call.args.slice(0, 6), ['--model', 'grok-4.7', '--effort', 'high', '--output-format', 'json']);
   assert.equal(call.args[call.args.indexOf('--permission-mode') + 1], 'dontAsk');
-  assert.equal(call.args[call.args.indexOf('--tools') + 1], 'read_file,list_dir,grep,run_terminal_cmd');
+  assert.equal(call.args[call.args.indexOf('--tools') + 1], 'read_file,list_dir,grep');
+  assert.equal(call.args.some((arg) => arg.startsWith('Bash(')), false);
   assert.equal(call.compat, '0');
   assert.equal(call.overlay, null);
   assert.match(call.prompt, /Change the answer/);
-  assert.match(call.prompt, /git diff 'review-base'\.\.\.HEAD/);
+  assert.deepEqual(Object.keys(call.diffs), ['working.diff']);
+  assert.match(call.diffs['working.diff'], /^-before\n\+after$/m);
   const report = result.stdout.match(/grok\s+ok\s+(.+grok\.md)/)?.[1];
   assert.ok(report, result.stdout);
   assert.match(readFileSync(report, 'utf8'), /Reviewed answer\.txt: after/);

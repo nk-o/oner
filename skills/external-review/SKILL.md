@@ -5,7 +5,7 @@ description: >-
   user's config turns on and has installed. Each is told what to review and reads the repository through its own harness, so
   the readings differ in method and not only in model. Use when a change deserves opinions from
   outside this session. Needs at least one
-  provider CLI on PATH: Cursor's `agent`, `grok`, `codex`, or `claude`.
+  provider CLI on PATH: Cursor's `cursor-agent`, `grok`, `codex`, or `claude`.
 argument-hint: "[base ref; defaults to this branch's diff]"
 disable-model-invocation: true
 ---
@@ -66,7 +66,9 @@ runs read commands and refuses to write.
 **Grok** gets the same contract through Grok Build with the configured model and effort,
 defaulting to `grok-4.7` at `high`. Enable it under `externalReview.grok` in `config.json`.
 It uses a temporary Grok home with the existing login, no vendor compatibility imports,
-read tools and read-only Git commands, and the `read-only` sandbox.
+read tools only, and the `read-only` sandbox. It gets no shell, because Grok headless cancels
+the whole run on the first command no allow rule covers. The script writes the committed,
+staged, and working diffs and the untracked file list to files, and Grok reads those.
 Its review is static, so execution-dependent claims remain unproven. A cancelled response
 fails the review even when the CLI exits zero.
 

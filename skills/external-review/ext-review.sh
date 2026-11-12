@@ -34,7 +34,7 @@ Usage: ext-review.sh [--provider cursor|grok|codex|claude|all] [--base <ref>]
   --base       Base to review against. Default: origin/HEAD, else main.
   --model      Model for the cursor voice. Default: config.json, else
                cursor-grok-4.6-low.
-               `agent models` lists what the account can reach.
+               `cursor-agent models` lists what the account can reach.
   --intent     One sentence on what the change is for. The reviewer challenges
                whether the code achieves it, not whether it is the right goal.
 
@@ -98,9 +98,11 @@ while IFS= read -r key; do unset "$key"; done < <(compgen -e | sed -n '/^GIT_/p'
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$root"
+# Cursor installs its CLI as both `agent` and `cursor-agent`. The Grok installer
+# also links `agent` to Grok, so only `cursor-agent` names Cursor for certain.
 available=""
 for voice in $wanted; do
-  case "$voice" in cursor) cli=agent ;; grok) cli=grok ;; codex) cli=codex ;; claude) cli=claude ;; *) echo 'ext-review: invalid generated provider list' >&2; exit 2 ;; esac
+  case "$voice" in cursor) cli=cursor-agent ;; grok) cli=grok ;; codex) cli=codex ;; claude) cli=claude ;; *) echo 'ext-review: invalid generated provider list' >&2; exit 2 ;; esac
   if command -v "$cli" >/dev/null 2>&1; then available="$available $voice";
   else echo "ext-review: no $voice voice, the $cli CLI is not on PATH. Install it to add this reviewer." >&2; fi
 done
@@ -113,7 +115,7 @@ if [ -z "$wanted" ]; then echo 'ext-review: no provider CLI is installed.' >&2; 
 logged_out=""
 for voice in $wanted; do
   case "$voice" in
-    cursor) status_cmd="agent status"; login_cmd="agent login" ;;
+    cursor) status_cmd="cursor-agent status"; login_cmd="cursor-agent login" ;;
     grok) status_cmd="grok models"; login_cmd="grok login" ;;
     codex) status_cmd="codex login status"; login_cmd="codex login" ;;
     claude) status_cmd="claude auth status"; login_cmd="claude auth login" ;;
@@ -177,10 +179,14 @@ fi
 
 # errexit is off inside a function called from an `||` list, so every exit status
 # this function cares about is captured explicitly and returned.
-contract() {
+contract_head() {
   cat "$here/PROMPT.md"
   printf '\n## Intent\n\n%s\n' "${intent:-Not stated. Work it out from the commit messages.}"
   printf '\n## Scope\n\nRepository root: %s\n\n' "$root"
+}
+
+contract() {
+  contract_head
   printf 'Review everything this branch changes against `%s`:\n\n' "$base"
   printf -- "- \`git diff '%s'...HEAD\` for the committed work.\n" "$base"
   printf -- '- `git diff --cached` for staged changes, and `git diff` for working changes.\n'
@@ -189,17 +195,34 @@ contract() {
   printf 'Read needed context only inside this sanitized repository. Do not read the original checkout, home directories, credentials or other absolute paths.\n'
 }
 
+grok_contract() {
+  local file
+  contract_head
+  printf 'Unlike what the section above says, you have no shell. The change against `%s` is already\n' "$base"
+  printf 'written to these files. Read each one in full with read_file:\n\n'
+  for file in committed.diff staged.diff working.diff untracked.txt; do
+    if [ -f "$1/$file" ]; then printf -- '- `%s/%s`\n' "$1" "$file"; fi
+  done
+  if [ -f "$1/untracked.txt" ]; then
+    printf '\n`untracked.txt` lists new files that no diff shows. Read each one in full from the repository.\n'
+  fi
+  printf '\nThe diffs show only the changed hunks. Read the whole current file from the repository\n'
+  printf 'whenever a finding depends on code around them. Read needed context only inside this\n'
+  printf 'repository and the files above. Do not read the original checkout, home directories,\n'
+  printf 'credentials or other absolute paths.\n'
+}
+
 run_cursor() {
   local rc=0
 
   printf '===== cursor: %s, this repository'"'"'s review contract =====\n\n' "$model"
-  contract | agent -p --trust --mode ask --model "$model" --output-format text || rc=$?
+  contract | cursor-agent -p --trust --mode ask --model "$model" --output-format text || rc=$?
   printf '\n'
   return "$rc"
 }
 
 run_grok() (
-  local rc=0 vendor feature
+  local rc=0 vendor feature input
   export GROK_AUTH_PATH="${GROK_AUTH_PATH:-${GROK_HOME:-$HOME/.grok}/auth.json}"
   export GROK_HOME="$outdir/grok-home"
   mkdir -p "$GROK_HOME"
@@ -210,15 +233,24 @@ run_grok() (
     done
   done
 
+  # Grok 1.0.77 headless cancels the whole run on the first shell command no allow
+  # rule covers, such as `git diff | awk ...`, instead of refusing it and going on
+  # as its docs describe. The voice gets no shell: the script writes the git output
+  # to files, and Grok reads them. Give the shell back once Grok refuses and continues.
+  input="$outdir/grok-input"
+  mkdir -p "$input"
+  if [ -n "$has_committed" ]; then git diff --no-color "$base"...HEAD >"$input/committed.diff"; fi
+  if ! git diff --cached --quiet; then git diff --no-color --cached >"$input/staged.diff"; fi
+  if ! git diff --quiet; then git diff --no-color >"$input/working.diff"; fi
+  git ls-files --others --exclude-standard >"$input/untracked.txt"
+  if [ ! -s "$input/untracked.txt" ]; then rm -f -- "$input/untracked.txt"; fi
+
   printf '===== grok: %s (%s), this repository'"'"'s review contract =====\n\n' "$grok_model" "$grok_effort"
   grok --model "$grok_model" --effort "$grok_effort" --output-format json \
-    --prompt-file <(contract) --no-subagents --disable-web-search --sandbox read-only \
-    --permission-mode dontAsk --tools read_file,list_dir,grep,run_terminal_cmd \
-    --rules 'Perform a static, read-only review. Inspect files with read_file, list_dir and grep. Shell is restricted to git diff, git log, git show, git ls-files and git status, each as a separate command. Report execution-dependent claims as unproven and complete the review from the available evidence.' \
-    --allow Read --allow Grep --allow Glob \
-    --allow 'Bash(git diff *)' --allow 'Bash(git diff)' --allow 'Bash(git log *)' \
-    --allow 'Bash(git show *)' --allow 'Bash(git ls-files *)' --allow 'Bash(git status *)' \
-    --allow 'Bash(git status)' >"$outdir/grok.json" || rc=$?
+    --prompt-file <(grok_contract "$input") --no-subagents --disable-web-search --sandbox read-only \
+    --permission-mode dontAsk --tools read_file,list_dir,grep \
+    --rules 'Perform a static, read-only review with read_file, list_dir and grep. You have no shell. Report execution-dependent claims as unproven and complete the review from the available evidence.' \
+    --allow Read --allow Grep --allow Glob >"$outdir/grok.json" || rc=$?
   if [ "$rc" = 0 ]; then
     node -e '
       const result = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
@@ -232,7 +264,7 @@ run_grok() (
     cat "$outdir/grok.json"
   fi
   rm -f -- "$outdir/grok.json"
-  rm -rf -- "$GROK_HOME"
+  rm -rf -- "$GROK_HOME" "$input"
   printf '\n'
   return "$rc"
 )
@@ -316,13 +348,13 @@ codex_pid=""
 claude_pid=""
 
 if wants cursor; then
-  if command -v agent >/dev/null 2>&1; then
+  if command -v cursor-agent >/dev/null 2>&1; then
     run_cursor >"$outdir/cursor.md" 2>&1 &
     cursor_pid=$!
   else
     missing="$missing
-ext-review: no cursor voice, the \`agent\` CLI is not on PATH.
-            Install the Cursor CLI and run \`agent login\` to add it."
+ext-review: no cursor voice, the \`cursor-agent\` CLI is not on PATH.
+            Install the Cursor CLI and run \`cursor-agent login\` to add it."
   fi
 fi
 
