@@ -30,7 +30,8 @@ preference of the user's. The route follows **Mistakes that recur** in `AGENTS.m
 about one codebase goes to that codebase. It looks
 for corrections the user made, a skill step that was skipped or misread, a check that was
 self-reported instead of run, a fact the agent was handed that it could have looked up, and a
-tool or command quirk that cost time. Three more, each routed to the project:
+tool or command quirk that cost time. Every **Guard** line a report in the transcript carries
+is a lesson already, with its route written in it. Three more, each routed to the project:
 
 - A fact the agent could not reach at all, such as the dev server's log, a service's state,
   or a third-party response, so it guessed or asked. The route is the project's
@@ -72,7 +73,8 @@ project's linter allows, and say how many old violations remain.
 Skill and `AGENTS.md` edits in the smallest wording, in the file's own voice. Make them in the
 source repository, `{{repo_dir}}/skills/`, `{{repo_dir}}/AGENTS.md`, or `{{repo_dir}}/local/`
 for a personal rule, then run `node {{repo_dir}}/bin/build.mjs --auto`, because the build
-overwrites the installed copies. A memory note in
+overwrites the installed copies. An edit outside `local/` goes on its own branch in
+`{{repo_dir}}`, since a dirty checkout there stops the next update. A memory note in
 the format of the auto-memory directory the session names. A new skill only when no existing
 file is a home for the rule and the pattern recurs.
 

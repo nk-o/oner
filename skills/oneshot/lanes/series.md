@@ -6,7 +6,7 @@ merged, deployed, and verified in production before the stages that depend on it
 user approves the program and its release once, at the gate. After that the series runs to its
 last stage and stops only where **Waiting** below says.
 
-`series.mjs`, beside this file, owns the program's state. Call it by absolute path:
+`series.mjs`, in the skill's folder, owns the program's state. Call it by absolute path:
 `{{skills_dir}}/oneshot/series.mjs`. It reads GitHub, git, and production. It records a
 stage's transition only on evidence it saw, and prints the next actions. It never merges,
 pushes, or deploys. You do, one command at a time, and run `next` again.
@@ -201,7 +201,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
 
    **Parallel stages.** When `next` prints `start` or `build` for more than one stage, those
    stages wait for nothing in each other. Hand each to its own background `general-purpose`
-   delegate at once. Its brief holds the program folder's absolute path, the stage id, its
+   delegate at once. Its brief opens with the instruction to load `oneshot` and read **A stage
+   run** in `lanes/series.md`, then holds the program folder's absolute path, the stage id, its
    branch and checkout, the rule that it runs the stage run above through Ship and never
    touches `program.json`, merges, or deploys, the rule that a question at one of the four
    hard stops comes back unanswered in its summary, the rule that it removes what it

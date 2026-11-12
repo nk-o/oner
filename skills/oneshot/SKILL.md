@@ -197,7 +197,8 @@ The investigation lane writes nothing, so it skips this step.
 **Resume before you open.** When this branch already carries `.specs/*/oneshot.md` with
 `Status. running` or `Status. waiting`, that run is the task: read the log, take the first open
 line in its **Lane**, and re-read that step in the lane file the `Lane.` line names. Never open
-a second folder for the same branch. A log with an `Auto.` line was opened by `oneshot-auto`:
+a second folder for the same task. When the task the user typed is not that run, set the old
+log's `Status. stopped: superseded`, say so in one line, and open a new folder. A log with an `Auto.` line was opened by `oneshot-auto`:
 read `{{skills_dir}}/oneshot-auto/SKILL.md` too, because its rules hold for the whole run. When
 the hook names an open series in this repository and the task is that series, read the `## Now`
 section of the series log in its program folder, then follow [`lanes/series.md`](lanes/series.md)
@@ -217,8 +218,9 @@ because `implement` refuses to start on a tree where the run log sits untracked.
 
 Then take the next free `NNN` the way `spec` does, counting `.specs/` and `specs/` together, and
 create `.specs/NNN-slug/oneshot.md`, always in the ignored `.specs/`. Every later step reuses
-that exact folder, `spec` included. A second number means two folders and a plan nothing
-reads.
+that number and slug, `spec` included. A kept spec puts `spec.md` and `plan.md` under
+`specs/NNN-slug/` while the log stays here. A second number means two folders and a plan
+nothing reads.
 
 The file holds the run:
 

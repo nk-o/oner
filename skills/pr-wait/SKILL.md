@@ -55,9 +55,9 @@ An event that needs no action ends the turn without a message.
 
 Act on the newest head only. A failure or a comment about a head you already replaced is done.
 
-- **A failed check.** Follow `pr-feedback`'s **CI** section. A flaky failure gets one rerun,
-  `gh run rerun <run-id> --failed`. A second identical failure is not flake.
-- **A conflict.** Fetch the base branch from the remote that points at the upstream repository,
+- **A failed check.** Follow `pr-feedback`'s **CI** section, and start its one rerun yourself:
+  `gh run rerun <run-id> --failed`.
+- **A conflict.** Here the merge is yours. Fetch the base branch from the remote that points at the upstream repository,
   and merge the fetched ref into the branch. Never rebase and never force-push. Keep the intent
   of both sides, run `green-repo`'s checks for the files you touched, commit, and push. A
   conflict that needs a product decision goes to the user.
@@ -84,9 +84,10 @@ Act on the newest head only. A failure or a comment about a head you already rep
   In the Claude app these rules replace the reply format the event's own text asks for: no
   footer line, and a person's thread stays open.
 
-**Rounds.** `pr-feedback`'s **Rounds** rule bounds the passes. Stop and hand the pull request
-back when a pass brings no new `FIX`, when a comment repeats a claim you already refuted, or
-when the same comments would get a third pass.
+**Rounds.** A second pass over the same comments exists only for ones that arrived because of
+your own fixes. Stop and hand the pull request back when a pass brings no new `FIX`, when a
+comment repeats a claim you already refuted, or when the same comments would get a third pass.
+Never reopen a thread you already answered to argue it better.
 
 ## Ready
 
@@ -105,8 +106,10 @@ branch without them, and is dropped silently on a private Free-plan repository.
 
 The gate is ready on the newest head, no review requesting changes, and a branch that is not
 BEHIND. A branch that is behind gets the base merged in as for a conflict, and waits for ready
-again. Then run `gh pr merge <n> --<method> --match-head-commit <sha>` with the repository's
-merge method, as `AGENTS.md` says, and check the result in a second call.
+again. The merge method is the one the repository allows, squash when several are:
+`gh repo view --json squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed`. Then run
+`gh pr merge <n> --<method> --match-head-commit <sha>` as a command of its own, as `AGENTS.md`
+says, and check the result in a second call.
 
 ## After a merge you made
 

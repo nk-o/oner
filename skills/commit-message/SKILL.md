@@ -41,7 +41,8 @@ what changed.
 
 - "This commit does X", "I", "we", "now", "currently". The diff says what
 - "As requested by ..."
-- "Generated with Claude Code" or any other AI attribution
+- "Generated with Claude Code" or any other AI attribution you would write yourself. A trailer
+  the host's own attribution setting adds stays
 - Emoji, unless the recent subjects use them
 - The file name, when the scope already says it
 

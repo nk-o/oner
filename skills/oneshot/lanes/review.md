@@ -5,8 +5,8 @@ agent, or a list the user pasted. Each one is a claim to check.
 
 1. **Collect the list.** When the branch has a pull request and the review lives there, run
    `pr-feedback` for its context block, which pulls the unresolved threads, the comments, and
-   the failing checks, and for the numbering in its Comments section. Its fixes, Rounds, and
-   Finish do not run here: step 2 verdicts, the gate decides, and the tail fixes and pushes.
+   the failing checks, and for the numbering in its Comments section. Its Finish does not run
+   here: step 2 verdicts, the gate decides, step 4 fixes, and the tail pushes.
    When the review was pasted or handed over as a file, number its items yourself, in the order
    given. When both exist, the pull request's items come first and the pasted ones continue the
    numbering. One list either way, and every later step answers in its numbers.
