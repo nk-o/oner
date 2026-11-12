@@ -7,8 +7,8 @@
 // twice, or again after a crash or a resume, repeats no mutation.
 //
 //   series.mjs next [--wait <seconds>] [--program <dir>]
-//   series.mjs wait <auth|decision|input|review> <pending action> [--stage <id>] [--program <dir>]
-//   series.mjs resume [--recheck <stage>] [--program <dir>]
+//   series.mjs wait <auth|permission|decision|input|review> <pending action> [--stage <id>] [--program <dir>]
+//   series.mjs resume [--recheck <stage>] [--authorization <the user's words>] [--program <dir>]
 //   series.mjs amend --stage <id> (--accept <command> | --waive-accept <reason>) [--program <dir>]
 //   series.mjs amend (--stages <file> | --release <file>) --approval <the user's words> [--program <dir>]
 //   series.mjs report [--program <dir>]
@@ -654,6 +654,7 @@ function main(argv) {
   let given;
   let wait = 0;
   let recheck;
+  let authorization;
   let stage;
   const amend = {};
   for (let i = 0; i < argv.length; i += 1) {
@@ -661,12 +662,13 @@ function main(argv) {
     else if (['--accept', '--waive-accept', '--stages', '--release', '--approval'].includes(argv[i])) amend[argv[i].slice(2)] = argv[++i];
     else if (argv[i] === '--wait') wait = Number(argv[++i]);
     else if (argv[i] === '--recheck') recheck = argv[++i];
+    else if (argv[i] === '--authorization') authorization = argv[++i];
     else if (argv[i] === '--stage') stage = argv[++i];
     else args.push(argv[i]);
   }
   const [command, ...rest] = args;
   if (!['next', 'wait', 'resume', 'amend', 'report'].includes(command) || !(wait >= 0)) {
-    throw new Refusal('Usage: series.mjs next [--wait <seconds>] | wait <reason> <pending action> [--stage <id>] | resume [--recheck <stage>] | amend --stage <id> --accept <command> | amend --stage <id> --waive-accept <reason> | amend --stages <file> --approval <words> | amend --release <file> --approval <words> | report [--program <dir>]');
+    throw new Refusal('Usage: series.mjs next [--wait <seconds>] | wait <reason> <pending action> [--stage <id>] | resume [--recheck <stage>] [--authorization <words>] | amend --stage <id> --accept <command> | amend --stage <id> --waive-accept <reason> | amend --stages <file> --approval <words> | amend --release <file> --approval <words> | report [--program <dir>]');
   }
   const dir = findProgram(process.cwd(), given);
   if (command === 'next') {
@@ -690,6 +692,10 @@ function main(argv) {
   if (command === 'resume') {
     const { p, result: pending } = update(dir, ({ p }) => {
       if (p.status !== 'waiting') throw new Refusal(`The program is ${p.status}, not waiting.`);
+      if (authorization !== undefined) {
+        if (!authorization.trim()) throw new Refusal('--authorization quotes the user\'s approval of merging and deploying.');
+        p.authorization = authorization.trim();
+      }
       const now = new Date().toISOString();
       const waited = p.waiting;
       const asked = p.stages.find((x) => waited.action.startsWith(`stage ${x.id}: `));

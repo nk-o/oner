@@ -6,7 +6,7 @@ merged, deployed, and verified in production before the stages that depend on it
 user approves the program and its release once, at the gate. After that the series runs to its
 last stage and stops only where **Waiting** below says.
 
-`series.mjs`, beside this file, owns the program's state. Call it by absolute path:
+`series.mjs`, in the skill's folder, owns the program's state. Call it by absolute path:
 `{{skills_dir}}/oneshot/series.mjs`. It reads GitHub, git, and production. It records a
 stage's transition only on evidence it saw, and prints the next actions. It never merges,
 pushes, or deploys. You do, one command at a time, and run `next` again.
@@ -76,8 +76,10 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
 
    **Away** does not reach this question. An authorization is consent, never a recommended
    default. A run `oneshot-auto` opened already has one: the user started it by name, and
-   `authorization` quotes the log's `Auto.` line. Without one, build stage one to its pull
-   request and run `series.mjs wait input "authorize the release of <program folder>"`.
+   `authorization` quotes the log's `Auto.` line. Without one, leave `authorization` out of
+   `program.json`, build stage one to its pull request, and run `series.mjs wait input
+   "authorize the release of <program folder>"`. When the user answers, run `series.mjs resume
+   --authorization "<their words>"`, which is the only way the field is written later.
 
    The four hard stops still stop. A migration or data shape the approved spec already sets
    is settled, so only one the spec does not cover stops the series. A decision that can only
@@ -102,7 +104,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    ```json
    {
      "status": "running",
-     "authorization": "<the user's answer, verbatim>",
+     "authorization": "<the user's answer, verbatim; left out when they have not given one>",
      "release": {
        "merge": "squash",
        "checks": ["test", "build"],
@@ -199,7 +201,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
 
    **Parallel stages.** When `next` prints `start` or `build` for more than one stage, those
    stages wait for nothing in each other. Hand each to its own background `general-purpose`
-   delegate at once. Its brief holds the program folder's absolute path, the stage id, its
+   delegate at once. Its brief opens with the instruction to load `oneshot` and read **A stage
+   run** in `lanes/series.md`, then holds the program folder's absolute path, the stage id, its
    branch and checkout, the rule that it runs the stage run above through Ship and never
    touches `program.json`, merges, or deploys, the rule that a question at one of the four
    hard stops comes back unanswered in its summary, the rule that it removes what it

@@ -37,14 +37,13 @@ See [dev-tidy.md](dev-tidy.md) for logging and removal.
 
 1. `dev-tidy --kept`. A dry run takes about ten seconds and changes nothing.
    Never pass `--yes` first, whatever the user asked for.
-2. Run the pre-flight below.
-3. Inspect every kept item that holds work, as described under **Inspect what
+2. Inspect every kept item that holds work, as described under **Inspect what
    holds work**. Done when each one is marked drop or ask.
-4. Send one short message and wait for a yes.
+3. Send one short message and wait for a yes.
    When the user already authorized cleanup, report the plan and continue without asking again.
-5. `dev-tidy --drop` each item marked drop, with `--yes`, then `dev-tidy --yes`.
+4. `dev-tidy --drop` each item marked drop, with `--yes`, then `dev-tidy --yes`.
    The drops go first so the pass also takes the wp-env stacks they free.
-6. Two lines back, plus whatever is still open.
+5. Two lines back, plus whatever is still open.
 
 ## Decide it yourself
 
@@ -102,28 +101,14 @@ Mark it **drop** on any of these:
   feature, not by the line count alone.
 - Its uncommitted changes are only a lockfile or a package-manager file the
   repository does not use.
-- An experiment. No pull request, nothing pushed, untouched for two weeks, and
-  nothing on the base builds on it.
 
-Mark it **ask** only when none of these holds and the missing lines are real
-work: touched in the last two weeks, or pushed to a branch nothing merged. Give
+Mark it **ask** when none of these holds, because its missing lines exist nowhere
+else. That includes an old experiment with no pull request and nothing pushed. Give
 each one a line saying what it is about, read from its commit subjects and
 files, and how many lines are missing.
 
-`operation in progress` is always ask. One more from the pre-flight rather than
-from `--kept`: a process that is doing real work rather than serving. Offer to
-wait for it.
-
-## Pre-flight
-
-Run this on the processes the dry run listed, by the pids on each `server` line, to find one
-that is mid-job. Only what it flags goes into the message.
-
-```bash
-ps -o pid=,etime=,command= -p <pids>
-```
-
-A dev server is fine. `install`, `build`, `test` or `migrate` is not.
+`operation in progress` and `build, test, install, or migration running` are always
+ask. Offer to wait for the process. `--drop` refuses such a checkout by itself.
 
 ## The message
 

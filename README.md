@@ -89,9 +89,10 @@ The same work, one step at a time, for when you want to see each stage:
 | Build it | `/implement` | `plan.md` worked task by task, with each acceptance criterion checked in the product |
 | Open the PR | `/pr`, then `gh pr create` | a title and body written for a person |
 | Wait for CI and review | `/pr-wait` | the PR watched until it is ready, real defects fixed, every thread answered |
-| Ship | `wt finish` | the PR merged, the dev server stopped, the branch and worktree removed |
+| Merge | `/pr-wait` | the PR merged once checks and review are through |
+| Clean up | `wt finish` | the dev server stopped, the branch and worktree removed |
 
-A one-file fix needs only `wt new`, the edit, `/pr`, and `wt finish`.
+A one-file fix needs only `wt new`, the edit, `/pr`, the merge, and `wt finish`.
 [docs/workflow.md](docs/workflow.md) explains why planning takes three skills and how to prepare
 a new project.
 

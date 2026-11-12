@@ -34,8 +34,8 @@ alternative. Do not repeat the same denied action through another command.
 Options: `--provider cursor|grok|codex|claude|all` to pick voices, `--base <ref>` to review against something
 other than `origin/HEAD`, `--model <slug>` for the Cursor voice.
 
-`--base` is how you scope a later round. Pass the sha HEAD was at before the fixes and both
-voices review the fix commits alone. There is no way to hand in a prepared patch, on purpose: a
+`--base` is how you scope a later round. Pass the sha HEAD was at before the fixes and every
+voice reviews the fix commits alone. There is no way to hand in a prepared patch, on purpose: a
 patch file is a diff somebody assembled by hand, which is the thing this skill stopped doing.
 
 ## Review an independent copy
@@ -99,13 +99,15 @@ against two different rubrics cannot be compared.
 a second opinion, and counting the two as agreeing is worse than having one. The build writes
 `providers.env` beside the script for each agent it installs into, with the voices
 `config.json` turns on and that agent's own voice left out. Claude Code's copy is the exception,
-because OpenCode and Grok Build read it too: it keeps both voices, and the script leaves out
+because OpenCode and Grok Build read it too: it keeps every voice, and the script leaves out
 Claude inside Claude Code and Grok inside Grok Build. The default `all` means that list, so
 pass nothing. Voices and models change through `config.json`, which the `configure` skill edits.
 
 ## Exit codes
 
-`0` at least one voice ran. `1` a provider or the snapshot failed. `2` a bad argument or base
+`0` every voice that started finished. `1` a provider or the snapshot failed. When stdout still
+lists a voice as `ok`, read its file, name the failed voice in the report, and do not run the
+finished ones again. `2` a bad argument or base
 ref. `3` nothing in scope, including a change made only of excluded files, and no provider was
 called. `4` a requested voice's CLI is not logged in, and no voice was started. `127` no voice
 could run: none installed, `config.json` turns every voice off for this agent, or every voice was
@@ -115,7 +117,8 @@ names, and run the review again once they say it is done.
 
 ## Reading the result
 
-Each voice writes a numbered list, and every list is a set of claims, not a work order. Nothing
+Each voice writes a numbered list, except Codex, whose built-in review you number yourself
+when merging. Every list is a set of claims, not a work order. Nothing
 gets acted on until it has been through [`resolve-review`](../resolve-review/SKILL.md).
 
 Merge the voices before resolving, into one numbered sequence. The same defect from two

@@ -36,7 +36,9 @@ description: >-
 
 6. After you change files, run the chain again from its first step, through every step you included in step 1 for this repo.
 
-7. Stop when every step you ran exits **0**, or when you cannot fix further without secrets, network-only data, or a user decision. Say which step failed and why.
+7. A repository where step 1 found no command at all is not green. Take the commands its CI workflow or its `Makefile` runs, and when there are none, stop and say that no gate was found.
+
+8. Stop when every step you ran exits **0**, or when you cannot fix further without secrets, network-only data, or a user decision. Say which step failed and why.
 
 ## Unattended
 

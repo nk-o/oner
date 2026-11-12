@@ -7,10 +7,9 @@ planning skills split the work and how to prepare a project for it.
 
 Each feature gets its own worktree and its own chat. `wt new <name>` creates the worktree on a
 fresh branch, with its own dev port, local env files, and installed dependencies. `wt status`
-prints every worktree with its port, dev server, and pull request state. `wt finish` merges the
-pull request, stops the dev server, and deletes the branch and the worktree. `wt prune` removes
-worktrees whose pull request already merged. `finish` and `prune` print a plan and change nothing
-until you add `--yes`.
+prints every worktree with its port, dev server, and pull request state. Once the pull request has merged, `wt finish`
+stops the dev server and deletes the branch and the worktree. It prints a plan and changes
+nothing until you add `--yes`. `dev-tidy` sweeps every merged worktree on the machine.
 
 ## Why brainstorm, spec, and implement are three skills
 

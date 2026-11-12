@@ -21,7 +21,7 @@ without conflicts says nothing about whether the change still belongs in the pro
 1. **Pin what it was for.** Read the title, the body, the linked issue, the commits, every
    review thread, and the whole diff. Record its url, author, base branch, head sha, and merge
    base (`git merge-base origin/<base> <head>`). Check it out in a separate worktree with
-   `gh pr checkout <n>`, so this checkout's own work stays as it is. Done when you can write the
+   `gh pr checkout <n> --worktree <path>`, so this checkout's own work stays as it is. Done when you can write the
    smallest goal it was after in one sentence.
 2. **Look at what moved around it.** Read the base branch's commits since the merge base that
    touch the files the pull request touches, and search merged and open pull requests for the

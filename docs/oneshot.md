@@ -53,8 +53,9 @@ In Claude Code the same hook answers permission prompts while `Status.` reads `r
 session that started the run and in its subagents. It approves edits inside the repository's
 worktrees, reads, and shell commands. It leaves to you every other tool (MCP servers, web
 fetches), and commands that run as another user, open a remote shell, deploy, change
-infrastructure, publish a package or release, force-push, push to the default branch, delete a
-remote branch, or delete recursively outside the repository. `skills/oneshot/permission.mjs`
+infrastructure, publish a package or release, start a workflow, merge a pull request outside a
+series you authorized, force-push without a lease, push to the default branch, delete a remote
+branch, or delete recursively outside the repository. `skills/oneshot/permission.mjs`
 holds that list.
 
 ## A series of pull requests, through production
