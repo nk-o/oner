@@ -3,33 +3,23 @@
 // drives a scroll-linked section, or a pointer that moves across hover targets. Every frame is a
 // 2x screenshot, so text stays sharp, and ffmpeg joins them into an H.264 MP4.
 //   node record.mjs <recording.json> [--out <dir>]
-// recording.json: { baseUrl, viewport, scale, fps, hide: [css], block: [url globs], recordings: [{
-//   name, url, clip?: x,y,w,h | target?: selector, grow?: px | [t,r,b,l], setup?: [js], hold?: seconds,
+// recording.json: { baseUrl, session?: host, viewport, scale, fps, hide: [css], block: [url globs], recordings: [{
+//   name, url, session?: host, clip?: x,y,w,h | target?: selector, grow?: px | [t,r,b,l], setup?: [js], hold?: seconds,
 //   scroll?: { from: <js number>, to: <js number>, seconds },
 //   pointer?: { path: [[x, y, seconds] | [selector, seconds]...], cursor: true } }] }
 // A pointer path is in viewport CSS pixels; with cursor, a drawn arrow follows it, because a
 // headless page has no visible pointer.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { loadPlaywright, savedSession } from './browser.mjs';
 
 const args = process.argv.slice(2);
 const listPath = resolve(args[0] ?? '');
 const outIndex = args.indexOf('--out');
 const out = resolve(outIndex > -1 ? args[outIndex + 1] : join(dirname(listPath), 'media'));
 const list = JSON.parse(readFileSync(listPath, 'utf8'));
-
-function loadPlaywright() {
-  for (const base of [join(process.cwd(), 'package.json'), join(homedir(), '.cache', 'docs-skill', 'package.json')]) {
-    try {
-      return createRequire(base)('playwright');
-    } catch {}
-  }
-  console.error('Playwright not found; see shoot.mjs for the one-time install.');
-  process.exit(2);
-}
 
 const CURSOR = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22"><path d="M3 2 L3 18 L7.5 13.8 L10.6 20.4 L13.4 19.1 L10.4 12.7 L16.5 12.4 Z" fill="#111" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
 
@@ -41,7 +31,15 @@ for (const rec of list.recordings) {
   const fps = rec.fps ?? list.fps ?? 30;
   const scale = rec.scale ?? list.scale ?? 2;
   const viewport = rec.viewport ?? list.viewport ?? { width: 1440, height: 900 };
-  const context = await browser.newContext({ viewport, deviceScaleFactor: scale });
+  let session;
+  try {
+    session = savedSession(rec.session ?? list.session);
+  } catch (error) {
+    console.error(`${rec.name}: ${error.message}`);
+    failed++;
+    continue;
+  }
+  const context = await browser.newContext({ viewport, deviceScaleFactor: scale, ...(session && { storageState: session }) });
   for (const pattern of list.block ?? []) await context.route(pattern, (route) => route.abort());
   const frames = mkdtempSync(join(tmpdir(), 'record-'));
   try {

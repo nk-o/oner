@@ -13,26 +13,10 @@
 //     --pad (or its own pad), for a help center that draws annotations itself.
 // Playwright comes from the project's node_modules, else from ~/.cache/docs-skill, never added to the project.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { createRequire } from 'node:module';
+import { SESSIONS, loadPlaywright, savedSession, sessionPath } from './browser.mjs';
 
-const SESSIONS = join(homedir(), '.cache', 'docs-skill');
 const COLOR = '#F23A4C';
-
-function loadPlaywright() {
-  const bases = [join(process.cwd(), 'package.json'), join(SESSIONS, 'package.json')];
-  for (const base of bases) {
-    try {
-      return createRequire(base)('playwright');
-    } catch {}
-  }
-  console.error(`Playwright not found. Install it once: npm install --prefix ${SESSIONS} playwright && ${SESSIONS}/node_modules/.bin/playwright install chromium`);
-  process.exit(2);
-}
-
-// Keyed by host name without the port: cookies ignore ports, and each worktree serves on its own.
-const sessionPath = (url) => join(SESSIONS, `${new URL(url).hostname}.json`);
 
 // Session files hold signed-in cookies, so only the owner may read them.
 function ownerOnly(path, mode) {
@@ -531,10 +515,11 @@ async function shoot(listPath, out, only) {
       failed++;
       continue;
     }
-    const host = shot.session ?? list.session;
-    const session = host ? sessionPath(host.includes('://') ? host : `https://${host}`) : null;
-    if (session && !existsSync(session)) {
-      console.error(`${shot.name}: no session for ${host}, run: node shoot.mjs --login <url>`);
+    let session;
+    try {
+      session = savedSession(shot.session ?? list.session);
+    } catch (error) {
+      console.error(`${shot.name}: ${error.message}`);
       failed++;
       continue;
     }

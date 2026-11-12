@@ -84,8 +84,7 @@ The title is the symptom in the reader's words, and an on-screen message quoted 
 
 The `changelog` skill writes the lines. On Poise each release is its own entry in the help
 center's Updates section, created by the **Article** job with the release's `date` and
-`version`. Elsewhere the help center keeps one changelog article, each version one `##` with the
-version and the date, newest first, in the same order as below. An entry holds, in this order:
+`version`. An entry holds, in this order:
 
 1. **A lead** of one or two sentences: what the release is about, then what a merchant must do
    after updating when there is anything (check a renamed setting, replace a removed block),

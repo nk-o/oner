@@ -1,8 +1,8 @@
 # Craft
 
 Rules for pacing, framing, and title cards. Each one holds a number a source gave or a mistake
-a user rejected. Sources and the reasoning behind the numbers are in
-[research](research.md).
+a user rejected. The sources behind the numbers are in [research](research.md), which holds
+no rules: where it and this file differ, this file is the rule.
 
 ## Length and pacing
 
@@ -25,7 +25,8 @@ a user rejected. Sources and the reasoning behind the numbers are in
   and no wait after a menu has shown what it shows.
 - Hold a settled state that carries the point at least 1.2 s after all motion stops, and text
   meant to be read for 0.6 s per word.
-- The first 5 s show the product moving and its name. No black screen, no slogan card.
+- The first 5 s show the product moving and its name. No black screen, no slogan card. A logo
+  card per **Title cards** is neither.
 - Never change the speed of footage. Record the action at the speed it should play. A sped-up
   scroll or a video inside the page played fast looks wrong at once.
 
@@ -89,12 +90,12 @@ a user rejected. Sources and the reasoning behind the numbers are in
 ## Assembled sections
 
 A section can build itself on screen from its own parts: the photo settles in, the heading
-rises word by word, badges and buttons pop, bars grow. `scripts/assemble.js` does it in place
+rises word by word, badges and buttons pop, bars grow. `{{skills_dir}}/product-video/scripts/assemble.js` does it in place
 on the real section, so styles and hover states stay the product's own; run it in an `eval`
 step with `async: true` after a `creep` step, so the section builds while the page drifts. Vary the recipe per section, keep each under 2 s, and
 use it on three or four sections a video, where the parts are worth seeing one by one (product
-cards, a featured product, steps). The 3D exploded card in `scripts/card-stage.js` was rejected
-as buggy-looking; keep to flat, in-place builds.
+cards, a featured product, steps). A 3D exploded card was rejected as
+buggy-looking; keep to flat, in-place builds.
 
 ## Title cards
 
