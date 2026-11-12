@@ -1032,6 +1032,9 @@ drop_target() {
     if [ "$t3" = settled ] && t3_terminal_under "$wt"; then
       echo "Refusing to drop $wt: T3 Code terminal or agent still open." >&2; exit 1
     fi
+    if busy_under "$wt"; then
+      echo "Refusing to drop $wt: build, test, install, or migration running." >&2; exit 1
+    fi
     changed "  worktree  ${wt/#$HOME/~}  [dropped]"
     kill_pids "$(pids_under "$wt")" "still running in ${wt##*/}"
     if [ "$apply" = true ]; then

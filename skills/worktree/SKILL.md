@@ -2,10 +2,10 @@
 name: worktree
 description: >-
   Runs the feature lifecycle on a git worktree. Creates one with its own dev port and env files,
-  watches its pull request, then merges and removes the branch, the directory, and the dev
-  server in one pass. Use when starting a feature in a worktree, when a session begins inside a
-  worktree the app created and the environment is not set up yet, when checking what worktrees
-  and pull requests are open, or when finishing one. Also for stale-port complaints. To clean up
+  then removes the branch, the directory, and the dev server once its pull request has merged.
+  Use when starting a feature in a worktree, when a session begins inside a worktree the app
+  created and the environment is not set up yet, when checking what worktrees and pull requests
+  are open, or when finishing one. Also for stale-port complaints. To clean up
   merged worktrees across the machine, use `dev-tidy`.
 allowed-tools: Bash(git worktree list*) Bash(gh pr view*) Bash(*/wt.sh status*)
 ---
@@ -28,7 +28,8 @@ If it cannot do something, say so and fix the script.
 | Develop and verify | project's own dev server, started from `.claude/launch.json` |
 | Open the PR | run the repo's checks, then the `pr` skill, then `gh pr create` |
 | Wait for CI and review | the `pr-wait` skill |
-| Finish | `wt.sh finish` |
+| Merge | the `pr-wait` skill |
+| Remove the merged worktree | `wt.sh finish` |
 
 `wt.sh status` prints every worktree with its branch, uncommitted changes, commits
 ahead of the default branch, dev ports (up or down), and PR state with checks and
@@ -47,20 +48,16 @@ when its listener belongs to that checkout. Concurrent allocation is serialized 
 for configured `servers`. A bootstrap-only config delegates ports to the repository's script;
 verify that script through `worktree-setup`.
 
-**Merging is the user's call.** `finish` and `prune` are dry runs by default: they
-print the plan and change nothing. Show that output to the user, get a clear yes,
-then re-run with `--yes`. Never pass `--yes` on the first call. An oneshot series the user
-authorized at its gate counts as that yes for its own finished stages.
+**`finish` removes, it does not merge.** It refuses a pull request that is still open, so
+merge through `pr-wait` first. It is a dry run by default: show its plan to the user, get a
+clear yes, then re-run with `--yes`. Never pass `--yes` on the first call. An oneshot series
+the user authorized at its gate counts as that yes for its own finished stages.
 
-**Never finish a red PR.** If `status` shows `checks:FAIL` or `checks:running`,
-say so and stop. Use the `pr-wait` skill instead.
-
-**A shell inside the worktree cannot delete it.** `finish` detects this, does
-everything except removing the directory, and says so. Sweep it later with
-`wt.sh prune` from the primary checkout or another chat, or leave it to `dev-tidy`, which
-removes it once the pull request lands. Claude Code's own
-`ExitWorktree` only removes worktrees that `EnterWorktree` created *in the same
-session*, so it is no help after a restart.
+**A shell inside the worktree cannot delete it.** `finish` detects this, does everything
+except removing the directory, and says so. Run it again from the primary checkout or another
+chat, or leave the directory to `dev-tidy`, which removes it once nothing still runs there.
+Claude Code's own `ExitWorktree` only removes worktrees that `EnterWorktree` created *in the
+same session*, so it is no help after a restart.
 
 **Shared local services are not per-worktree.** A single local database, container
 stack, or generated-types file is shared by every checkout on the machine. Only one
@@ -78,4 +75,4 @@ To adjust an existing config, the keys are described in `worktree-setup`'s steps
 ## Reporting
 
 After `new`, tell the user the path, branch, and dev port. After `finish`, say what
-was merged and what is left to sweep. Do not paste the whole script output back.
+was removed and what is left to sweep. Do not paste the whole script output back.

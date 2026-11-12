@@ -489,6 +489,16 @@ test('forced cleanup cannot drop an active T3 checkout', () => {
   assert.equal(result.status, 1); assert.ok(existsSync(dir)); assert.equal(f.runGit('rev-parse', 'feature'), f.sha);
 });
 
+test('forced cleanup cannot drop a checkout while a real build process runs', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000); console.log("ready")', 'build'], { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
+  children.push(child);
+  await new Promise((resolvePromise, reject) => { child.once('error', reject); child.stdout.once('data', resolvePromise); });
+  const result = f.run(tidy, ['--drop', dir, '--yes']);
+  assert.equal(result.status, 1); assert.match(result.stderr, /build, test, install, or migration running/);
+  assert.ok(existsSync(dir)); assert.equal(child.exitCode, null);
+});
+
 test('T3 cleanup preserves a branch renamed outside its task records', () => {
   const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
   f.runGit('-C', dir, 'branch', '-m', 'renamed');

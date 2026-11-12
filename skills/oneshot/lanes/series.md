@@ -76,8 +76,10 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
 
    **Away** does not reach this question. An authorization is consent, never a recommended
    default. A run `oneshot-auto` opened already has one: the user started it by name, and
-   `authorization` quotes the log's `Auto.` line. Without one, build stage one to its pull
-   request and run `series.mjs wait input "authorize the release of <program folder>"`.
+   `authorization` quotes the log's `Auto.` line. Without one, leave `authorization` out of
+   `program.json`, build stage one to its pull request, and run `series.mjs wait input
+   "authorize the release of <program folder>"`. When the user answers, run `series.mjs resume
+   --authorization "<their words>"`, which is the only way the field is written later.
 
    The four hard stops still stop. A migration or data shape the approved spec already sets
    is settled, so only one the spec does not cover stops the series. A decision that can only
@@ -102,7 +104,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    ```json
    {
      "status": "running",
-     "authorization": "<the user's answer, verbatim>",
+     "authorization": "<the user's answer, verbatim; left out when they have not given one>",
      "release": {
        "merge": "squash",
        "checks": ["test", "build"],
