@@ -65,6 +65,7 @@ test('an open run gets its local work approved and leaves the rest to the user',
   assert.equal(f.ask('WebFetch', { url: 'https://example.test' }), 'ask');
   for (const command of ['sudo rm -rf build', 'ssh deploy@example.test', 'npx vercel deploy --prod', 'bash -c "kubectl apply -f k8s"',
     'terraform apply', 'npm publish', 'pnpm -r publish', 'pnpm deploy', 'npm run release:prod', 'gh release create v1', 'gh api -X DELETE repos/o/r',
+    'gh workflow run deploy.yml', 'gh pr merge 7 --squash', 'gh pr merge 7 --squash --match-head-commit abc1234',
     'git push --force origin feature', 'git push -f origin feature', 'git push origin main', 'git push origin HEAD:main',
     'git push origin :feature', 'git push origin --delete feature', 'rm -rf ~/Library/Caches', 'rm -rf /tmp/x',
     'rm -rf ../other', 'rm -rf .', 'make && rm -r "$HOME/x"']) {
@@ -97,4 +98,20 @@ test('a delegate in a detached worktree and an oneshot-auto session count as the
   assert.equal(f.ask('Bash', { command: 'pnpm test' }, { cwd: worker }), 'allow');
   f.log('done');
   assert.equal(f.ask('Edit', { file_path: join(worker, 'app.ts') }, { cwd: worker }), 'ask');
+});
+
+test('a merge is approved only for a verified head inside a series the user authorized', () => {
+  const f = fixture();
+  const program = (fields) => {
+    mkdirSync(join(f.repo, '.specs', '002-series'), { recursive: true });
+    writeFileSync(join(f.repo, '.specs', '002-series', 'program.json'), JSON.stringify({ stages: [], ...fields }));
+  };
+  const merge = 'gh pr merge 7 --squash --match-head-commit abc1234';
+  program({ status: 'running' });
+  assert.equal(f.ask('Bash', { command: merge }), 'ask', 'no authorization');
+  program({ status: 'running', authorization: 'yes, release it' });
+  assert.equal(f.ask('Bash', { command: merge }), 'allow');
+  assert.equal(f.ask('Bash', { command: 'gh pr merge 7 --squash' }), 'ask', 'no pinned head');
+  program({ status: 'waiting', authorization: 'yes, release it' });
+  assert.equal(f.ask('Bash', { command: merge }), 'ask', 'a waiting series');
 });

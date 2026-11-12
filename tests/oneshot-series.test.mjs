@@ -295,6 +295,13 @@ test('a series without the user\'s release authorization asks instead of merging
   const r = f.series(['next']);
   assert.deepEqual(kinds(r, 'schema'), ['ask']);
   assert.equal(f.record().waiting.reason, 'input');
+
+  assert.equal(f.series(['resume']).status, 0);
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask'], 'an answer without the words authorizes nothing');
+  assert.equal(f.series(['resume', '--authorization', ' ']).status, 2);
+  assert.equal(f.series(['resume', '--authorization', 'Yes, release every stage']).status, 0);
+  assert.equal(f.record().authorization, 'Yes, release every stage');
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['merge']);
 });
 
 test('a stale deployment fails the stage and asks, and a recheck after the fix completes it', () => {

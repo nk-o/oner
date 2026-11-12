@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 #
-# Worktree lifecycle for any git repository: create, inspect, finish, prune.
+# Worktree lifecycle for any git repository: create, inspect, finish.
 #
 #   wt.sh init            write .claude/worktree.json from what the repo looks like
 #   wt.sh new <name>      add a worktree, copy local env files, install, assign a dev port
 #   wt.sh adopt [<name>]  bootstrap an app-created worktree; --branch names a detached checkout
 #   wt.sh status          every worktree with its port, dev server, and pull request
 #   wt.sh ports [<name>]  repair port assignments without installing or bootstrapping
-#   wt.sh finish [<name>] merge the pull request and remove branch, worktree, and server
-#   wt.sh prune           remove worktrees whose pull request is already merged
+#   wt.sh finish [<name>] after its pull request merged: remove branch, worktree, and server
 #
-# `finish` and `prune` print their plan and change nothing until --yes is passed.
+# `finish` prints its plan and changes nothing until --yes is passed.
 #
 # Per-repository settings live in .claude/worktree.json at the repository root:
 #
@@ -575,11 +574,10 @@ EOF
 }
 
 cmd_finish() {
-  local target="" confirm=false strategy="squash"
+  local target="" confirm=false
   while [ $# -gt 0 ]; do
     case "$1" in
       --yes) confirm=true; shift ;;
-      --merge) strategy="${2:-squash}"; shift 2 ;;
       -*) die "Unknown option: $1" ;;
       *) target="$1"; shift ;;
     esac
@@ -601,8 +599,10 @@ cmd_finish() {
   pr_carries_head "$dir" "$pr" ||
     die "$branch has commits its pull request does not carry. Push or discard them first."
 
-  # Removing the directory we are standing in would break the shell; leave it
-  # for `wt.sh prune` from another checkout.
+  [ "$state" = "OPEN" ] && die "The pull request is still open. Merge it through the pr-wait skill, then run finish."
+  [ "$state" = "CLOSED" ] && die "PR is closed without merging. Remove the worktree by hand if that was deliberate."
+
+  # Removing the directory we are standing in would break the shell.
   local inside=false
   case "$PWD/" in "$dir/"*) inside=true ;; esac
 
@@ -610,12 +610,9 @@ cmd_finish() {
   echo "Branch   : $branch"
   echo "PR       : $(pr_summary "$pr")"
   echo "Plan     :"
-  [ "$state" = "OPEN" ] && echo "  - merge the pull request ($strategy) and delete the remote branch"
-  [ "$state" = "MERGED" ] && echo "  - already merged; skip the merge"
-  [ "$state" = "CLOSED" ] && die "PR is closed without merging. Remove the worktree by hand if that was deliberate."
   echo "  - stop the dev server(s) of this worktree"
   if [ "$inside" = true ]; then
-    echo "  - keep the directory (this shell is inside it); run 'wt.sh prune' afterwards"
+    echo "  - keep the directory (this shell is inside it); run finish again from another checkout"
   else
     echo "  - remove the worktree directory and its local branch"
   fi
@@ -627,9 +624,6 @@ cmd_finish() {
   fi
 
   echo
-  if [ "$state" = "OPEN" ]; then
-    gh pr merge "$(printf '%s' "$pr" | jq -r '.number')" "--$strategy"
-  fi
   stop_servers "$dir"
 
   if [ "$inside" = false ]; then
@@ -643,56 +637,6 @@ cmd_finish() {
   echo "Done."
 }
 
-cmd_prune() {
-  local confirm=false
-  [ "${1:-}" = "--yes" ] && confirm=true
-
-  local dir branch pr state dirty found=0
-  load_prs
-  while IFS= read -r dir; do
-    [ -z "$dir" ] && continue
-    branch="$(branch_of "$dir")"
-    pr="$(pr_for_branch "$branch")"
-    [ -z "$pr" ] && continue
-    state="$(printf '%s' "$pr" | jq -r '.state')"
-    [ "$state" != "MERGED" ] && continue
-    dirty="$(git -C "$dir" status --porcelain | wc -l | tr -d ' ')"
-    if [ "$dirty" != "0" ]; then
-      echo "skip   $(basename "$dir"): merged, but has $dirty uncommitted change(s)"
-      continue
-    fi
-    if ! pr_carries_head "$dir" "$pr"; then
-      echo "skip   $(basename "$dir"): merged, but has commits the pull request did not carry"
-      continue
-    fi
-    case "$PWD/" in "$dir/"*) echo "skip   $(basename "$dir"): this shell is inside it"; continue ;; esac
-    found=$((found + 1))
-    if [ "$confirm" = true ]; then
-      stop_servers "$dir"
-      git -C "$PRIMARY" worktree remove "$dir"
-      git -C "$PRIMARY" branch -D "$branch" 2>/dev/null || true
-      delete_remote_branch "$branch"
-      echo "removed $(basename "$dir") ($branch, PR merged)"
-    else
-      echo "would remove $(basename "$dir") ($branch, PR merged)"
-    fi
-  done <<EOF
-$(worktree_dirs)
-EOF
-
-  if [ "$found" = "0" ]; then
-    echo "Nothing to prune."
-    return 0
-  fi
-  if [ "$confirm" != true ]; then
-    echo
-    echo "Nothing changed. Re-run with --yes to execute."
-    return 0
-  fi
-  git -C "$PRIMARY" worktree prune
-  git -C "$PRIMARY" fetch --prune --quiet
-}
-
 case "${1:-}" in
   init)   shift; cmd_init "$@" ;;
   new)    shift; cmd_new "$@" ;;
@@ -700,7 +644,6 @@ case "${1:-}" in
   ports)  shift; cmd_ports "$@" ;;
   status) shift; cmd_status "$@" ;;
   finish) shift; cmd_finish "$@" ;;
-  prune)  shift; cmd_prune "$@" ;;
-  ""|-h|--help) sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//' ;;
+  ""|-h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) die "Unknown command: $1. Run: wt.sh --help" ;;
 esac
