@@ -9,8 +9,8 @@
 // publishes, rewrites or deletes a shared branch, or deletes recursively
 // outside the repository.
 import { spawnSync } from 'node:child_process';
-import { readFileSync, realpathSync } from 'node:fs';
-import { isAbsolute, resolve, sep } from 'node:path';
+import { readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { isAbsolute, join, resolve, sep } from 'node:path';
 
 const EDITS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const READS = new Set(['Read', 'Glob', 'Grep']);
@@ -28,6 +28,7 @@ const PUBLISH = [
   /\bpoetry\s+publish\b/,
   /\bdocker\s+push\b/,
   /\bgh\s+release\s+(create|upload|delete|edit)\b/,
+  /\bgh\s+workflow\s+run\b/,
   /\bgh\s+repo\s+(delete|archive|rename|edit)\b/,
   /\bgh\s+(secret|variable)\b/,
   /\bgh\s+api\b.*(-X|--method)[\s=]*['"]?DELETE\b/i,
@@ -50,6 +51,22 @@ function pushIsSafe(command, defaultBranch, branch) {
     if (refs.length < 2 && branch === defaultBranch) return false;
   }
   return true;
+}
+
+// A merge is the run's own only inside a series the user authorized, and only
+// for the head whose checks series.mjs verified.
+function mergeIsAuthorized(command, primary) {
+  const merges = command.match(/\bgh\s+pr\s+merge\b[^;&|\n]*/g) ?? [];
+  if (!merges.length) return true;
+  if (!merges.every((m) => /--match-head-commit[\s=]+[0-9a-f]{7,40}\b/.test(m))) return false;
+  let folders = [];
+  try { folders = readdirSync(join(primary, '.specs')); } catch { return false; }
+  return folders.some((folder) => {
+    try {
+      const program = JSON.parse(readFileSync(join(primary, '.specs', folder, 'program.json'), 'utf8'));
+      return (program.status ?? 'running') === 'running' && typeof program.authorization === 'string' && program.authorization.trim() !== '';
+    } catch { return false; }
+  });
 }
 
 function rmIsSafe(command, cwd, roots) {
@@ -89,7 +106,8 @@ function decide(input, skillsDir) {
     if (ASK_TOOL.test(command) || PUBLISH.some((r) => r.test(command))) return false;
     const defaultBranch = git(cwd, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).replace(/^origin\//, '') || 'main';
     const branch = git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    return pushIsSafe(command, defaultBranch, branch) && rmIsSafe(command, cwd, writable);
+    return pushIsSafe(command, defaultBranch, branch) && rmIsSafe(command, cwd, writable) &&
+      mergeIsAuthorized(command, worktrees[0] ?? cwd);
   }
   return false;
 }
