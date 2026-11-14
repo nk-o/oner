@@ -3,7 +3,7 @@ name: dev-tidy
 description: >-
   Reclaims what local development leaves behind on this machine: worktrees and branches whose
   pull request has landed, the dev servers still running inside them, wp-env stacks whose
-  checkout is gone, Turborepo cache older than a week, and Docker images and build cache. Use
+  checkout is gone, idle worktree caches, and unused Docker images and build cache. Use
   when the user asks to clean up the machine, free disk space, or stop stale dev servers. Also
   for "clean up merged worktrees", "what is still running", "why is the disk full", a port that
   will not free up, and "which of my branches are dead".
@@ -18,6 +18,30 @@ unclear. Never re-implement what it does with `git`, `docker`, or `kill` by hand
 If it cannot do something, say so and fix the script.
 
 `dev-tidy.md` next to it is the reference for the rules and the launchd schedule.
+
+## Disk and memory complaints
+
+Measure the largest directories, free disk space, process memory, and Docker usage before
+choosing cleanup. On macOS, inspect the Data volume; `/` alone reports the system volume.
+Docker images share layers, and APFS clones share blocks, so directory totals and virtual image
+sizes do not predict reclaimed space. Compare free disk space before and after.
+
+For T3 Code, read its installed version and `storageCleanup` settings first. Settled retention
+and automatic settlement after merge are separate settings. Check project overrides and the
+native cleanup report before treating a retained checkout as a script defect. Prefer T3's
+own retention and supported APFS checkout cache over sharing mutable `node_modules` between
+branches. The checkout cache covers Git files, not installed dependencies.
+
+When retained worktrees or WordPress containers account for the excess, preview with
+`dev-tidy --reclaim-caches --stop-wp-env --kept`. Reuse the same flags with `--yes` after
+authorization. Cache reclamation removes ignored `node_modules` and `.next` directories from
+known idle T3 worktrees. It preserves code and task history; resuming requires reinstalling
+dependencies and rebuilding. Stopping wp-env preserves its databases and uploads. Active jobs,
+host processes, open oneshot runs, and `--keep` paths prevent these operations.
+
+These flags are explicit and do not change existing scheduled runs. A stored ready provider
+session alone does not block cache reclamation; it still blocks whole-worktree deletion.
+Report what remains in use. Stop no application to make its memory number smaller.
 
 ## Ports without deleting work
 

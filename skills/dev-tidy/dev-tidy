@@ -53,6 +53,9 @@
 #   --skip-wp-env    Leave wp-env stacks alone.
 #   --skip-git       Leave worktrees, servers, and branches alone.
 #   --skip-turbo     Leave Turborepo caches alone.
+#   --reclaim-caches Remove ignored node_modules and .next from idle T3 worktrees.
+#                    Keep code and task history. Dependencies must be reinstalled.
+#   --stop-wp-env    Stop idle wp-env containers, preserving databases and uploads.
 #   --keep PATH      Leave this worktree and its branch alone, whatever the
 #                    proofs say. Repeatable. For a checkout another tool uses.
 #   --kept          Also say what was left alone, and why.
@@ -127,6 +130,10 @@ skip_docker=false
 skip_wp_env=false
 skip_git=false
 skip_turbo=false
+reclaim_caches=false
+stop_wp_env=false
+cache_kb=0
+containers_stopped=0
 ports_only=false
 ports_released=0
 had_errors=0
@@ -151,6 +158,8 @@ while [ $# -gt 0 ]; do
     --skip-wp-env) skip_wp_env=true; shift ;;
     --skip-git) skip_git=true; shift ;;
     --skip-turbo) skip_turbo=true; shift ;;
+    --reclaim-caches) reclaim_caches=true; shift ;;
+    --stop-wp-env) stop_wp_env=true; shift ;;
     --root)
       [ -n "${2:-}" ] || { echo "--root requires a path." >&2; exit 1; }
       roots+=("$2"); shift 2 ;;
@@ -1117,6 +1126,65 @@ if [ "$skip_git" = false ]; then
 fi
 # --- wp-env ---------------------------------------------------------------
 
+resource_idle() {
+  local dir="$1" state pid cwd
+  open_run_in "$dir" && return 1
+  state="$(t3_query idle "$dir")"
+  case "$state" in idle|none) ;; *) return 1 ;; esac
+  ps -p "$$" >/dev/null 2>&1 || return 1
+  local cwds
+  cwds="$(lsof -a -d cwd -Fpn -u "$(id -un)" 2>/dev/null)" || return 1
+  while IFS="$(printf '\t')" read -r pid cwd; do
+    case "$cwd/" in "$dir/"*)
+      not_self "$pid" || continue
+      ps -p "$pid" >/dev/null 2>&1 || continue
+      is_bundled "$pid" && continue
+      return 1 ;;
+    esac
+  done < <(printf '%s\n' "$cwds" | awk '/^p/{pid=substr($0,2)} /^n/{print pid"\t"substr($0,2)}')
+  return 0
+}
+
+if [ "$reclaim_caches" = true ] && [ "$ports_only" = false ]; then
+  load_procs
+  seen_caches=""
+  for root in "${roots[@]}"; do
+    while IFS= read -r gitdir; do
+      while IFS= read -r dir; do
+        [ -f "$dir/.git" ] || continue
+        printf '%s' "$seen_caches" | grep -qxF "$dir" && continue
+        seen_caches="${seen_caches}${dir}
+"
+        [ "$(t3_query idle "$dir")" = idle ] || continue
+        printf '%s' "$keep_dirs" | grep -qxF "$dir" && continue
+        resource_idle "$dir" || { kept "caches $dir" "task, process, or oneshot run still active"; continue; }
+        while IFS= read -r cache; do
+          rel="${cache#"$dir/"}"
+          git -C "$dir" check-ignore -q -- "$rel" || continue
+          tracked="$(git -C "$dir" ls-files -- "$rel")" || continue
+          [ -z "$tracked" ] || continue
+          kb="$(du -sk "$cache" 2>/dev/null | cut -f1)"
+          [ -n "$kb" ] || continue
+          changed "  cache     ${cache/#$HOME/~}  ($((kb / 1024))M rebuildable)"
+          if [ "$apply" = true ]; then
+            resource_idle "$dir" || { kept "cache $cache" "activity changed since measurement"; continue; }
+            [ -d "$cache" ] && [ ! -L "$cache" ] || continue
+            python3 -c 'import os,sys; sys.exit(os.stat(sys.argv[1]).st_dev != os.lstat(sys.argv[2]).st_dev)' "$dir" "$cache" || continue
+            tracked="$(git -C "$dir" ls-files -- "$rel")" || continue
+            [ -z "$tracked" ] || continue
+            git -C "$dir" check-ignore -q -- "$rel" || continue
+            if ! rm -rf "$cache"; then
+              had_errors=1
+              continue
+            fi
+          fi
+          cache_kb=$((cache_kb + kb))
+        done < <(find "$dir" -xdev -name .git -prune -o -type d \( -name node_modules -o -name .next \) -print -prune 2>/dev/null)
+      done < <(git -C "$(dirname "$gitdir")" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print substr($0, 10)}')
+    done < <(find "$root" -maxdepth "$depth" -name .git -prune -print 2>/dev/null)
+  done
+fi
+
 # wp-env keeps a whole WordPress install, a compose file, and four built images
 # per project under ~/.wp-env, and mounts the plugin from the checkout it was
 # started in. That mount is the only link back to the checkout, and it is enough:
@@ -1126,13 +1194,13 @@ WP_ENV_HOME="${WP_ENV_HOME:-$HOME/.wp-env}"
 
 # The generator folds a long mount onto its own line and quotes a short one, so
 # strip the list marker and the quotes before looking for the mount point.
-wp_env_source() {
+wp_env_sources() {
   awk '
     { line = $0
       sub(/^[[:space:]]*-?[[:space:]]*/, "", line)
       gsub(/^["\x27]|["\x27]$/, "", line)
       i = index(line, ":/var/www/html/wp-content/plugins/")
-      if (i > 1 && substr(line, 1, 1) == "/") { print substr(line, 1, i - 1); exit } }
+      if (i > 1 && substr(line, 1, 1) == "/") { print substr(line, 1, i - 1) } }
   ' "$1/docker-compose.yml" 2>/dev/null
 }
 
@@ -1140,16 +1208,49 @@ is_doomed() { printf '%s' "$doomed_dirs" | grep -qxF "$1"; }
 
 tidy_wp_env() {
   [ -d "$WP_ENV_HOME" ] || return 0
-  local dir project src
+  local dir project src ids mount checkout scoped root safe
   for dir in "$WP_ENV_HOME"/*/; do
     [ -d "$dir" ] || continue
     dir="${dir%/}"
     project="$(basename "$dir")"
-    src="$(wp_env_source "$dir")"
+    src="$(wp_env_sources "$dir" | head -1)"
     # No mount to read means no way to tell whose it is. Leave it.
     [ -z "$src" ] && { kept "wp-env   $project" "no plugin mount in its compose file"; continue; }
-    [ -d "$src" ] && ! is_doomed "$src" &&
-      { kept "wp-env   $project" "checkout ${src/#$HOME/~} is still there"; continue; }
+    if [ -d "$src" ] && ! is_doomed "$src"; then
+      if [ "$stop_wp_env" = true ]; then
+        safe=true
+        while IFS= read -r mount; do
+          checkout="$(git -C "$mount" rev-parse --show-toplevel 2>/dev/null)" || { safe=false; break; }
+          scoped=false
+          for root in "${roots[@]}"; do
+            case "$checkout/" in "$root/"*) scoped=true ;; esac
+          done
+          if [ "$scoped" = false ] || printf '%s' "$keep_dirs" | grep -qxF "$checkout" || ! resource_idle "$checkout"; then
+            safe=false
+            break
+          fi
+        done < <(wp_env_sources "$dir" | sort -u)
+        if [ "$safe" = true ]; then
+          if ids="$(docker ps -q --filter "label=com.docker.compose.project=$project" 2>/dev/null)"; then
+            if [ -n "$ids" ]; then
+              changed "  wp-stop   $project  ($(printf '%s\n' "$ids" | wc -l | tr -d ' ') containers, data kept)"
+              if [ "$apply" = true ]; then
+                drop_all "container" "$ids" docker stop || { had_errors=1; continue; }
+              fi
+              containers_stopped=$((containers_stopped + $(printf '%s\n' "$ids" | wc -l)))
+            fi
+          else
+            changed "    ! could not list containers for $project"
+            had_errors=1
+          fi
+        else
+          kept "wp-env   $project" "source outside roots, kept, active, or unavailable"
+        fi
+      else
+        kept "wp-env   $project" "checkout ${src/#$HOME/~} is still there"
+      fi
+      continue
+    fi
 
     changed "  wp-env    $project  ($(du -sh "$dir" 2>/dev/null | cut -f1))  ${src/#$HOME/~}"
     stacks_removed=$((stacks_removed + 1))
@@ -1186,6 +1287,7 @@ drop_all() {
 
 if [ "$skip_wp_env" = false ] && command -v docker >/dev/null 2>&1; then
   if docker info >/dev/null 2>&1; then
+    [ "$stop_wp_env" = false ] || load_procs
     say
     say "wp-env"
     tidy_wp_env
@@ -1239,11 +1341,28 @@ if [ "$skip_docker" = false ] && command -v docker >/dev/null 2>&1; then
     # Every image some container still references, running or stopped. Docker
     # refuses to delete one of these, so counting it announces a reclamation
     # that never happens, on every run, for as long as the stack is up.
-    containers="$(docker ps -aq 2>/dev/null | tr '\n' ' ')"
+    image_inventory_ok=true
+    containers="$(docker ps -aq 2>/dev/null | tr '\n' ' ')" || image_inventory_ok=false
     in_use=""
-    [ -n "${containers// /}" ] &&
+    if [ -n "${containers// /}" ]; then
       in_use="$(docker inspect --format '{{.Image}}' $containers 2>/dev/null |
-        sed 's#^sha256:##')"
+        sed 's#^sha256:##')" || image_inventory_ok=false
+    fi
+
+    if [ "$image_inventory_ok" = true ]; then
+      while IFS='|' read -r tag id; do
+        [ -n "$tag" ] || continue
+        case "$in_use" in (*"$id"*) continue ;; esac
+        changed "  wp-image  $tag  (unused build)"
+        if [ "$apply" = true ]; then
+          drop_all "image" "$tag" docker rmi || had_errors=1
+        fi
+      done < <(docker images --format '{{.Repository}}:{{.Tag}}|{{.ID}}' 2>/dev/null |
+        awk -F'|' '$1 ~ /^wp-env-.+-(tests-)?(wordpress|cli):[^:]+$/ && $1 !~ /<none>/')
+    else
+      changed "    ! could not inspect container image references; wp-env images kept"
+      had_errors=1
+    fi
 
     # Superseded versions: keep the newest tag of every repository, drop the rest.
     superseded="$(docker images --format '{{.Repository}}|{{.CreatedAt}}|{{.ID}}' 2>/dev/null |
@@ -1287,6 +1406,9 @@ if [ "$skip_docker" = false ] && command -v docker >/dev/null 2>&1; then
     say "Docker not running — skipped."
   fi
 fi
+
+[ "$reclaim_caches" = false ] || say "Rebuildable caches: $((cache_kb / 1024))M. Apply: $apply."
+[ "$stop_wp_env" = false ] || say "wp-env containers to stop: $containers_stopped. Apply: $apply."
 
 # --- summary --------------------------------------------------------------
 

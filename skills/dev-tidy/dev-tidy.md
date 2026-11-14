@@ -34,6 +34,8 @@ Always worth reading the report first. The list is usually longer than expected.
 | `--skip-docker` | Leave Docker images and build cache alone. |
 | `--skip-wp-env` | Leave wp-env stacks alone. |
 | `--skip-git` | Leave worktrees, servers, and branches alone. |
+| `--reclaim-caches` | Remove ignored `node_modules` and `.next` directories from known idle T3 worktrees, preserving code and task history. |
+| `--stop-wp-env` | Stop idle wp-env containers whose plugin sources are within the roots. Preserve databases and uploads. |
 | `--kept` | Also print what was left alone, and the reason. |
 | `--quiet` | Print only what changed. For scheduled runs. |
 | `--inspect PATH [BRANCH]` | What one kept worktree or branch holds that the default branch does not. Changes nothing. |
@@ -165,7 +167,7 @@ Left alone, always:
   `dev`, `develop`, `development`, `staging`, `stage`, `production`, `prod`,
   `release`, `next`, `trunk`, `canary`, `beta`, `alpha`
 - any Docker container, volume, or image a container still references
-- the newest tag of every Docker image repository
+- the newest tag of every Docker image repository, except unused wp-env builds that can be rebuilt
 
 A kept line carries the number that decides what to do about it. `3 of 41
 changed files differ from main` is three files to open, not forty-one. `nothing
@@ -224,6 +226,23 @@ these proofs immediately, independently of T3 Code's automatic retention period.
 Its branches remain for T3 Code to recreate the checkout. Open oneshot runs and
 series remain protected in both full and port-only cleanup.
 
+### Retained worktree caches
+
+T3 Code has separate settings for automatic settlement and worktree removal. Its native cleanup
+runs at startup, when cleanup rules change, and hourly. A merged task does not start settled
+retention while automatic settlement on merge is disabled. Read the installed settings and
+project overrides; there is no retention value that applies to every installation.
+
+On supported Macs, T3's Fast worktree checkout setting uses APFS copy-on-write for tracked
+checkout files. It does not share dependencies or build output. A common `node_modules`
+symlink lets one branch's install change another branch's dependencies.
+
+`--reclaim-caches` removes only ignored, untracked `node_modules` and `.next` directories in
+known idle T3 worktrees. It skips symlinks, active host processes, pending T3 work, open oneshot
+runs and `--keep` paths, and rechecks activity after measuring a cache. It leaves whole-worktree
+deletion's session protection unchanged. Use it for disk pressure when keeping a task's code
+and history matters more than avoiding its next install and build. `--ports-only` skips it.
+
 ### Dev servers
 
 A dev server is found by its working directory, never by its command line. A
@@ -260,6 +279,13 @@ a stack is never reported gone while gigabytes of it remain.
 
 A stack whose compose file has no plugin mount to read is left alone. There is no
 way to tell whose it is.
+
+`--stop-wp-env` also stops retained stacks when every plugin mount resolves to a checkout
+within the roots and none has active work, a host process, an open oneshot run, or `--keep`.
+It preserves the containers, database and upload volumes, compose files, and WordPress files.
+`--skip-wp-env` and `--ports-only` skip this operation. Stopped containers continue to protect
+their images. The Docker pass removes unused wp-env build tags without force, including builds
+whose checkout still exists; their next start rebuilds them.
 
 ### Reading what was left
 
