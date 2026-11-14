@@ -36,6 +36,7 @@ Always worth reading the report first. The list is usually longer than expected.
 | `--skip-git` | Leave worktrees, servers, and branches alone. |
 | `--reclaim-caches` | Remove ignored `node_modules` and `.next` directories from known idle T3 worktrees, preserving code and task history. |
 | `--stop-wp-env` | Stop idle wp-env containers whose plugin sources are within the roots. Preserve databases and uploads. |
+| `--purge-wp-env` | Standalone removal of all wp-env containers, volumes, image references and runtime directories after explicit consent to discard databases and uploads. |
 | `--kept` | Also print what was left alone, and the reason. |
 | `--quiet` | Print only what changed. For scheduled runs. |
 | `--inspect PATH [BRANCH]` | What one kept worktree or branch holds that the default branch does not. Changes nothing. |
@@ -289,6 +290,15 @@ not need to be project roots. Active work in those clones still prevents stoppin
 Stop mode preserves orphan stacks too, including when their source disappears after the preview.
 Run normal cleanup separately to remove them.
 Keeping a runtime clone or any directory inside a stack also preserves that stack during normal cleanup.
+
+When all WordPress work is finished and its local data can be discarded, preview
+`dev-tidy --purge-wp-env`, then apply with `--yes`. This standalone mode uses Docker compose
+ownership and the configured wp-env home, including resources left without a compose directory.
+It removes public runtime images referenced by those compose files, and preserves images,
+volumes and bind-mounted runtime files shared with unrelated containers. A failed operation
+stops further removal and keeps the runtime files for a retry. It cannot be combined with
+`--keep`, `--stop-wp-env`, `--ports-only`, `--inspect`, `--drop` or `--skip-wp-env`.
+Normal scheduled cleanup never enables purge mode.
 `--skip-wp-env` and `--ports-only` skip this operation. Stopped containers continue to protect
 their images. The Docker pass removes unused wp-env build tags without force, including builds
 whose checkout still exists; their next start rebuilds them.

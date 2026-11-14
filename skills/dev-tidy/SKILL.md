@@ -44,6 +44,12 @@ Scheduled runs use these modes only when their command includes the flags. A sto
 session alone does not block cache reclamation; it still blocks whole-worktree deletion.
 Report what remains in use. Stop no application to make its memory number smaller.
 
+When the user explicitly discards all wp-env data, use the standalone
+`dev-tidy --purge-wp-env` preview, then add `--yes`. It removes retained and orphan
+WordPress containers, volumes, image references and runtime directories, including stacks
+without surviving compose files. It preserves resources used by unrelated containers.
+This mode discards databases and uploads and must not be enabled in scheduled cleanup.
+
 ## Ports without deleting work
 
 For port conflicts or scheduled port cleanup, use `dev-tidy --ports-only --kept`

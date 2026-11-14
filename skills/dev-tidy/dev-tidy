@@ -56,6 +56,8 @@
 #   --reclaim-caches Remove ignored node_modules and .next from idle T3 worktrees.
 #                    Keep code and task history. Dependencies must be reinstalled.
 #   --stop-wp-env    Stop idle wp-env containers, preserving databases and uploads.
+#   --purge-wp-env   Remove all wp-env containers, volumes, images and runtime files.
+#                    Requires explicit authorization to discard databases and uploads.
 #   --keep PATH      Leave this worktree and its branch alone, whatever the
 #                    proofs say. Repeatable. For a checkout another tool uses.
 #   --kept          Also say what was left alone, and why.
@@ -132,6 +134,7 @@ skip_git=false
 skip_turbo=false
 reclaim_caches=false
 stop_wp_env=false
+purge_wp_env=false
 cache_kb=0
 containers_stopped=0
 ports_only=false
@@ -160,6 +163,7 @@ while [ $# -gt 0 ]; do
     --skip-turbo) skip_turbo=true; shift ;;
     --reclaim-caches) reclaim_caches=true; shift ;;
     --stop-wp-env) stop_wp_env=true; shift ;;
+    --purge-wp-env) purge_wp_env=true; shift ;;
     --root)
       [ -n "${2:-}" ] || { echo "--root requires a path." >&2; exit 1; }
       roots+=("$2"); shift 2 ;;
@@ -186,6 +190,16 @@ while [ $# -gt 0 ]; do
     *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
+
+if [ "$purge_wp_env" = true ]; then
+  if [ "$ports_only" = true ] || [ "$stop_wp_env" = true ] || [ "$skip_wp_env" = true ] || [ -n "$keep_dirs$mode" ]; then
+    echo "--purge-wp-env cannot be combined with port, stop, keep, inspect, drop, or skip-wp-env modes." >&2
+    exit 1
+  fi
+  purge_args=(python3 "$(dirname "$SELF")/wp-env.py" "${WP_ENV_HOME:-$HOME/.wp-env}")
+  [ "$apply" = false ] || purge_args+=(--yes)
+  exec "${purge_args[@]}"
+fi
 
 if [ ${#roots[@]} -eq 0 ]; then
   for d in Work Projects Code Developer dev src; do
