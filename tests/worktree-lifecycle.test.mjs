@@ -164,6 +164,7 @@ const s = JSON.parse(fs.readFileSync(file));
 const [kind, action, ...args] = process.argv.slice(2);
 const key = kind === 'volume' ? 'Name' : 'Id';
 const out = value => process.stdout.write(value + '\\n');
+if (kind === 'info') { out(s.engine || 'fixture-engine'); process.exit(0); }
 if (s.fail === action || s.fail === kind + '-' + action) { console.error('fixture failure'); process.exit(1); }
 if (action === 'ls') out(s[kind].map(x => x[key]).join('\\n'));
 else if (action === 'inspect') out(JSON.stringify(s[kind].filter(x => args.includes(x[key]))));
@@ -778,12 +779,48 @@ test('wp-env purge keeps resources shared with an unrelated container', () => {
   state.container[1].Config.Labels = { 'com.docker.compose.project': 'poise' };
   state.container[1].Image = 'wp-image';
   state.container[1].Mounts.push({ Type: 'volume', Name: 'wp-data' }, { Type: 'bind', Source: d.dir });
+  state.container.push({ Id: 'outside', Name: '/wp-env-tools-db', Image: 'outside-image', Config: { Labels: { 'com.docker.compose.project': 'wp-env-tools', 'com.docker.compose.project.working_dir': f.repo } }, Mounts: [] });
+  state.volume.push({ Name: 'wp-env-fixture_poise-data', Labels: { 'com.docker.compose.project': 'poise' } }, { Name: 'outside-data', Labels: { 'com.docker.compose.project': 'wp-env-tools' } });
+  state.image.push({ Id: 'poise-build', RepoTags: ['wp-env-fixture-poise:latest'], Config: { Labels: { 'com.docker.compose.project': 'poise' } } }, { Id: 'outside-image', RepoTags: ['wp-env-tools-db:latest'], Config: { Labels: { 'com.docker.compose.project': 'wp-env-tools' } } });
+  state.image.push({ Id: 'outside-unused', RepoTags: ['wp-env-tools-unused:latest'], Config: { Labels: null } });
   d.write(state);
   const result = d.run('--yes'); assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(d.read().container.map(x => x.Id), ['other']);
-  assert.deepEqual(d.read().volume.map(x => x.Name), ['wp-data', 'other-data']);
-  assert.deepEqual(d.read().image.map(x => x.Id), ['wp-image', 'other-image']);
+  assert.deepEqual(d.read().container.map(x => x.Id), ['other', 'outside']);
+  assert.deepEqual(d.read().volume.map(x => x.Name), ['wp-data', 'other-data', 'wp-env-fixture_poise-data', 'outside-data']);
+  assert.deepEqual(d.read().image.map(x => x.Id), ['wp-image', 'other-image', 'poise-build', 'outside-image', 'outside-unused']);
   assert.equal(readFileSync(join(d.dir, 'uploads'), 'utf8'), 'discarded WordPress uploads');
+});
+
+test('wp-env purge retries anonymous orphan resources only on the same Docker engine', () => {
+  const f = fixture(); const d = purgeFixture(f, false); const state = structuredClone(d.initial);
+  state.container[0].Image = 'mysql-image';
+  state.container[0].Config.Labels = { 'com.docker.compose.project': '0123456789abcdef0123456789abcdef', 'com.docker.compose.project.working_dir': join(d.home, 'missing') };
+  state.volume[0].Labels = null;
+  state.image.push({ Id: 'mysql-image', RepoTags: ['mariadb:lts'], Config: { Labels: { 'com.docker.compose.project': '0123456789abcdef0123456789abcdef' } } });
+  d.write({ ...state, fail: 'volume-rm' });
+  assert.equal(d.run('--yes').status, 1);
+  assert.ok(existsSync(join(d.home, '.dev-tidy-purge.json')));
+  const failed = d.read(); delete failed.fail; failed.engine = 'another-engine'; d.write(failed);
+  const wrong = d.run('--yes'); assert.equal(wrong.status, 1); assert.deepEqual(d.read(), failed);
+  failed.engine = 'fixture-engine'; failed.fail = 'image-rm'; d.write(failed);
+  assert.equal(d.run('--yes').status, 1);
+  const imageFailed = d.read(); delete imageFailed.fail; d.write(imageFailed);
+  const retry = d.run('--yes'); assert.equal(retry.status, 0, retry.stderr);
+  assert.deepEqual(d.read().volume.map(x => x.Name), ['other-data']);
+  assert.deepEqual(d.read().image.map(x => x.Id), ['other-image']);
+  assert.equal(existsSync(join(d.home, '.dev-tidy-purge.json')), false);
+});
+
+test('wp-env purge normalizes implicit tags and resumes a partly removed runtime', () => {
+  const f = fixture(); const d = purgeFixture(f); const state = structuredClone(d.initial);
+  writeFileSync(join(d.dir, 'docker-compose.yml'), 'services:\n  admin:\n    image: docker.io/library/phpmyadmin\n');
+  state.image.push({ Id: 'admin-image', RepoTags: ['phpmyadmin:latest'], Config: { Labels: null } });
+  d.write({ ...state, fail: 'volume-rm' }); assert.equal(d.run('--yes').status, 1);
+  rmSync(join(d.dir, 'docker-compose.yml'));
+  const failed = d.read(); delete failed.fail; d.write(failed);
+  const retry = d.run('--yes'); assert.equal(retry.status, 0, retry.stderr);
+  assert.deepEqual(d.read().image.map(x => x.Id), ['other-image', 'mysql-image']);
+  assert.equal(existsSync(d.dir), false);
 });
 
 test('wp-env purge preserves retry evidence after failure and detects a new shared reference', () => {

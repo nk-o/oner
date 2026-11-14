@@ -296,7 +296,11 @@ When all WordPress work is finished and its local data can be discarded, preview
 ownership and the configured wp-env home, including resources left without a compose directory.
 It removes public runtime images referenced by those compose files, and preserves images,
 volumes and bind-mounted runtime files shared with unrelated containers. A failed operation
-stops further removal and keeps the runtime files for a retry. It cannot be combined with
+stops further removal. A private `.dev-tidy-purge.json` journal in the wp-env home preserves
+ownership across partial failures, even without compose files. It binds retries to the same
+Docker engine and runtime directory identities and is removed after success. Explicit foreign
+project labels and compose locations take precedence over matching resource names.
+It cannot be combined with
 `--keep`, `--stop-wp-env`, `--ports-only`, `--inspect`, `--drop` or `--skip-wp-env`.
 Normal scheduled cleanup never enables purge mode.
 `--skip-wp-env` and `--ports-only` skip this operation. Stopped containers continue to protect

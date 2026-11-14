@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 
 def docker(*args):
@@ -56,26 +58,91 @@ def runtime_directories(home):
     return [p for p in home.iterdir() if p.is_dir() and (p / "docker-compose.yml").is_file() and not (p / ".git").exists()]
 
 
-def make_plan(home, containers, volumes, images):
+def image_name(ref):
+    ref = ref.removeprefix("docker.io/").removeprefix("library/")
+    if "@" not in ref and ":" not in ref.rsplit("/", 1)[-1]:
+        ref += ":latest"
+    return ref
+
+
+def load_pending(home, engine):
+    file = home / ".dev-tidy-purge.json"
+    if not file.exists():
+        return {}
+    if file.is_symlink():
+        raise ValueError("Refusing a symlinked purge journal")
+    data = json.loads(file.read_text())
+    if not isinstance(data, dict) or data.get("version") != 1 or data.get("engine") != engine:
+        raise ValueError("Purge journal belongs to another Docker engine or version")
+    if not isinstance(data.get("projects"), list) or any(not isinstance(p, str) for p in data["projects"]):
+        raise ValueError("Invalid purge project journal")
+    if not isinstance(data.get("volumes"), dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in data["volumes"].items()):
+        raise ValueError("Invalid purge volume journal")
+    if not isinstance(data.get("images"), list) or any(not isinstance(p, list) or len(p) != 2 or any(not isinstance(v, str) for v in p) for p in data["images"]):
+        raise ValueError("Invalid purge image journal")
+    if not isinstance(data.get("paths"), list):
+        raise ValueError("Invalid purge runtime journal")
+    for item in data["paths"]:
+        if not isinstance(item, dict) or not isinstance(item.get("path"), str) or Path(item["path"]).parent != home or not isinstance(item.get("inode"), int) or not isinstance(item.get("device"), int):
+            raise ValueError("Invalid purge runtime identity")
+    return data
+
+
+def save_pending(home, data):
+    home.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".purge-", dir=home)
+    try:
+        with os.fdopen(fd, "w") as file:
+            json.dump(data, file)
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary, home / ".dev-tidy-purge.json")
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def make_plan(home, containers, volumes, images, pending=None):
+    pending = pending or {}
     directories = runtime_directories(home)
-    projects = {p.name for p in directories}
+    for item in pending.get("paths", []):
+        p = Path(item["path"])
+        if not p.exists() and not p.is_symlink():
+            continue
+        identity = p.lstat()
+        if (p / ".git").exists():
+            raise ValueError("A pending runtime became a source checkout")
+        if identity.st_ino == item["inode"] and identity.st_dev == item["device"] and p not in directories:
+            directories.append(p)
+    projects = {p.name for p in directories} | set(pending.get("projects", []))
+    excluded_projects = set()
     compose_images = set()
     for p in directories:
+        if not (p / "docker-compose.yml").is_file():
+            continue
         for line in (p / "docker-compose.yml").read_text().splitlines():
             match = re.fullmatch(r"\s*image:\s*['\"]?([^\s'\"#]+)['\"]?\s*(?:#.*)?", line)
             if match and "$" not in match[1]:
-                compose_images.add(match[1])
+                compose_images.add(image_name(match[1]))
     for c in containers:
         meta = labels(c)
         project = meta.get("com.docker.compose.project", "")
         workdir = meta.get("com.docker.compose.project.working_dir", "")
+        if project and workdir and not inside(Path(workdir).resolve(), home):
+            excluded_projects.add(project)
+            continue
         if project and (wp_project(project) or workdir and inside(Path(workdir).resolve(), home)):
             projects.add(project)
+
+    def owned_project(project):
+        return project not in excluded_projects and (project in projects or wp_project(project))
+
+    foreign_prefixes = tuple(p + suffix for p in excluded_projects for suffix in ("-", "_"))
 
     def owned(c):
         project = labels(c).get("com.docker.compose.project", "")
         if project:
-            return project in projects or wp_project(project)
+            return owned_project(project)
         return c.get("Name", "").lstrip("/").startswith("wp-env-")
 
     selected = [c for c in containers if owned(c)]
@@ -88,7 +155,11 @@ def make_plan(home, containers, volumes, images):
     selected_volumes = []
     for v in volumes:
         project = labels(v).get("com.docker.compose.project", "")
-        if v["Name"] not in used_volumes and project not in projects and not wp_project(project) and not any(v["Name"].startswith(p + "_") for p in projects):
+        if not project and v["Name"].startswith(foreign_prefixes):
+            continue
+        remembered = v["Name"] in pending.get("volumes", {}) and (v.get("CreatedAt") or "") == pending["volumes"][v["Name"]]
+        owned_volume = owned_project(project) if project else v["Name"] in used_volumes or remembered or any(v["Name"].startswith(p + "_") for p in projects - excluded_projects)
+        if not owned_volume:
             continue
         if v["Name"] in other_volumes:
             kept.append("shared volume " + v["Name"])
@@ -96,19 +167,25 @@ def make_plan(home, containers, volumes, images):
             selected_volumes.append(v["Name"])
 
     selected_images = []
-    prefixes = tuple({"wp-env-"} | {p + suffix for p in projects for suffix in ("-", "_")})
+    prefixes = tuple({"wp-env-"} | {p + suffix for p in projects - excluded_projects for suffix in ("-", "_")})
     for image in images:
         tags = image.get("RepoTags") or []
         project = labels(image).get("com.docker.compose.project", "")
-        own = project in projects or wp_project(project)
+        if project and not owned_project(project):
+            continue
+        own = owned_project(project)
+        remembered_refs = {ref for image_id, ref in pending.get("images", []) if image_id == image["Id"]}
         refs = []
         for tag in tags:
             repo = tag.rsplit(":", 1)[0]
-            wp_tag = own or tag in compose_images or repo in {"wordpress", "library/wordpress", "docker.io/library/wordpress"} or repo.startswith(prefixes)
+            if repo.startswith(foreign_prefixes):
+                continue
+            wp_tag = own or image_name(tag) in compose_images or tag in remembered_refs or repo in {"wordpress", "library/wordpress", "docker.io/library/wordpress"} or repo.startswith(prefixes)
             runtime_base = image["Id"] in used_images and repo in {"mariadb", "mysql", "php"}
             if wp_tag or runtime_base:
                 refs.append(tag)
-        if not refs and not (image["Id"] in used_images and not tags):
+        remembered_id = any(image_id == image["Id"] for image_id, _ in pending.get("images", []))
+        if not refs and not ((image["Id"] in used_images or remembered_id) and not tags):
             continue
         if image["Id"] in other_images:
             kept.append("shared image " + image["Id"])
@@ -118,7 +195,7 @@ def make_plan(home, containers, volumes, images):
     binds = [Path(m["Source"]).resolve() for c in other for m in c.get("Mounts", []) if m.get("Type") == "bind"]
     paths = []
     for p in directories:
-        if any(inside(b, p.resolve()) or inside(p.resolve(), b) for b in binds):
+        if p.name in excluded_projects or any(inside(b, p.resolve()) or inside(p.resolve(), b) for b in binds):
             kept.append("shared runtime " + str(p))
         else:
             paths.append(p)
@@ -134,16 +211,27 @@ def foreign_references(home):
 
 
 def purge(home, apply):
+    engine = docker("info", "--format", "{{.ID}}").strip()
+    if not engine:
+        raise ValueError("Docker engine identity is unavailable")
+    pending = load_pending(home, engine)
     containers = inventory("container")
     volumes = inventory("volume")
     images = inventory("image")
-    selected, selected_volumes, selected_images, paths, kept = make_plan(home, containers, volumes, images)
+    selected, selected_volumes, selected_images, paths, kept = make_plan(home, containers, volumes, images, pending)
     for kind, items in [("container", [c["Id"] for c in selected]), ("volume", selected_volumes), ("image", [ref for _, ref in selected_images]), ("runtime", paths)]:
         for item in items:
             print(f"  wp-purge  {kind} {item}", flush=True)
     for item in kept:
         print("  kept      " + item, flush=True)
     if apply:
+        project_ids = set(pending.get("projects", [])) | {labels(c).get("com.docker.compose.project", "") for c in selected}
+        project_ids.update(labels(v).get("com.docker.compose.project", "") for v in volumes if v["Name"] in selected_volumes)
+        project_ids.update(p.name for p in paths)
+        save_pending(home, {"version": 1, "engine": engine, "projects": sorted(project_ids - {""}),
+                           "volumes": {v["Name"]: v.get("CreatedAt") or "" for v in volumes if v["Name"] in selected_volumes},
+                           "images": selected_images,
+                           "paths": [{"path": str(p), "inode": p.lstat().st_ino, "device": p.lstat().st_dev} for p in paths]})
         for c in selected:
             docker("container", "rm", "-f", c["Id"])
         remaining, other = foreign_references(home)
@@ -175,6 +263,7 @@ def purge(home, apply):
                 p.unlink()
             elif p.exists():
                 shutil.rmtree(p)
+        (home / ".dev-tidy-purge.json").unlink()
     print(f"wp-env purge: {len(selected)} containers, {len(selected_volumes)} volumes, {len(selected_images)} image references, {len(paths)} runtime directories. Apply: {str(apply).lower()}.")
 
 
