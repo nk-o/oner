@@ -284,6 +284,8 @@ way to tell whose it is.
 within the roots and none has active work, a host process, an open oneshot run, or `--keep`.
 It preserves the containers, database and upload volumes, compose files, and WordPress files.
 It checks activity again after listing containers and before each stop.
+The stack's own WordPress and PHPUnit clones are runtime mounts, so their Git directories do
+not need to be project roots. Active work in those clones still prevents stopping the stack.
 `--skip-wp-env` and `--ports-only` skip this operation. Stopped containers continue to protect
 their images. The Docker pass removes unused wp-env build tags without force, including builds
 whose checkout still exists; their next start rebuilds them.

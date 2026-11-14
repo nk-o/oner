@@ -96,7 +96,8 @@ c.commit()
 function dockerFixture(f) {
   const home = join(f.root, 'wp-env'); const project = 'wp-env-fixture';
   mkdirSync(join(home, project), { recursive: true });
-  writeFileSync(join(home, project, 'docker-compose.yml'), `services:\n  wordpress:\n    volumes:\n      - '${f.repo}:/var/www/html/wp-content/plugins/fixture'\n`);
+  const core = join(home, project, 'WordPress'); mkdirSync(core); f.runGit('-C', core, 'init', '-qb', 'main');
+  writeFileSync(join(home, project, 'docker-compose.yml'), `services:\n  wordpress:\n    volumes:\n      - '${core}:/var/www/html'\n      - '${f.repo}:/var/www/html/wp-content/plugins/fixture'\n`);
   const statePath = join(f.root, 'docker.json');
   const initial = { running: ['container'], volumes: ['database', 'uploads'], images: [
     { tag: `${project}-wordpress:latest`, id: 'used' },
@@ -606,6 +607,27 @@ test('cache reclamation finishes its own traversal before checking active proces
   assert.equal(result.status, 0, result.stderr); assert.equal(existsSync(join(dir, 'node_modules')), false);
 });
 
+test('cache reclamation rechecks activity after either ownership scan', () => {
+  for (const phase of [1, 2]) {
+    const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+    writeFileSync(join(f.repo, '.git/info/exclude'), 'node_modules/\n');
+    const cache = join(dir, 'node_modules'); mkdirSync(cache); writeFileSync(join(cache, 'package'), 'rebuildable');
+    writeFileSync(join(f.root, 'bin/find'), `#!/bin/sh
+/usr/bin/find "$@" || exit $?
+if [ "$(basename "$1")" = node_modules ]; then
+  count=0; [ ! -f "$SCAN_COUNT" ] || count=$(cat "$SCAN_COUNT")
+  count=$((count + 1)); printf '%s' "$count" > "$SCAN_COUNT"
+  if [ "$count" -eq "$SCAN_PHASE" ]; then
+    python3 -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("INSERT INTO orchestration_v2_projection_runs VALUES (?,?)", ("thread","running")); c.commit()' "$SCAN_DB"
+  fi
+fi
+`, { mode: 0o755 });
+    const result = f.run(tidy, ['--yes', '--reclaim-caches', '--skip-git', '--skip-turbo', '--skip-docker', '--skip-wp-env', '--root', f.repo], f.repo,
+      { SCAN_PHASE: String(phase), SCAN_COUNT: join(f.root, 'count'), SCAN_DB: join(f.env.DEV_TIDY_T3_HOME, 'userdata/statev2.sqlite') });
+    assert.equal(result.status, 0, result.stderr); assert.ok(existsSync(join(cache, 'package')), `ownership scan ${phase}`);
+  }
+});
+
 test('wp-env stop preserves data and unused image cleanup preserves referenced images', () => {
   const f = fixture(); const d = dockerFixture(f);
   const args = ['--skip-git', '--skip-turbo', '--root', f.repo]; const env = { WP_ENV_HOME: d.home };
@@ -652,6 +674,13 @@ test('wp-env stop rechecks task state after inventory and between containers', (
     assert.deepEqual(d.read().running, phase === 'inventory' ? ['first', 'second'] : ['second']);
     assert.deepEqual(d.read().volumes, ['database', 'uploads']);
   }
+});
+
+test('wp-env stop preserves an active runtime Git clone', () => {
+  const f = fixture(); const d = dockerFixture(f);
+  t3State(f, join(d.home, 'wp-env-fixture/WordPress'), { running: true });
+  const result = f.run(tidy, ['--yes', '--stop-wp-env', '--skip-git', '--skip-turbo', '--skip-docker', '--root', f.repo], f.repo, { WP_ENV_HOME: d.home });
+  assert.equal(result.status, 0, result.stderr); assert.deepEqual(d.read(), d.initial);
 });
 
 test('forced cleanup cannot drop a checkout while a real build process runs', async () => {

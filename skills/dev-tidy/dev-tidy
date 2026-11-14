@@ -1181,13 +1181,13 @@ if [ "$reclaim_caches" = true ] && [ "$ports_only" = false ]; then
           [ -n "$kb" ] && [ "$kb" -gt 0 ] || continue
           changed "  cache     ${cache/#$HOME/~}  ($((kb / 1024))M rebuildable)"
           if [ "$apply" = true ]; then
-            resource_idle "$dir" || { kept "cache $cache" "activity changed since measurement"; continue; }
             [ -d "$cache" ] && [ ! -L "$cache" ] || continue
             cache_owned "$dir" "$cache" || continue
             python3 -c 'import os,sys; sys.exit(os.stat(sys.argv[1]).st_dev != os.lstat(sys.argv[2]).st_dev)' "$dir" "$cache" || continue
             tracked="$(git -C "$dir" ls-files -- "$rel" 2>/dev/null)" || continue
             [ -z "$tracked" ] || continue
             git -C "$dir" check-ignore -q -- "$rel" 2>/dev/null || continue
+            resource_idle "$dir" || { kept "cache $cache" "activity changed since measurement"; continue; }
             if ! rm "${cache_rm_args[@]}" "$cache"; then
               had_errors=1
               continue
@@ -1220,14 +1220,20 @@ wp_env_sources() {
 }
 
 wp_env_idle() {
-  local sources mount checkout owner root scoped project=false seen=""
+  local sources mount checkout owner root runtime scoped project=false seen=""
+  runtime="$(cd "$1" 2>/dev/null && /bin/pwd -P)" || return 1
+  resource_idle "$runtime" || return 1
   sources="$(wp_env_sources "$1" true)" || return 1
   [ -n "$sources" ] || return 1
   while IFS= read -r mount; do
     [ -d "$mount" ] || mount="$(dirname "$mount")"
-    checkout="$(git -C "$mount" rev-parse --show-toplevel 2>/dev/null)" || {
-      case "$mount/" in "$1/"*) continue ;; *) return 1 ;; esac
-    }
+    mount="$(cd "$mount" 2>/dev/null && /bin/pwd -P)" || return 1
+    case "$mount/" in "$runtime/"*)
+      checkout="$(git -C "$mount" rev-parse --show-toplevel 2>/dev/null)" || checkout="$mount"
+      resource_idle "$checkout" || return 1
+      continue ;;
+    esac
+    checkout="$(git -C "$mount" rev-parse --show-toplevel 2>/dev/null)" || return 1
     project=true
     printf '%s' "$keep_dirs" | grep -qxF "$checkout" && return 1
     owner="$(t3_query checkout "$checkout")"
