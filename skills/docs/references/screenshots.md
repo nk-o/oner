@@ -26,13 +26,17 @@ clear. Shopify's own help center uses few images, and so should this one.
 - Nothing temporary: a launch offer, a discount button, a promotion banner or a notice the
   release will drop is hidden with `hide`, and `run.md` lists each one with its selector so
   every retake hides it too.
+- Nothing that floats over the page from outside the product: a chat button, a cookie banner,
+  a sticky header caught halfway down the page. Hide each with `hide` and list it in `run.md`
+  the same way.
 - A plain background behind anything that opens over the page, such as a picker, a menu or a
   popover: open it over a plain section, never over a photo or a busy section, where its edges
   get lost.
 - Realistic content: the demo data the product ships with, the way a user would fill it. A
   placeholder image, lorem text, or sample content that reads like a test ("Heading",
   "Product 1") is a defect to reshoot. When the demo itself holds it, list it under **Findings
-  for the product** and pick a part of the demo that does not.
+  for the product** and pick a part of the demo that does not. Where a grid or a gallery fills
+  the image, it opens on the strongest photo the demo has.
 - The image agrees with the text beside it. When it shows one button and the text says two, or
   a heading about spices over a photo of coffee, pick another example or say what it shows.
   A mismatch in demo content is a finding for the product, not something to explain away.
@@ -57,6 +61,23 @@ clear. Shopify's own help center uses few images, and so should this one.
   is shot only in the state the script makes visible: `waitFor` on an element or class the
   script adds, or a `wait` action. Open the image and check for that state before keeping it.
   A static or half-initialised capture is a failed shot.
+- Every image on the page loaded. A page that loads images as they scroll into view is scrolled
+  once and given a moment before the shot. A grey placeholder or a half-faded photo is a failed
+  shot.
+
+## Before an image is kept
+
+Open each image at the size the reader gets it, and once more at 358 px wide, the width of a
+phone. Retake it when it shows any of these:
+
+- Uneven space around the subject, or the subject pressed against an edge.
+- An edge of something outside the subject: a neighboring panel's border, a scrollbar, a strip
+  of the admin's menu.
+- A word or a line cut through at the top or the left.
+- Text too small to read at that size. Crop closer, or shoot from a narrower viewport.
+
+These hold for a product image on a marketing page or in a changelog as much as in an article.
+A screen that still looks crowded after the crop is shot as its one panel, with `target`.
 
 ## Two paths
 

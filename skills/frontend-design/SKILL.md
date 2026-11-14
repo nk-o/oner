@@ -130,6 +130,9 @@ These are prompts to inspect purpose, not universal bans:
 - Big type dividers, such as marquee words, before every section. One or two per page work as
   accents, muted like a watermark behind the next heading.
 - Outline text, or text laid over a product photo.
+- A product screenshot dropped in as captured: uneven space around its subject, a border of the
+  screen around it, text too small to read at the size the page shows it. The `docs` skill's
+  `references/screenshots.md` holds the framing rules and the check before an image is kept.
 - Differences between peer controls with no content, role, or state explanation.
 - Card treatments repeated on every card: a colored side stripe thicker than 1px, a hairline
   border under a wide soft shadow, an icon tile above every heading. A grid of same-size
