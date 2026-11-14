@@ -1145,10 +1145,21 @@ resource_idle() {
   return 0
 }
 
+cache_owned() {
+  local owner nested
+  owner="$(git -C "$2" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  [ "$owner" = "$1" ] || return 1
+  nested="$(find "$2" -xdev -name .git -print -quit 2>/dev/null)" || return 1
+  [ -z "$nested" ]
+}
+
 if [ "$reclaim_caches" = true ] && [ "$ports_only" = false ]; then
   load_procs
   seen_caches=""
+  cache_rm_args=(-rf --one-file-system)
+  [ "$(uname)" != Darwin ] || cache_rm_args=(-rfx)
   for root in "${roots[@]}"; do
+    cache_gitdirs="$(find "$root" -maxdepth "$depth" -name .git -prune -print 2>/dev/null)"
     while IFS= read -r gitdir; do
       while IFS= read -r dir; do
         [ -f "$dir/.git" ] || continue
@@ -1158,30 +1169,34 @@ if [ "$reclaim_caches" = true ] && [ "$ports_only" = false ]; then
         [ "$(t3_query idle "$dir")" = idle ] || continue
         printf '%s' "$keep_dirs" | grep -qxF "$dir" && continue
         resource_idle "$dir" || { kept "caches $dir" "task, process, or oneshot run still active"; continue; }
+        caches="$(find "$dir" -xdev -name .git -prune -o -type d \( -name node_modules -o -name .next \) -print -prune 2>/dev/null)"
         while IFS= read -r cache; do
+          [ -n "$cache" ] || continue
           rel="${cache#"$dir/"}"
-          git -C "$dir" check-ignore -q -- "$rel" || continue
-          tracked="$(git -C "$dir" ls-files -- "$rel")" || continue
+          cache_owned "$dir" "$cache" || continue
+          git -C "$dir" check-ignore -q -- "$rel" 2>/dev/null || continue
+          tracked="$(git -C "$dir" ls-files -- "$rel" 2>/dev/null)" || continue
           [ -z "$tracked" ] || continue
           kb="$(du -sk "$cache" 2>/dev/null | cut -f1)"
-          [ -n "$kb" ] || continue
+          [ -n "$kb" ] && [ "$kb" -gt 0 ] || continue
           changed "  cache     ${cache/#$HOME/~}  ($((kb / 1024))M rebuildable)"
           if [ "$apply" = true ]; then
             resource_idle "$dir" || { kept "cache $cache" "activity changed since measurement"; continue; }
             [ -d "$cache" ] && [ ! -L "$cache" ] || continue
+            cache_owned "$dir" "$cache" || continue
             python3 -c 'import os,sys; sys.exit(os.stat(sys.argv[1]).st_dev != os.lstat(sys.argv[2]).st_dev)' "$dir" "$cache" || continue
-            tracked="$(git -C "$dir" ls-files -- "$rel")" || continue
+            tracked="$(git -C "$dir" ls-files -- "$rel" 2>/dev/null)" || continue
             [ -z "$tracked" ] || continue
-            git -C "$dir" check-ignore -q -- "$rel" || continue
-            if ! rm -rf "$cache"; then
+            git -C "$dir" check-ignore -q -- "$rel" 2>/dev/null || continue
+            if ! rm "${cache_rm_args[@]}" "$cache"; then
               had_errors=1
               continue
             fi
           fi
           cache_kb=$((cache_kb + kb))
-        done < <(find "$dir" -xdev -name .git -prune -o -type d \( -name node_modules -o -name .next \) -print -prune 2>/dev/null)
+        done < <(printf '%s\n' "$caches")
       done < <(git -C "$(dirname "$gitdir")" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print substr($0, 10)}')
-    done < <(find "$root" -maxdepth "$depth" -name .git -prune -print 2>/dev/null)
+    done < <(printf '%s\n' "$cache_gitdirs")
   done
 fi
 
@@ -1195,20 +1210,47 @@ WP_ENV_HOME="${WP_ENV_HOME:-$HOME/.wp-env}"
 # The generator folds a long mount onto its own line and quotes a short one, so
 # strip the list marker and the quotes before looking for the mount point.
 wp_env_sources() {
-  awk '
+  awk -v all="${2:-false}" '
     { line = $0
       sub(/^[[:space:]]*-?[[:space:]]*/, "", line)
       gsub(/^["\x27]|["\x27]$/, "", line)
-      i = index(line, ":/var/www/html/wp-content/plugins/")
+      i = index(line, all == "true" ? ":/" : ":/var/www/html/wp-content/plugins/")
       if (i > 1 && substr(line, 1, 1) == "/") { print substr(line, 1, i - 1) } }
   ' "$1/docker-compose.yml" 2>/dev/null
+}
+
+wp_env_idle() {
+  local sources mount checkout owner root scoped project=false seen=""
+  sources="$(wp_env_sources "$1" true)" || return 1
+  [ -n "$sources" ] || return 1
+  while IFS= read -r mount; do
+    [ -d "$mount" ] || mount="$(dirname "$mount")"
+    checkout="$(git -C "$mount" rev-parse --show-toplevel 2>/dev/null)" || {
+      case "$mount/" in "$1/"*) continue ;; *) return 1 ;; esac
+    }
+    project=true
+    printf '%s' "$keep_dirs" | grep -qxF "$checkout" && return 1
+    owner="$(t3_query checkout "$checkout")"
+    case "$owner" in /*) checkout="$owner" ;; esac
+    printf '%s' "$seen" | grep -qxF "$checkout" && continue
+    seen="${seen}${checkout}
+"
+    scoped=false
+    for root in "${roots[@]}"; do
+      case "$checkout/" in "$root/"*) scoped=true ;; esac
+    done
+    [ "$scoped" = true ] || return 1
+    printf '%s' "$keep_dirs" | grep -qxF "$checkout" && return 1
+    resource_idle "$checkout" || return 1
+  done < <(printf '%s\n' "$sources")
+  [ "$project" = true ]
 }
 
 is_doomed() { printf '%s' "$doomed_dirs" | grep -qxF "$1"; }
 
 tidy_wp_env() {
   [ -d "$WP_ENV_HOME" ] || return 0
-  local dir project src ids mount checkout scoped root safe
+  local dir project src ids id
   for dir in "$WP_ENV_HOME"/*/; do
     [ -d "$dir" ] || continue
     dir="${dir%/}"
@@ -1218,26 +1260,20 @@ tidy_wp_env() {
     [ -z "$src" ] && { kept "wp-env   $project" "no plugin mount in its compose file"; continue; }
     if [ -d "$src" ] && ! is_doomed "$src"; then
       if [ "$stop_wp_env" = true ]; then
-        safe=true
-        while IFS= read -r mount; do
-          checkout="$(git -C "$mount" rev-parse --show-toplevel 2>/dev/null)" || { safe=false; break; }
-          scoped=false
-          for root in "${roots[@]}"; do
-            case "$checkout/" in "$root/"*) scoped=true ;; esac
-          done
-          if [ "$scoped" = false ] || printf '%s' "$keep_dirs" | grep -qxF "$checkout" || ! resource_idle "$checkout"; then
-            safe=false
-            break
-          fi
-        done < <(wp_env_sources "$dir" | sort -u)
-        if [ "$safe" = true ]; then
+        if wp_env_idle "$dir"; then
           if ids="$(docker ps -q --filter "label=com.docker.compose.project=$project" 2>/dev/null)"; then
             if [ -n "$ids" ]; then
-              changed "  wp-stop   $project  ($(printf '%s\n' "$ids" | wc -l | tr -d ' ') containers, data kept)"
-              if [ "$apply" = true ]; then
-                drop_all "container" "$ids" docker stop || { had_errors=1; continue; }
-              fi
-              containers_stopped=$((containers_stopped + $(printf '%s\n' "$ids" | wc -l)))
+              for id in $ids; do
+                if [ "$apply" = true ] && ! wp_env_idle "$dir"; then
+                  kept "wp-env   $project" "activity changed since inventory"
+                  break
+                fi
+                changed "  wp-stop   $project/$id  (data kept)"
+                if [ "$apply" = true ]; then
+                  drop_all "container" "$id" docker stop || { had_errors=1; continue; }
+                fi
+                containers_stopped=$((containers_stopped + 1))
+              done
             fi
           else
             changed "    ! could not list containers for $project"

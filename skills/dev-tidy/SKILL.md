@@ -31,6 +31,7 @@ and automatic settlement after merge are separate settings. Check project overri
 native cleanup report before treating a retained checkout as a script defect. Prefer T3's
 own retention and supported APFS checkout cache over sharing mutable `node_modules` between
 branches. The checkout cache covers Git files, not installed dependencies.
+Keep automatic settlement on merge as the user configured it; one thread can carry many PRs.
 
 When retained worktrees or WordPress containers account for the excess, preview with
 `dev-tidy --reclaim-caches --stop-wp-env --kept`. Reuse the same flags with `--yes` after
@@ -39,7 +40,7 @@ known idle T3 worktrees. It preserves code and task history; resuming requires r
 dependencies and rebuilding. Stopping wp-env preserves its databases and uploads. Active jobs,
 host processes, open oneshot runs, and `--keep` paths prevent these operations.
 
-These flags are explicit and do not change existing scheduled runs. A stored ready provider
+Scheduled runs use these modes only when their command includes the flags. A stored ready provider
 session alone does not block cache reclamation; it still blocks whole-worktree deletion.
 Report what remains in use. Stop no application to make its memory number smaller.
 

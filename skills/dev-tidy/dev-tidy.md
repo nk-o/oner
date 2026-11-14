@@ -239,8 +239,8 @@ symlink lets one branch's install change another branch's dependencies.
 
 `--reclaim-caches` removes only ignored, untracked `node_modules` and `.next` directories in
 known idle T3 worktrees. It skips symlinks, active host processes, pending T3 work, open oneshot
-runs and `--keep` paths, and rechecks activity after measuring a cache. It leaves whole-worktree
-deletion's session protection unchanged. Use it for disk pressure when keeping a task's code
+runs, nested Git repositories and `--keep` paths, and rechecks activity after measuring a cache.
+It leaves whole-worktree deletion's session protection unchanged. Use it for disk pressure when keeping a task's code
 and history matters more than avoiding its next install and build. `--ports-only` skips it.
 
 ### Dev servers
@@ -280,9 +280,10 @@ a stack is never reported gone while gigabytes of it remain.
 A stack whose compose file has no plugin mount to read is left alone. There is no
 way to tell whose it is.
 
-`--stop-wp-env` also stops retained stacks when every plugin mount resolves to a checkout
+`--stop-wp-env` also stops retained stacks when every project bind mount resolves to a checkout
 within the roots and none has active work, a host process, an open oneshot run, or `--keep`.
 It preserves the containers, database and upload volumes, compose files, and WordPress files.
+It checks activity again after listing containers and before each stop.
 `--skip-wp-env` and `--ports-only` skip this operation. Stopped containers continue to protect
 their images. The Docker pass removes unused wp-env build tags without force, including builds
 whose checkout still exists; their next start rebuilds them.
