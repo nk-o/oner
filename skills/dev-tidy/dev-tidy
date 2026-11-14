@@ -1222,6 +1222,7 @@ wp_env_sources() {
 wp_env_idle() {
   local sources mount checkout owner root runtime scoped project=false seen=""
   runtime="$(cd "$1" 2>/dev/null && /bin/pwd -P)" || return 1
+  printf '%s' "$keep_dirs" | grep -qxF "$runtime" && return 1
   resource_idle "$runtime" || return 1
   sources="$(wp_env_sources "$1" true)" || return 1
   [ -n "$sources" ] || return 1
@@ -1230,6 +1231,7 @@ wp_env_idle() {
     mount="$(cd "$mount" 2>/dev/null && /bin/pwd -P)" || return 1
     case "$mount/" in "$runtime/"*)
       checkout="$(git -C "$mount" rev-parse --show-toplevel 2>/dev/null)" || checkout="$mount"
+      printf '%s' "$keep_dirs" | grep -qxF "$checkout" && return 1
       resource_idle "$checkout" || return 1
       continue ;;
     esac
@@ -1291,6 +1293,11 @@ tidy_wp_env() {
       else
         kept "wp-env   $project" "checkout ${src/#$HOME/~} is still there"
       fi
+      continue
+    fi
+
+    if [ "$stop_wp_env" = true ]; then
+      kept "wp-env   $project" "orphan stack; stop mode preserves its data"
       continue
     fi
 

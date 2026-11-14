@@ -636,6 +636,8 @@ test('wp-env stop preserves data and unused image cleanup preserves referenced i
   assert.deepEqual(d.read(), { ...d.initial, images: [d.initial.images[0], d.initial.images[2]] });
   const dry = f.run(tidy, ['--stop-wp-env', ...args], f.repo, env); assert.equal(dry.status, 0, dry.stderr);
   assert.match(dry.stdout, /wp-stop/); assert.deepEqual(d.read().running, ['container']);
+  const kept = f.run(tidy, ['--stop-wp-env', '--yes', '--keep', join(d.home, 'wp-env-fixture/WordPress'), ...args], f.repo, env);
+  assert.equal(kept.status, 0, kept.stderr); assert.deepEqual(d.read().running, ['container']);
   const stopped = f.run(tidy, ['--stop-wp-env', '--yes', ...args], f.repo, env);
   assert.equal(stopped.status, 0, stopped.stderr); assert.deepEqual(d.read().running, []);
   assert.deepEqual(d.read().volumes, ['database', 'uploads']);
@@ -681,6 +683,18 @@ test('wp-env stop preserves an active runtime Git clone', () => {
   t3State(f, join(d.home, 'wp-env-fixture/WordPress'), { running: true });
   const result = f.run(tidy, ['--yes', '--stop-wp-env', '--skip-git', '--skip-turbo', '--skip-docker', '--root', f.repo], f.repo, { WP_ENV_HOME: d.home });
   assert.equal(result.status, 0, result.stderr); assert.deepEqual(d.read(), d.initial);
+});
+
+test('wp-env stop preserves stack data when its source disappears after preview', () => {
+  const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+  const d = dockerFixture(f);
+  const compose = join(d.home, 'wp-env-fixture/docker-compose.yml');
+  writeFileSync(compose, `volumes:\n  - '${dir}:/var/www/html/wp-content/plugins/main'\n`);
+  const args = ['--stop-wp-env', '--skip-git', '--skip-turbo', '--skip-docker', '--root', f.repo];
+  const dry = f.run(tidy, args, f.repo, { WP_ENV_HOME: d.home }); assert.match(dry.stdout, /wp-stop/);
+  f.runGit('worktree', 'remove', '--force', dir);
+  const result = f.run(tidy, ['--yes', ...args], f.repo, { WP_ENV_HOME: d.home });
+  assert.equal(result.status, 0, result.stderr); assert.ok(existsSync(compose)); assert.deepEqual(d.read(), d.initial);
 });
 
 test('forced cleanup cannot drop a checkout while a real build process runs', async () => {

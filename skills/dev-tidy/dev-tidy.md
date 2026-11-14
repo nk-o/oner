@@ -286,6 +286,8 @@ It preserves the containers, database and upload volumes, compose files, and Wor
 It checks activity again after listing containers and before each stop.
 The stack's own WordPress and PHPUnit clones are runtime mounts, so their Git directories do
 not need to be project roots. Active work in those clones still prevents stopping the stack.
+Stop mode preserves orphan stacks too, including when their source disappears after the preview.
+Run normal cleanup separately to remove them.
 `--skip-wp-env` and `--ports-only` skip this operation. Stopped containers continue to protect
 their images. The Docker pass removes unused wp-env build tags without force, including builds
 whose checkout still exists; their next start rebuilds them.
