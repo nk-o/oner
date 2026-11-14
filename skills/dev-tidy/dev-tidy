@@ -1258,11 +1258,20 @@ is_doomed() { printf '%s' "$doomed_dirs" | grep -qxF "$1"; }
 
 tidy_wp_env() {
   [ -d "$WP_ENV_HOME" ] || return 0
-  local dir project src ids id
+  local dir project src ids id runtime held keep
   for dir in "$WP_ENV_HOME"/*/; do
     [ -d "$dir" ] || continue
     dir="${dir%/}"
     project="$(basename "$dir")"
+    runtime="$(cd "$dir" 2>/dev/null && /bin/pwd -P)" || continue
+    held=false
+    while IFS= read -r keep; do
+      case "$keep/" in "$runtime/"*) held=true; break ;; esac
+    done < <(printf '%s' "$keep_dirs")
+    if [ "$held" = true ]; then
+      kept "wp-env   $project" "runtime kept by --keep"
+      continue
+    fi
     src="$(wp_env_sources "$dir" | head -1)"
     # No mount to read means no way to tell whose it is. Leave it.
     [ -z "$src" ] && { kept "wp-env   $project" "no plugin mount in its compose file"; continue; }

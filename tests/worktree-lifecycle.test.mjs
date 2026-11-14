@@ -697,6 +697,17 @@ test('wp-env stop preserves stack data when its source disappears after preview'
   assert.equal(result.status, 0, result.stderr); assert.ok(existsSync(compose)); assert.deepEqual(d.read(), d.initial);
 });
 
+test('normal orphan cleanup honors kept runtime clones and stack directories', () => {
+  for (const relative of ['wp-env-fixture', 'wp-env-fixture/WordPress']) {
+    const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+    const d = dockerFixture(f); const compose = join(d.home, 'wp-env-fixture/docker-compose.yml');
+    writeFileSync(compose, `volumes:\n  - '${dir}:/var/www/html/wp-content/plugins/main'\n`);
+    f.runGit('worktree', 'remove', '--force', dir);
+    const result = f.run(tidy, ['--yes', '--skip-git', '--skip-turbo', '--skip-docker', '--keep', join(d.home, relative), '--root', f.repo], f.repo, { WP_ENV_HOME: d.home });
+    assert.equal(result.status, 0, result.stderr); assert.ok(existsSync(compose), relative); assert.deepEqual(d.read(), d.initial);
+  }
+});
+
 test('forced cleanup cannot drop a checkout while a real build process runs', async () => {
   const f = fixture(); const dir = f.worktree('feature');
   const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000); console.log("ready")', 'build'], { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
