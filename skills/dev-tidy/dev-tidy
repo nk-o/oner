@@ -42,6 +42,8 @@
 #
 # Options:
 #   --yes            Actually apply. Without it, only report.
+#   --capabilities   Report optional cleanup modules without changing anything.
+#   --chrome-clones  Remove only unused macOS Chrome code-sign clones.
 #   --ports-only     Stop completed-task servers and release launch reservations.
 #                    Keep every worktree, branch, and working file.
 #   --root PATH      Where to look for checkouts. Repeatable.
@@ -148,11 +150,15 @@ mode=""
 target=""
 target_ref=""
 against=""
+capabilities=false
+chrome_clones=false
 
 usage() { awk 'NR>1 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "$0"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --capabilities) capabilities=true; shift ;;
+    --chrome-clones) chrome_clones=true; shift ;;
     --yes) apply=true; shift ;;
     --ports-only) ports_only=true; skip_docker=true; skip_wp_env=true; skip_turbo=true; shift ;;
     --quiet) quiet=true; shift ;;
@@ -191,6 +197,35 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+discover_roots() {
+  if [ ${#roots[@]} -eq 0 ]; then
+    for d in Work Projects Code Developer dev src; do
+      [ -d "$HOME/$d" ] && roots+=("$HOME/$d")
+    done
+    [ -d "$HOME/.codex/worktrees" ] && roots+=("$HOME/.codex/worktrees")
+    while IFS= read -r d; do
+      [ -d "$d" ] && roots+=("$d")
+    done < <(t3_query roots)
+  fi
+}
+
+if [ "$capabilities" = true ] || [ "$chrome_clones" = true ]; then
+  if [ "$ports_only" = true ] || [ "$purge_wp_env" = true ] || [ "$reclaim_caches" = true ] || [ "$stop_wp_env" = true ] || [ -n "$keep_dirs$mode$against" ] || { [ "$capabilities" = true ] && { [ "$chrome_clones" = true ] || [ "$apply" = true ]; }; }; then
+    echo "Capability and Chrome modes are standalone; capability reporting cannot apply cleanup." >&2
+    exit 1
+  fi
+  if [ "$capabilities" = true ]; then
+    . "$(dirname "$SELF")/capabilities.sh"
+    discover_roots
+    report_capabilities
+    exit 0
+  fi
+  command -v python3 >/dev/null 2>&1 || { echo "Chrome clone cleanup requires Python 3." >&2; exit 1; }
+  chrome_args=(python3 "$(dirname "$SELF")/chrome-clones.py")
+  [ "$apply" = false ] || chrome_args+=(--yes)
+  exec "${chrome_args[@]}"
+fi
+
 if [ "$purge_wp_env" = true ]; then
   if [ "$ports_only" = true ] || [ "$stop_wp_env" = true ] || [ "$skip_wp_env" = true ] || [ -n "$keep_dirs$mode" ]; then
     echo "--purge-wp-env cannot be combined with port, stop, keep, inspect, drop, or skip-wp-env modes." >&2
@@ -201,19 +236,13 @@ if [ "$purge_wp_env" = true ]; then
   exec "${purge_args[@]}"
 fi
 
-if [ ${#roots[@]} -eq 0 ]; then
-  for d in Work Projects Code Developer dev src; do
-    [ -d "$HOME/$d" ] && roots+=("$HOME/$d")
-  done
-  [ -d "$HOME/.codex/worktrees" ] && roots+=("$HOME/.codex/worktrees")
-  while IFS= read -r d; do
-    [ -d "$d" ] && roots+=("$d")
-  done < <(t3_query roots)
-fi
+discover_roots
 [ -n "$mode" ] && [ ${#roots[@]} -eq 0 ] && roots=("$target")
 if [ ${#roots[@]} -eq 0 ]; then
-  echo "No --root given, and none of ~/Work, ~/Projects, ~/Code, ~/Developer, ~/dev, ~/src exists." >&2
-  exit 1
+  if [ "$skip_git" = false ] || [ "$skip_turbo" = false ] || [ "$reclaim_caches" = true ] || [ "$stop_wp_env" = true ]; then
+    echo "No project roots found; use --root PATH, or --skip-git --skip-turbo for Docker-only cleanup." >&2
+    exit 1
+  fi
 fi
 
 # git reports the path the filesystem really has. On a case-insensitive volume
@@ -221,12 +250,14 @@ fi
 # comparison below would fail. /bin/pwd asks the kernel; the shell builtin would
 # hand back the spelling that was typed. The same folder named twice is walked once.
 real_roots=()
-for root in "${roots[@]}"; do
-  real="$(cd "$root" 2>/dev/null && /bin/pwd -P)" || real=""
-  real="${real:-$root}"
-  case " ${real_roots[*]-} " in *" $real "*) ;; *) real_roots+=("$real") ;; esac
-done
-roots=("${real_roots[@]}")
+if [ ${#roots[@]} -gt 0 ]; then
+  for root in "${roots[@]}"; do
+    real="$(cd "$root" 2>/dev/null && /bin/pwd -P)" || real=""
+    real="${real:-$root}"
+    case " ${real_roots[*]-} " in *" $real "*) ;; *) real_roots+=("$real") ;; esac
+  done
+  roots=("${real_roots[@]}")
+fi
 
 worktrees_removed=0
 branches_removed=0

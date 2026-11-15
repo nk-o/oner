@@ -1,194 +1,46 @@
 ---
 name: dev-tidy
 description: >-
-  Reclaims what local development leaves behind on this machine: worktrees and branches whose
-  pull request has landed, the dev servers still running inside them, wp-env stacks whose
-  checkout is gone, idle worktree caches, and unused Docker images and build cache. Use
-  when the user asks to clean up the machine, free disk space, or stop stale dev servers. Also
-  for "clean up merged worktrees", "what is still running", "why is the disk full", a port that
-  will not free up, and "which of my branches are dead".
-allowed-tools: Bash(*/dev-tidy --kept), Bash(*/dev-tidy --help), Bash(du *), Bash(lsof *), Bash(ps *)
+  Analyzes local development disk and memory usage, discovers supported cleanup options,
+  and reclaims proven leftovers. Use for machine cleanup, a full disk, merged worktrees,
+  stale dev servers or ports, and leftover containers or build caches.
+allowed-tools: Bash(*/dev-tidy --capabilities), Bash(*/dev-tidy --kept), Bash(*/dev-tidy --help), Bash(du *), Bash(lsof *), Bash(ps *)
 ---
 
 # dev-tidy
 
-Every command comes from `dev-tidy`, next to this file. Call it by absolute path:
-`{{skills_dir}}/dev-tidy/dev-tidy`. Read `dev-tidy --help` when a flag is
-unclear. Never re-implement what it does with `git`, `docker`, or `kill` by hand.
-If it cannot do something, say so and fix the script.
+Run `{{skills_dir}}/dev-tidy/dev-tidy --capabilities` first. It reports optional modules
+without fetching Git refs or changing resources. Available means prerequisites can be inspected,
+not that data is safe to delete. Absent modules need no setup. Blocked or unknown modules retain
+their data; report the missing prerequisite or unreadable state.
 
-`dev-tidy.md` next to it is the reference for the rules and the launchd schedule.
+Read only the guidance relevant to the request and the detected modules:
 
-## Disk and memory complaints
+| Request or detected data | Read |
+| --- | --- |
+| Disk or memory complaint, macOS Chrome clones | [Storage investigation](references/storage.md) |
+| Git worktrees, branches, ports or dev servers | [Git and ports](references/git.md) |
+| T3 records or retained worktree caches | [T3](references/t3.md) |
+| Docker images or build cache | [Docker](references/docker.md) |
+| WordPress runtime or Docker resources | [WordPress](references/wordpress.md) |
+| Turborepo cache | [The Turborepo rules](dev-tidy.md) |
 
-Measure the largest directories, free disk space, process memory, and Docker usage before
-choosing cleanup. On macOS, inspect the Data volume; `/` alone reports the system volume.
-Docker images share layers, and APFS clones share blocks, so directory totals and virtual image
-sizes do not predict reclaimed space. Compare free disk space before and after.
+Git, T3, Docker, WordPress and macOS are optional. Do not infer their presence from this skill.
+Use --root for projects outside the discovered folders. Read --help for flags and the relevant
+section of [the command reference](dev-tidy.md) for implementation details or scheduling.
 
-For T3 Code, read its installed version and `storageCleanup` settings first. Settled retention
-and automatic settlement after merge are separate settings. Check project overrides and the
-native cleanup report before treating a retained checkout as a script defect. Prefer T3's
-own retention and supported APFS checkout cache over sharing mutable `node_modules` between
-branches. The checkout cache covers Git files, not installed dependencies.
-Keep automatic settlement on merge as the user configured it; one thread can carry many PRs.
+## Cleanup contract
 
-When retained worktrees or WordPress containers account for the excess, preview with
-`dev-tidy --reclaim-caches --stop-wp-env --kept`. Reuse the same flags with `--yes` after
-authorization. Cache reclamation removes ignored `node_modules` and `.next` directories from
-known idle T3 worktrees. It preserves code and task history; resuming requires reinstalling
-dependencies and rebuilding. Stopping wp-env preserves its databases and uploads. Active jobs,
-host processes, open oneshot runs, and `--keep` paths prevent these operations.
+1. Measure the problem, then choose only the applicable modules. A capability report is not a
+   cleanup preview. Scope actual previews with the flags in the selected guidance.
+2. Run the scoped command without --yes. Inspect retained work when its ownership or completion
+   is uncertain. Completion follows PR content and task records, never age or SHA alone.
+3. Report what will be removed and apply the same scope with --yes when authorized. Existing
+   authorization carries forward. If apply adds an unpreviewed item, stop and report the drift.
+4. Compare free space and repeat the preview. Report what changed, what remains and why.
 
-Scheduled runs use these modes only when their command includes the flags. A stored ready provider
-session alone does not block cache reclamation; it still blocks whole-worktree deletion.
-Report what remains in use. Stop no application to make its memory number smaller.
-
-When the user explicitly discards all wp-env data, use the standalone
-`dev-tidy --purge-wp-env` preview, then add `--yes`. It removes retained and orphan
-WordPress containers, volumes, image references and runtime directories, including stacks
-without surviving compose files. It preserves resources used by unrelated containers.
-This mode discards databases and uploads and must not be enabled in scheduled cleanup.
-
-## Ports without deleting work
-
-For port conflicts or scheduled port cleanup, use `dev-tidy --ports-only --kept`
-first. This mode stops dev servers in completed tasks, saves their launch settings
-in the worktree git directory, and releases port reservations. It also stops servers
-left behind by deleted worktrees, including Codex worktrees with surviving caches.
-It preserves working files and branches. Open PRs, active jobs, and tasks whose
-completion is unconfirmed retain their reservations. Report those tasks instead of
-judging them by age. Apply with `--ports-only --yes` when authorized.
-
-On macOS, `node {{skills_dir}}/dev-tidy/schedule-ports.mjs` installs the port-only
-launchd job every 15 minutes. Run its dry run and apply once before installing it.
-See [dev-tidy.md](dev-tidy.md) for logging and removal.
-
-## The loop
-
-1. `dev-tidy --kept`. A dry run takes about ten seconds and changes nothing.
-   Never pass `--yes` first, whatever the user asked for.
-2. Inspect every kept item that holds work, as described under **Inspect what
-   holds work**. Done when each one is marked drop or ask.
-3. Send one short message and wait for a yes.
-   When the user already authorized cleanup, report the plan and continue without asking again.
-4. `dev-tidy --drop` each item marked drop, with `--yes`, then `dev-tidy --yes`.
-   The drops go first so the pass also takes the wp-env stacks they free.
-5. Two lines back, plus whatever is still open.
-
-## Decide it yourself
-
-Most of the report is already decided. The script only lists what it proved is
-recoverable, so do not hand any of it back as a question.
-
-T3 Code worktrees use its local task records, including custom worktree locations.
-Only settled, archived, or deleted tasks without active work qualify for the normal
-Git proofs. Their branches remain while T3 Code references them. Unknown task state
-keeps the checkout and its ports. Do not bypass that protection with `--drop`.
-This manual cleanup does not wait for T3 Code's automatic retention period.
-
-- Everything the dry run listed for removal. Worktrees, branches, wp-env stacks,
-  Turborepo cache, images, build cache.
-- Dev servers. Stopping one costs nothing and it starts again.
-- A `kept` line reading `pull request still open`. Nothing to do, and it does not
-  belong in the message either.
-- A `kept` line reading `checkout ... is still there`. The stack has a live
-  worktree. Leave it and stay quiet.
-- A `kept` line reading `nothing of its own`. A branch or a checkout sitting on
-  the default branch with nothing committed to it. Not worth a line.
-- Anything the report marks `squashed`. The script compared the files rather
-  than the commits and found every one of them in the default branch already.
-- A `kept` line reading `open oneshot run`, `stage of an open oneshot series`,
-  or `session still open`. That work resumes from there, whatever its pull
-  request says. Leave it and stay quiet.
-- Anything the report marks `sessions archived`. Every session in it is archived
-  and its commits are on the default branch or a remote.
-
-When something outside git still runs from a worktree the dry run lists, a tool
-whose path names it for example, pass that worktree to every run as
-`--keep PATH` and say so in the message.
-
-## Inspect what holds work
-
-The script keeps two kinds of item because removing them could lose work: a
-`kept` line ending in `N of M changed files differ from <branch>`, and one
-reading `uncommitted changes`. Most of them turn out to have landed already,
-because the default branch rewrote the files after the merge. Settle each one
-yourself:
-
-```bash
-dev-tidy --inspect <worktree path>
-dev-tidy --inspect <checkout> <branch>
-```
-
-When it lists cited pull requests merged into a branch other than the default,
-run it again with `--against <that branch>`.
-
-Mark it **drop** on any of these:
-
-- Almost none of its added lines are missing, a handful in a file of hundreds.
-- The missing lines belong to a feature the base already shipped in another
-  shape. Check by finding the merged pull request or the base's files for that
-  feature, not by the line count alone.
-- Its uncommitted changes are only a lockfile or a package-manager file the
-  repository does not use.
-
-Mark it **ask** when none of these holds, because its missing lines exist nowhere
-else. That includes an old experiment with no pull request and nothing pushed. Give
-each one a line saying what it is about, read from its commit subjects and
-files, and how many lines are missing.
-
-`operation in progress` and `build, test, install, or migration running` are always
-ask. Offer to wait for the process. `--drop` refuses such a checkout by itself.
-
-## The message
-
-Short. Totals, then one line for what inspection dropped, then only the items
-marked ask. No tables, no repository-by-repository walk, no restating what the
-script already settled.
-
-```
-Removing: 4 worktrees (3.1 GB), 12 branches, 9 processes.
-Also dropping 6 more after inspection: all already in main or v2.
-The dev server on port 3001 stops.
-
-Left for you:
-  project-a/feature-x: export retry queue, 2 days old, 140 of 160 lines not on main
-  project-c/refactor-z: uncommitted rewrite of the settings form, no pull request
-
-Go ahead?
-```
-
-Under fifteen lines. If it does not fit, you are pasting the report instead of
-reading it.
-
-## After
-
-Two lines: what went and how much came back. Then the ask list again, one item
-at a time, only if the user wants to deal with it now. Never drop one without
-asking.
-
-## Rules
-
-**The dry run is the plan.** If `--yes` reports something the dry run did not
-list, stop and say so rather than carrying on. A wp-env stack mounted from a
-worktree you dropped is the one expected addition.
-
-**Never judge a branch by its SHA.** A squash merge rewrites every commit it
-lands, so `git branch -r --contains` and `origin/main..HEAD` both report landed
-work as missing, and a stale `origin/*` makes it worse. `--inspect` fetches the
-base and compares lines, not commits.
-
-**One run at a time.** The script fetches pull request state `--jobs` at a time
-on its own, and that is the only part that is parallel. Removal is deliberately
-serial. Never start a second `--yes`, and never split a run across subagents.
-
-**Never kill a process by hand.** The working-directory rule exists so nobody has
-to guess which process belongs to which checkout. If something survives, that is
-a script bug worth reporting.
-
-**Docker beyond the wp-env pass is off limits.** Only the script touches
-containers and volumes.
-
-**Scope down rather than skip the dry run.** `--skip-git`, `--skip-wp-env`,
-`--skip-docker` and `--root PATH` narrow a run to one part of it.
+Use the shipped scripts for cleanup. Do not reconstruct Git, Docker or process deletion by hand.
+One apply runs at a time. Active work, source files, histories, unknown ownership and --keep
+remain protected. Never use --drop to bypass unreadable app state. Stopping containers preserves
+local data; purge requires explicit consent to discard it. Scheduled cleanup never enables purge
+or Chrome clone cleanup. Preserve the user's app lifecycle settings, including auto-settlement.

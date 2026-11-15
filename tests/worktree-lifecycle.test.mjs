@@ -908,3 +908,50 @@ test('T3 cleanup keeps committed submodule work that no remote holds', () => {
   assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /submodule has local work/);
   assert.equal(readFileSync(join(dir, 'core/content'), 'utf8'), 'unpublished submodule work\n');
 });
+
+test('capability discovery works without optional tools, stores or project roots', () => {
+  const f = fixture(); const home = join(f.root, 'empty-home'); const bin = join(f.root, 'minimal-bin');
+  mkdirSync(home); mkdirSync(bin);
+  for (const name of ['bash', 'dirname', 'basename', 'uname']) {
+    const executable = execFileSync('which', [name], { encoding: 'utf8' }).trim(); symlinkSync(executable, join(bin, name));
+  }
+  const env = { HOME: home, PATH: bin, WP_ENV_HOME: join(home, '.wp-env') };
+  const result = f.run(tidy, ['--capabilities'], f.repo, env);
+  assert.equal(result.status, 0, result.stderr);
+  for (const module of ['git', 'roots', 't3', 'docker', 'wp-env']) assert.match(result.stdout, new RegExp(`${module}\\tabsent\\t`));
+  const cleanup = f.run(tidy, ['--skip-git', '--skip-turbo'], f.repo, env);
+  assert.equal(cleanup.status, 0, cleanup.stderr);
+  assert.match(cleanup.stdout, /Would remove 0 worktree\(s\), 0 branch\(es\), 0 wp-env stack\(s\)/);
+});
+
+test('capability discovery reports unknown app state without invoking Git or GitHub', () => {
+  const f = fixture(); const log = join(f.root, 'unexpected-tool-calls');
+  for (const name of ['git', 'gh']) writeFileSync(join(f.root, 'bin', name), `#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\nexit 99\n`, { mode: 0o755 });
+  const state = join(f.env.DEV_TIDY_T3_HOME, 'userdata'); mkdirSync(state, { recursive: true });
+  writeFileSync(join(state, 'statev2.sqlite'), 'corrupt state');
+  writeFileSync(join(f.root, 'bin/docker'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  const result = f.run(tidy, ['--capabilities', '--root', f.repo], f.repo, { WP_ENV_HOME: join(f.root, 'missing-wp') });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /git\tavailable\t/); assert.match(result.stdout, /t3\tunknown\t/);
+  assert.match(result.stdout, /docker\tblocked\t/); assert.match(result.stdout, /wp-env\tunknown\t/);
+  assert.equal(existsSync(log), false);
+  assert.equal(readFileSync(join(state, 'statev2.sqlite'), 'utf8'), 'corrupt state');
+});
+
+test('capability discovery sees orphan WordPress resources without a runtime directory', () => {
+  const f = fixture(); const script = '#!/bin/sh\ncase "$1" in\ninfo) exit 0;;\nps) echo "wp-env-orphan-wordpress-1 wp-env-orphan";;\nimages) echo "wp-env-orphan-wordpress";;\n*) exit 99;;\nesac\n';
+  writeFileSync(join(f.root, 'bin/docker'), script, { mode: 0o755 });
+  const result = f.run(tidy, ['--capabilities'], f.repo, { WP_ENV_HOME: join(f.root, 'missing-wp') });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /docker\tavailable\t/); assert.match(result.stdout, /wp-env\tavailable\t/);
+});
+
+test('standalone discovery and Chrome modes reject cleanup mode combinations', () => {
+  const f = fixture();
+  for (const args of [['--capabilities', '--yes'], ['--capabilities', '--chrome-clones'], ['--chrome-clones', '--purge-wp-env'], ['--chrome-clones', '--stop-wp-env']]) {
+    const result = f.run(tidy, args);
+    assert.equal(result.status, 1, `${args}: ${result.stderr}`);
+    assert.match(result.stderr, /standalone/);
+    assert.equal(readFileSync(join(f.repo, 'content'), 'utf8'), 'initial\n');
+  }
+});

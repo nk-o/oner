@@ -149,6 +149,8 @@ def main():
     if mode == "roots":
         for root in managed_roots():
             print(root)
+    elif mode == "capability":
+        print("available" if load_state() is not None else "unknown")
     elif mode == "path":
         print(path_state(Path(args[0]).resolve()))
     elif mode == "branch":
