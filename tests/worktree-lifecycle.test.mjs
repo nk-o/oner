@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { afterEach, test } from 'node:test';
@@ -91,6 +91,98 @@ if data['session']: c.execute('INSERT INTO orchestration_v2_projection_provider_
 c.commit()
 `, join(userdata, 'statev2.sqlite')], { input: JSON.stringify({ repo: f.repo, dir, threads, running, session }), encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
+}
+
+function dockerFixture(f) {
+  const home = join(f.root, 'wp-env'); const project = 'wp-env-fixture';
+  mkdirSync(join(home, project), { recursive: true });
+  const core = join(home, project, 'WordPress'); mkdirSync(core); f.runGit('-C', core, 'init', '-qb', 'main');
+  writeFileSync(join(home, project, 'docker-compose.yml'), `services:\n  wordpress:\n    volumes:\n      - '${core}:/var/www/html'\n      - '${f.repo}:/var/www/html/wp-content/plugins/fixture'\n`);
+  const statePath = join(f.root, 'docker.json');
+  const initial = { running: ['container'], volumes: ['database', 'uploads'], images: [
+    { tag: `${project}-wordpress:latest`, id: 'used' },
+    { tag: `${project}-cli:latest`, id: 'unused' },
+    { tag: 'redis:latest', id: 'redis' },
+  ] };
+  writeFileSync(statePath, JSON.stringify(initial));
+  writeFileSync(join(f.root, 'bin/docker'), `#!${process.execPath}
+const fs = require('node:fs');
+const path = ${JSON.stringify(statePath)};
+const s = JSON.parse(fs.readFileSync(path));
+const a = process.argv.slice(2);
+const out = x => process.stdout.write(x + '\\n');
+const busy = () => require('node:child_process').execFileSync('python3', ['-c', "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute(\\"INSERT INTO orchestration_v2_projection_runs VALUES ('thread','running')\\"); c.commit()", s.database]);
+if (a[0] === 'info') process.exit(0);
+if (a[0] === 'ps' && a.includes('-q') && s.busyAt === 'inventory') busy();
+if (a[0] === 'ps') out((a.includes('-q') ? s.running : ['container']).join('\\n'));
+if (a[0] === 'inspect') {
+  if (s.failInspect) process.exit(1);
+  out('sha256:used');
+}
+
+if (a[0] === 'images' && a.includes('--format')) {
+  const format = a[a.indexOf('--format') + 1];
+  if (format.includes('.Tag')) out(s.images.map(i => i.tag + '|' + i.id).join('\\n'));
+}
+if (a[0] === 'stop') {
+  if (s.failStop) { console.error('stop failed'); process.exit(1); }
+  s.running = s.running.filter(id => id !== a[1]);
+  if (s.busyAt === 'stop') busy();
+}
+if (a[0] === 'rmi') s.images = s.images.filter(i => i.tag !== a[1]);
+if (['rm', 'volume'].includes(a[0])) { console.error('data deletion forbidden'); process.exit(1); }
+fs.writeFileSync(path, JSON.stringify(s));
+`, { mode: 0o755 });
+  return { home, initial, read: () => JSON.parse(readFileSync(statePath)),
+    write: state => writeFileSync(statePath, JSON.stringify(state)) };
+}
+
+function purgeFixture(f, runtime = true, project = 'wp-env-fixture') {
+  const home = join(f.root, 'purge-home'); const dir = join(home, project);
+  if (runtime) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'docker-compose.yml'), 'services:\n  mysql:\n    image: mariadb:lts\n');
+    writeFileSync(join(dir, 'uploads'), 'discarded WordPress uploads');
+  }
+  const initial = {
+    container: [
+      { Id: 'wp', Name: '/' + project + '-wordpress-1', Image: 'wp-image', Config: { Labels: { 'com.docker.compose.project': project } }, Mounts: [{ Type: 'volume', Name: 'wp-data' }] },
+      { Id: 'other', Name: '/poise', Image: 'other-image', Config: { Labels: null }, Mounts: [{ Type: 'volume', Name: 'other-data' }] },
+    ],
+    volume: [{ Name: 'wp-data', Labels: { 'com.docker.compose.project': project } }, { Name: 'other-data', Labels: null }],
+    image: [
+      { Id: 'wp-image', RepoTags: [project + (project.startsWith('wp-env') ? '-' : '_') + 'wordpress:latest'], Config: { Labels: null } },
+      { Id: 'other-image', RepoTags: ['redis:latest'], Config: { Labels: null } },
+      ...(runtime ? [{ Id: 'mysql-image', RepoTags: ['mariadb:lts'], Config: { Labels: null } }] : []),
+    ],
+  };
+  const file = join(f.root, 'purge.json'); writeFileSync(file, JSON.stringify(initial));
+  writeFileSync(join(f.root, 'bin/docker'), `#!${process.execPath}
+const fs = require('node:fs');
+const file = ${JSON.stringify(file)};
+const s = JSON.parse(fs.readFileSync(file));
+const [kind, action, ...args] = process.argv.slice(2);
+const key = kind === 'volume' ? 'Name' : 'Id';
+const out = value => process.stdout.write(value + '\\n');
+if (kind === 'info') { out(s.engine || 'fixture-engine'); process.exit(0); }
+if (s.fail === action || s.fail === kind + '-' + action) { console.error('fixture failure'); process.exit(1); }
+if (action === 'ls') out(s[kind].map(x => x[key]).join('\\n'));
+else if (action === 'inspect') out(JSON.stringify(s[kind].filter(x => args.includes(x[key]))));
+else if (action === 'rm') {
+  const id = args.at(-1);
+  if (kind === 'image') {
+    s.image = s.image.filter(x => {
+      if (x.Id === id) return false;
+      x.RepoTags = (x.RepoTags || []).filter(tag => tag !== id);
+      return x.RepoTags.length > 0;
+    });
+  } else s[kind] = s[kind].filter(x => x[key] !== id);
+  if (kind === 'container' && s.shareAfterRemove) s.container[0].Mounts.push({ Type: 'volume', Name: 'wp-data' });
+} else process.exit(2);
+fs.writeFileSync(file, JSON.stringify(s));
+`, { mode: 0o755 });
+  return { home, dir, initial, read: () => JSON.parse(readFileSync(file)), write: value => writeFileSync(file, JSON.stringify(value)),
+    run: (...args) => f.run(tidy, ['--purge-wp-env', ...args], f.repo, { WP_ENV_HOME: home }) };
 }
 
 function serverRange(dir, port, names = ['web']) {
@@ -487,6 +579,300 @@ test('forced cleanup cannot drop an active T3 checkout', () => {
   const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir, { running: true });
   const result = f.run(tidy, ['--drop', dir, '--yes']);
   assert.equal(result.status, 1); assert.ok(existsSync(dir)); assert.equal(f.runGit('rev-parse', 'feature'), f.sha);
+});
+
+test('cache reclamation preserves work while removing ignored caches only when idle', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  f.runGit('config', 'core.excludesFile', join(f.root, 'excludes'));
+  writeFileSync(join(f.root, 'excludes'), 'node_modules/\n.next/\n.specs/\n');
+  t3State(f, dir, { settled: false, session: true });
+  const cache = join(dir, 'node_modules/package'); const next = join(dir, 'apps/web/.next');
+  mkdirSync(cache, { recursive: true }); mkdirSync(next, { recursive: true });
+  writeFileSync(join(cache, 'index.js'), 'cached dependency'); writeFileSync(join(next, 'build'), 'cached build');
+  writeFileSync(join(dir, 'draft'), 'uncommitted work');
+  const args = ['--reclaim-caches', '--skip-git', '--skip-turbo', '--skip-docker', '--skip-wp-env', '--root', f.repo];
+  const dry = f.run(tidy, args); assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /rebuildable/); assert.ok(existsSync(cache));
+  const kept = f.run(tidy, ['--yes', '--keep', dir, ...args]); assert.equal(kept.status, 0, kept.stderr);
+  assert.ok(existsSync(cache));
+  t3State(f, dir, { running: true });
+  assert.equal(f.run(tidy, ['--yes', ...args]).status, 0); assert.ok(existsSync(cache));
+  t3State(f, dir, { settled: false, session: true });
+  const live = await server(dir);
+  assert.equal(f.run(tidy, ['--yes', ...args]).status, 0); assert.ok(existsSync(cache));
+  const stopped = new Promise(resolvePromise => live.child.once('exit', resolvePromise)); live.child.kill(); await stopped;
+  const log = join(dir, '.specs/001/oneshot.md'); mkdirSync(join(log, '..'), { recursive: true });
+  writeFileSync(log, 'Status. waiting\n');
+  assert.equal(f.run(tidy, ['--yes', ...args]).status, 0); assert.ok(existsSync(cache));
+  writeFileSync(log, 'Status. done\n');
+  const applied = f.run(tidy, ['--yes', ...args]); assert.equal(applied.status, 0, applied.stderr);
+  assert.equal(existsSync(cache), false); assert.equal(existsSync(next), false);
+  assert.equal(readFileSync(join(dir, 'draft'), 'utf8'), 'uncommitted work');
+  assert.equal(readFileSync(join(dir, 'content'), 'utf8'), 'initial\n');
+  const repeat = f.run(tidy, ['--yes', ...args]); assert.equal(repeat.status, 0, repeat.stderr);
+  assert.doesNotMatch(repeat.stdout, /rebuildable\)/);
+});
+
+test('cache reclamation preserves symlink targets, tracked files and unknown task state', () => {
+  const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+  writeFileSync(join(f.repo, '.git/info/exclude'), 'node_modules/\n.next/\n');
+  const shared = join(f.root, 'shared'); mkdirSync(shared); writeFileSync(join(shared, 'package'), 'shared');
+  symlinkSync(shared, join(dir, 'node_modules'));
+  mkdirSync(join(dir, '.next')); writeFileSync(join(dir, '.next/source'), 'tracked');
+  f.runGit('-C', dir, 'add', '-f', '.next/source');
+  const args = ['--yes', '--reclaim-caches', '--skip-git', '--skip-turbo', '--skip-docker', '--skip-wp-env', '--root', f.repo];
+  assert.equal(f.run(tidy, args).status, 0);
+  assert.equal(readFileSync(join(shared, 'package'), 'utf8'), 'shared');
+  assert.equal(readFileSync(join(dir, '.next/source'), 'utf8'), 'tracked');
+  f.runGit('-C', dir, 'reset', '-q', '--', '.next/source');
+  writeFileSync(join(f.env.DEV_TIDY_T3_HOME, 'userdata/statev2.sqlite'), 'invalid');
+  assert.equal(f.run(tidy, args).status, 0); assert.ok(existsSync(join(dir, '.next/source')));
+});
+
+test('cache reclamation preserves nested repository code and nested worktree runs', () => {
+  for (const kind of ['repository', 'worktree', 'inside-cache']) {
+    const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+    writeFileSync(join(f.repo, '.git/info/exclude'), 'vendor/\nnode_modules/\n');
+    const nested = join(dir, kind === 'inside-cache' ? 'node_modules/package' : 'vendor/package');
+    mkdirSync(nested, { recursive: true });
+    if (kind === 'worktree') {
+      rmSync(nested, { recursive: true }); f.runGit('worktree', 'add', '-qb', 'nested', nested);
+    } else f.runGit('-C', nested, 'init', '-qb', 'main');
+    mkdirSync(join(nested, '.next')); writeFileSync(join(nested, '.next/source'), 'tracked source');
+    f.runGit('-C', nested, 'add', '.next/source');
+    writeFileSync(join(nested, '.next/source'), 'uncommitted source');
+    const result = f.run(tidy, ['--yes', '--reclaim-caches', '--skip-git', '--skip-turbo', '--skip-docker', '--skip-wp-env', '--root', f.repo]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(readFileSync(join(nested, '.next/source'), 'utf8'), 'uncommitted source', kind);
+  }
+});
+
+test('cache reclamation finishes its own traversal before checking active processes', () => {
+  const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+  writeFileSync(join(f.repo, '.git/info/exclude'), 'node_modules/\n');
+  mkdirSync(join(dir, 'node_modules')); writeFileSync(join(dir, 'node_modules/package'), 'rebuildable');
+  writeFileSync(join(f.root, 'bin/find'), '#!/bin/sh\n/usr/bin/find "$@"\ncase " $* " in *" -xdev "*) cd "$1" && sleep 2 ;; esac\n', { mode: 0o755 });
+  const result = f.run(tidy, ['--yes', '--reclaim-caches', '--skip-git', '--skip-turbo', '--skip-docker', '--skip-wp-env', '--root', f.repo]);
+  assert.equal(result.status, 0, result.stderr); assert.equal(existsSync(join(dir, 'node_modules')), false);
+});
+
+test('cache reclamation rechecks activity after either ownership scan', () => {
+  for (const phase of [1, 2]) {
+    const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+    writeFileSync(join(f.repo, '.git/info/exclude'), 'node_modules/\n');
+    const cache = join(dir, 'node_modules'); mkdirSync(cache); writeFileSync(join(cache, 'package'), 'rebuildable');
+    writeFileSync(join(f.root, 'bin/find'), `#!/bin/sh
+/usr/bin/find "$@" || exit $?
+if [ "$(basename "$1")" = node_modules ]; then
+  count=0; [ ! -f "$SCAN_COUNT" ] || count=$(cat "$SCAN_COUNT")
+  count=$((count + 1)); printf '%s' "$count" > "$SCAN_COUNT"
+  if [ "$count" -eq "$SCAN_PHASE" ]; then
+    python3 -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("INSERT INTO orchestration_v2_projection_runs VALUES (?,?)", ("thread","running")); c.commit()' "$SCAN_DB"
+  fi
+fi
+`, { mode: 0o755 });
+    const result = f.run(tidy, ['--yes', '--reclaim-caches', '--skip-git', '--skip-turbo', '--skip-docker', '--skip-wp-env', '--root', f.repo], f.repo,
+      { SCAN_PHASE: String(phase), SCAN_COUNT: join(f.root, 'count'), SCAN_DB: join(f.env.DEV_TIDY_T3_HOME, 'userdata/statev2.sqlite') });
+    assert.equal(result.status, 0, result.stderr); assert.ok(existsSync(join(cache, 'package')), `ownership scan ${phase}`);
+  }
+});
+
+test('wp-env stop preserves data and unused image cleanup preserves referenced images', () => {
+  const f = fixture(); const d = dockerFixture(f);
+  const args = ['--skip-git', '--skip-turbo', '--root', f.repo]; const env = { WP_ENV_HOME: d.home };
+  assert.equal(f.run(tidy, args, f.repo, env).status, 0); assert.deepEqual(d.read(), d.initial);
+  const normal = f.run(tidy, ['--yes', ...args], f.repo, env); assert.equal(normal.status, 0, normal.stderr);
+  assert.deepEqual(d.read(), { ...d.initial, images: [d.initial.images[0], d.initial.images[2]] });
+  const dry = f.run(tidy, ['--stop-wp-env', ...args], f.repo, env); assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /wp-stop/); assert.deepEqual(d.read().running, ['container']);
+  const kept = f.run(tidy, ['--stop-wp-env', '--yes', '--keep', join(d.home, 'wp-env-fixture/WordPress'), ...args], f.repo, env);
+  assert.equal(kept.status, 0, kept.stderr); assert.deepEqual(d.read().running, ['container']);
+  const stopped = f.run(tidy, ['--stop-wp-env', '--yes', ...args], f.repo, env);
+  assert.equal(stopped.status, 0, stopped.stderr); assert.deepEqual(d.read().running, []);
+  assert.deepEqual(d.read().volumes, ['database', 'uploads']);
+  assert.deepEqual(d.read().images, [d.initial.images[0], d.initial.images[2]]);
+  const repeat = f.run(tidy, ['--stop-wp-env', '--yes', ...args], f.repo, env);
+  assert.equal(repeat.status, 0, repeat.stderr); assert.doesNotMatch(repeat.stdout, /wp-stop/);
+});
+
+test('wp-env stop defers active work and reports Docker failures without deleting data', () => {
+  const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir, { running: true });
+  const d = dockerFixture(f);
+  const args = ['--stop-wp-env', '--yes', '--skip-git', '--skip-turbo', '--skip-docker', '--root', f.repo];
+  const env = { WP_ENV_HOME: d.home };
+  for (const target of ['wp-content/plugins/active', 'wp-content/themes/active', 'custom']) {
+    writeFileSync(join(d.home, 'wp-env-fixture/docker-compose.yml'), `volumes:\n  - '${f.repo}:/var/www/html/wp-content/plugins/main'\n  - '${dir}:/var/www/html/${target}'\n`);
+    assert.equal(f.run(tidy, args, f.repo, env).status, 0); assert.deepEqual(d.read(), d.initial, target);
+  }
+  t3State(f, dir);
+  d.write({ ...d.initial, failStop: true });
+  const failed = f.run(tidy, args, f.repo, env); assert.equal(failed.status, 1);
+  assert.match(failed.stdout, /stop failed/); assert.deepEqual(d.read().running, ['container']);
+  assert.deepEqual(d.read().volumes, ['database', 'uploads']);
+  d.write({ ...d.initial, failInspect: true });
+  const inspect = f.run(tidy, ['--yes', '--skip-git', '--skip-wp-env', '--skip-turbo', '--root', f.repo], f.repo, env);
+  assert.equal(inspect.status, 1); assert.deepEqual(d.read().images, d.initial.images);
+});
+
+test('wp-env stop rechecks task state after inventory and between containers', () => {
+  for (const phase of ['inventory', 'stop']) {
+    const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+    const d = dockerFixture(f);
+    writeFileSync(join(d.home, 'wp-env-fixture/docker-compose.yml'), `volumes:\n  - '${dir}:/var/www/html/wp-content/plugins/main'\n`);
+    d.write({ ...d.initial, running: ['first', 'second'], busyAt: phase, database: join(f.env.DEV_TIDY_T3_HOME, 'userdata/statev2.sqlite') });
+    const result = f.run(tidy, ['--yes', '--stop-wp-env', '--skip-git', '--skip-turbo', '--skip-docker', '--root', f.repo], f.repo, { WP_ENV_HOME: d.home });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(d.read().running, phase === 'inventory' ? ['first', 'second'] : ['second']);
+    assert.deepEqual(d.read().volumes, ['database', 'uploads']);
+  }
+});
+
+test('wp-env stop preserves an active runtime Git clone', () => {
+  const f = fixture(); const d = dockerFixture(f);
+  t3State(f, join(d.home, 'wp-env-fixture/WordPress'), { running: true });
+  const result = f.run(tidy, ['--yes', '--stop-wp-env', '--skip-git', '--skip-turbo', '--skip-docker', '--root', f.repo], f.repo, { WP_ENV_HOME: d.home });
+  assert.equal(result.status, 0, result.stderr); assert.deepEqual(d.read(), d.initial);
+});
+
+test('wp-env stop preserves stack data when its source disappears after preview', () => {
+  const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+  const d = dockerFixture(f);
+  const compose = join(d.home, 'wp-env-fixture/docker-compose.yml');
+  writeFileSync(compose, `volumes:\n  - '${dir}:/var/www/html/wp-content/plugins/main'\n`);
+  const args = ['--stop-wp-env', '--skip-git', '--skip-turbo', '--skip-docker', '--root', f.repo];
+  const dry = f.run(tidy, args, f.repo, { WP_ENV_HOME: d.home }); assert.match(dry.stdout, /wp-stop/);
+  f.runGit('worktree', 'remove', '--force', dir);
+  const result = f.run(tidy, ['--yes', ...args], f.repo, { WP_ENV_HOME: d.home });
+  assert.equal(result.status, 0, result.stderr); assert.ok(existsSync(compose)); assert.deepEqual(d.read(), d.initial);
+});
+
+test('normal orphan cleanup honors kept runtime clones and stack directories', () => {
+  for (const relative of ['wp-env-fixture', 'wp-env-fixture/WordPress']) {
+    const f = fixture(); const dir = f.worktree('feature'); t3State(f, dir);
+    const d = dockerFixture(f); const compose = join(d.home, 'wp-env-fixture/docker-compose.yml');
+    writeFileSync(compose, `volumes:\n  - '${dir}:/var/www/html/wp-content/plugins/main'\n`);
+    f.runGit('worktree', 'remove', '--force', dir);
+    const result = f.run(tidy, ['--yes', '--skip-git', '--skip-turbo', '--skip-docker', '--keep', join(d.home, relative), '--root', f.repo], f.repo, { WP_ENV_HOME: d.home });
+    assert.equal(result.status, 0, result.stderr); assert.ok(existsSync(compose), relative); assert.deepEqual(d.read(), d.initial);
+  }
+});
+
+test('explicit wp-env purge previews, removes live stacks and leaves unrelated resources', () => {
+  for (const [runtime, project] of [[true, 'wp-env-fixture'], [false, 'wp-env-fixture'], [true, '0123456789abcdef0123456789abcdef']]) {
+    const f = fixture(); const d = purgeFixture(f, runtime, project);
+    const dry = d.run(); assert.equal(dry.status, 0, dry.stderr); assert.deepEqual(d.read(), d.initial);
+    const applied = d.run('--yes'); assert.equal(applied.status, 0, applied.stderr);
+    const state = d.read();
+    assert.deepEqual(state.container.map(x => x.Id), ['other']);
+    assert.deepEqual(state.volume.map(x => x.Name), ['other-data']);
+    assert.deepEqual(state.image.map(x => x.Id), ['other-image']);
+    assert.equal(existsSync(d.dir), false);
+    assert.equal(readFileSync(join(f.repo, 'content'), 'utf8'), 'initial\n');
+    const repeat = d.run('--yes'); assert.equal(repeat.status, 0, repeat.stderr);
+    assert.deepEqual(d.read(), state);
+  }
+});
+
+test('wp-env purge keeps resources shared with an unrelated container', () => {
+  const f = fixture(); const d = purgeFixture(f); const state = structuredClone(d.initial);
+  state.container[1].Name = '/wp-env-lookalike';
+  state.container[1].Config.Labels = { 'com.docker.compose.project': 'poise' };
+  state.container[1].Image = 'wp-image';
+  state.container[1].Mounts.push({ Type: 'volume', Name: 'wp-data' }, { Type: 'bind', Source: d.dir });
+  state.container.push({ Id: 'outside', Name: '/wp-env-tools-db', Image: 'outside-image', Config: { Labels: { 'com.docker.compose.project': 'wp-env-tools', 'com.docker.compose.project.working_dir': f.repo } }, Mounts: [] });
+  state.volume.push({ Name: 'wp-env-fixture_poise-data', Labels: { 'com.docker.compose.project': 'poise' } }, { Name: 'outside-data', Labels: { 'com.docker.compose.project': 'wp-env-tools' } });
+  state.image.push({ Id: 'poise-build', RepoTags: ['wp-env-fixture-poise:latest'], Config: { Labels: { 'com.docker.compose.project': 'poise' } } }, { Id: 'outside-image', RepoTags: ['wp-env-tools-db:latest'], Config: { Labels: { 'com.docker.compose.project': 'wp-env-tools' } } });
+  state.image.push({ Id: 'outside-unused', RepoTags: ['wp-env-tools-unused:latest'], Config: { Labels: null } });
+  d.write(state);
+  const result = d.run('--yes'); assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(d.read().container.map(x => x.Id), ['other', 'outside']);
+  assert.deepEqual(d.read().volume.map(x => x.Name), ['wp-data', 'other-data', 'wp-env-fixture_poise-data', 'outside-data']);
+  assert.deepEqual(d.read().image.map(x => x.Id), ['wp-image', 'other-image', 'poise-build', 'outside-image', 'outside-unused']);
+  assert.equal(readFileSync(join(d.dir, 'uploads'), 'utf8'), 'discarded WordPress uploads');
+});
+
+test('wp-env purge retries anonymous orphan resources only on the same Docker engine', () => {
+  const f = fixture(); const d = purgeFixture(f, false); const state = structuredClone(d.initial);
+  state.container[0].Image = 'mysql-image';
+  state.container[0].Config.Labels = { 'com.docker.compose.project': '0123456789abcdef0123456789abcdef', 'com.docker.compose.project.working_dir': join(d.home, 'missing') };
+  state.volume[0].Labels = null;
+  state.image.push({ Id: 'mysql-image', RepoTags: ['mariadb:lts'], Config: { Labels: { 'com.docker.compose.project': '0123456789abcdef0123456789abcdef' } } });
+  d.write({ ...state, fail: 'volume-rm' });
+  assert.equal(d.run('--yes').status, 1);
+  assert.ok(existsSync(join(d.home, '.dev-tidy-purge.json')));
+  const failed = d.read(); delete failed.fail; failed.engine = 'another-engine'; d.write(failed);
+  const wrong = d.run('--yes'); assert.equal(wrong.status, 1); assert.deepEqual(d.read(), failed);
+  failed.engine = 'fixture-engine'; failed.fail = 'image-rm'; d.write(failed);
+  assert.equal(d.run('--yes').status, 1);
+  const imageFailed = d.read(); delete imageFailed.fail; d.write(imageFailed);
+  const retry = d.run('--yes'); assert.equal(retry.status, 0, retry.stderr);
+  assert.deepEqual(d.read().volume.map(x => x.Name), ['other-data']);
+  assert.deepEqual(d.read().image.map(x => x.Id), ['other-image']);
+  assert.equal(existsSync(join(d.home, '.dev-tidy-purge.json')), false);
+});
+
+test('wp-env purge retains retry ownership while an unrelated container temporarily shares a volume', () => {
+  const f = fixture(); const d = purgeFixture(f, false); const state = structuredClone(d.initial);
+  state.volume[0].Labels = null;
+  d.write({ ...state, fail: 'volume-rm' }); assert.equal(d.run('--yes').status, 1);
+  const shared = d.read(); shared.container[0].Mounts.push({ Type: 'volume', Name: 'wp-data' }); shared.fail = 'image-rm'; d.write(shared);
+  assert.equal(d.run('--yes').status, 1);
+  assert.ok(JSON.parse(readFileSync(join(d.home, '.dev-tidy-purge.json'), 'utf8')).volumes['wp-data'] !== undefined);
+  const released = d.read(); released.container[0].Mounts.pop(); delete released.fail; d.write(released);
+  const result = d.run('--yes'); assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(d.read().volume.map(x => x.Name), ['other-data']);
+  assert.deepEqual(d.read().container, [d.initial.container[1]]);
+});
+
+test('wp-env purge trusts proven ownership over an overlapping foreign project prefix', () => {
+  const f = fixture(); const d = purgeFixture(f); const state = structuredClone(d.initial);
+  state.volume[0].Name = 'wp-env-fixture_data'; state.volume[0].Labels = null;
+  state.container[0].Mounts[0].Name = 'wp-env-fixture_data';
+  state.container[1].Config.Labels = { 'com.docker.compose.project': 'wp-env', 'com.docker.compose.project.working_dir': f.repo };
+  d.write(state);
+  const result = d.run('--yes'); assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(d.read().volume.map(x => x.Name), ['other-data']);
+  assert.deepEqual(d.read().image.map(x => x.Id), ['other-image']);
+  assert.deepEqual(d.read().container, [state.container[1]]);
+});
+
+test('wp-env purge normalizes implicit tags and resumes a partly removed runtime', () => {
+  const f = fixture(); const d = purgeFixture(f); const state = structuredClone(d.initial);
+  writeFileSync(join(d.dir, 'docker-compose.yml'), 'services:\n  admin:\n    image: docker.io/library/phpmyadmin\n');
+  state.image.push({ Id: 'admin-image', RepoTags: ['phpmyadmin:latest'], Config: { Labels: null } });
+  d.write({ ...state, fail: 'volume-rm' }); assert.equal(d.run('--yes').status, 1);
+  rmSync(join(d.dir, 'docker-compose.yml'));
+  const failed = d.read(); delete failed.fail; d.write(failed);
+  const retry = d.run('--yes'); assert.equal(retry.status, 0, retry.stderr);
+  assert.deepEqual(d.read().image.map(x => x.Id), ['other-image', 'mysql-image']);
+  assert.equal(existsSync(d.dir), false);
+});
+
+test('wp-env purge preserves retry evidence after failure and detects a new shared reference', () => {
+  for (const failure of ['inspect', 'volume-rm', 'new-reference']) {
+    const f = fixture(); const d = purgeFixture(f);
+    d.write({ ...d.initial, ...(failure === 'new-reference' ? { shareAfterRemove: true } : { fail: failure }) });
+    const result = d.run('--yes'); assert.equal(result.status, 1, result.stderr);
+    assert.ok(existsSync(join(d.dir, 'docker-compose.yml')));
+    assert.ok(d.read().volume.some(x => x.Name === 'wp-data'));
+    if (failure === 'inspect') assert.deepEqual(d.read().container, d.initial.container);
+    const state = d.read(); delete state.fail; delete state.shareAfterRemove;
+    state.container = state.container.map(x => x.Id === 'other' ? d.initial.container[1] : x);
+    d.write(state);
+    const retry = d.run('--yes'); assert.equal(retry.status, 0, retry.stderr);
+    assert.deepEqual(d.read().image.map(x => x.Id), ['other-image']);
+    assert.equal(existsSync(d.dir), false);
+  }
+});
+
+test('wp-env purge rejects conflicting modes and a source checkout as runtime home', () => {
+  const f = fixture(); const d = purgeFixture(f);
+  for (const args of [['--stop-wp-env'], ['--ports-only'], ['--keep', f.repo]]) {
+    const result = d.run('--yes', ...args); assert.equal(result.status, 1); assert.deepEqual(d.read(), d.initial);
+  }
+  const unsafe = f.run(tidy, ['--purge-wp-env', '--yes'], f.repo, { WP_ENV_HOME: f.repo });
+  assert.equal(unsafe.status, 1); assert.equal(readFileSync(join(f.repo, 'content'), 'utf8'), 'initial\n');
+  assert.deepEqual(d.read(), d.initial);
 });
 
 test('forced cleanup cannot drop a checkout while a real build process runs', async () => {

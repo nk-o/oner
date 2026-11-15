@@ -122,6 +122,18 @@ def branch_state(repo, branch):
     return "none"
 
 
+def idle_state(path):
+    state = load_state()
+    managed = any(inside(path, root) for root in managed_roots())
+    if state is None:
+        return "unknown" if managed else "none"
+    threads, _, busy, _ = state
+    group = {t["id"] for t in threads if t["worktreePath"] and Path(t["worktreePath"]).resolve() == path}
+    if not group:
+        return "unknown" if managed else "none"
+    return "busy" if busy.intersection(group) else "idle"
+
+
 def checkout_path(cwd):
     state = load_state()
     if state is not None:
@@ -143,6 +155,8 @@ def main():
         print(branch_state(Path(args[0]).resolve(), args[1]))
     elif mode == "checkout":
         print(checkout_path(Path(args[0]).resolve()))
+    elif mode == "idle":
+        print(idle_state(Path(args[0]).resolve()))
     else:
         raise ValueError("Unknown T3 query")
 
