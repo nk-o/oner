@@ -9,6 +9,7 @@ import re
 import shutil
 import stat
 import sys
+from xml.parsers.expat import ExpatError
 
 
 def clone_root():
@@ -94,7 +95,7 @@ def clean(root, apply=False, names=None):
                     raise ValueError("clone identity changed during native check")
                 shutil.rmtree(path)
                 removed += 1
-        except (OSError, ValueError, plistlib.InvalidFileException) as error:
+        except (OSError, ValueError, ExpatError) as error:
             kept += 1
             print(f"  kept {path.name}: {error}", flush=True)
         finally:

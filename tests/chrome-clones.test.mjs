@@ -55,12 +55,14 @@ test('Chrome clone cleanup rejects malformed bundles, traversal and symlinks', (
 p=make();outside=Path(temp.name)/'source';outside.mkdir();(outside/'file').write_text('source')
 (p/'Google Chrome.app.bundle/Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':'other'}))
 invalid=make('GHI789');(invalid/'Google Chrome.app.bundle/Contents/Info.plist').write_bytes(plistlib.dumps([]))
+truncated=make('BAD123');(truncated/'Google Chrome.app.bundle/Contents/Info.plist').write_bytes(b'<?xml version=\"1.0\"?><plist><dict>')
+good=make('ZZZ999')
 (root/'code_sign_clone.LINK00').symlink_to(outside,target_is_directory=True)
 with patch.object(m.ctypes,'CDLL',return_value=SimpleNamespace(ffsctl=Mock(return_value=0))):
  m.clean(root,True)
  try:m.clean(root,True,['../source']);raise AssertionError('traversal accepted')
  except ValueError:pass
-assert p.exists() and invalid.exists() and (outside/'file').read_text()=='source'
+assert p.exists() and invalid.exists() and truncated.exists() and not good.exists() and (outside/'file').read_text()=='source'
 assert (root/'code_sign_clone.LINK00').is_symlink()
 `);
 });

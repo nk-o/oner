@@ -25,7 +25,7 @@ Preview the standalone `dev-tidy --chrome-clones`. It checks the native executab
 count through XNU's FSIOC_FD_ONLY_OPEN_ONCE. A busy executable keeps every clone sharing that inode.
 Unknown native results, malformed bundles, symlinks and changed identities preserve the clone.
 Apply the previewed scope with --yes after authorization. For a pinned subset, call the adjacent
-`chrome-clones.py --yes code_sign_clone.ABC123 ...` helper with the exact previewed names.
+`python3 {{skills_dir}}/dev-tidy/chrome-clones.py --yes code_sign_clone.ABC123 ...` helper with the exact previewed names.
 This operation is never part of ordinary or scheduled cleanup and never restarts Chrome.
 
 Age and lsof's displayed hardlink path cannot prove ownership. Chrome's own cleanup helper waits
