@@ -15,6 +15,17 @@ It lives in the `dev-tidy` skill so it is versioned with the rest of
 `{{repo_dir}}`. The skill's `SKILL.md` is how an agent drives it; this file is the
 reference for what it does and how to schedule it.
 
+## Optional cleanup modules
+
+Start with `dev-tidy --capabilities`. It reports tools, stores and inspection readiness without
+Git fetches or deletion. Missing tools are optional; unreadable detected data stays protected.
+The skill loads only the matching [module guidance](SKILL.md). Existing cleanup flags retain
+their behavior. Docker-only mode needs no project root when Git and turbo passes are skipped.
+
+`dev-tidy --chrome-clones` is a separate macOS operation for proven-unused Chrome code-sign
+bundles. It is never part of default or scheduled cleanup. Read [storage guidance](references/storage.md)
+for the native ownership check and the distinction from browser profile data.
+
 ## Running it
 
 ```bash
@@ -27,6 +38,8 @@ Always worth reading the report first. The list is usually longer than expected.
 
 | Option | Meaning |
 | --- | --- |
+| `--capabilities` | Read-only report of optional tools, stores and cleanup readiness. |
+| `--chrome-clones` | Standalone macOS Chrome clone inspection; --yes removes only validated unused copies. |
 | `--yes` | Actually remove. Without it the script only reports. |
 | `--root PATH` | Where to look for checkouts. Repeatable. Default: whichever of `~/Work`, `~/Projects`, `~/Code`, `~/Developer`, `~/dev`, `~/src` exist. |
 | `--depth N` | How deep below each root to search. Default `4`. |
