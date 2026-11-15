@@ -23,6 +23,7 @@ import { OPTIONS, PROVIDERS, TARGETS } from './targets.mjs';
 import { adaptSkill, checkSkillFrontmatter } from './skills.mjs';
 import { mergeReviewPolicy, reviewPolicy } from './review-policy.mjs';
 import { mergeTables, mergeTopKeys } from './codex-config.mjs';
+import { syncLocal } from './local.mjs';
 
 const MANIFEST = '.agent-config-manifest.json';
 // Gitignored, in the checkout, keyed by home directory: which dirs this checkout
@@ -38,11 +39,12 @@ export function build(repo, config, { auto }) {
   const statePath = join(repo, STATE);
   const allState = readJson(statePath) ?? {};
   const state = allState[homedir()];
+  const local = auto ? null : syncLocal(repo, config.localRepository);
   const hash = hashInputs(repo);
   if (auto && (!state || state.hash === hash)) return [];
 
   const ctx = { repo, roots: rootCommits(repo) };
-  const lines = [];
+  const lines = local?.line ? [local.line] : [];
   const next = { hash, targets: {} };
   for (const [name, spec] of Object.entries(TARGETS)) {
     const target = config.targets[name];

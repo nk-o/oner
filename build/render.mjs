@@ -55,7 +55,7 @@ export function walk(dir) {
   const out = [];
   const visit = (abs) => {
     for (const name of readdirSync(abs).sort()) {
-      if (name === '.DS_Store') continue;
+      if (name === '.DS_Store' || name === '.git') continue;
       const child = join(abs, name);
       const st = lstatSync(child);
       if (st.isDirectory()) visit(child);

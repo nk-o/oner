@@ -55,6 +55,11 @@ skills also use `jq`, `lsof`, and the GitHub CLI `gh`.
   agent offers the update and applies it only when you agree.
 - **Your own rules and skills.** The build appends `local/AGENTS.md` to the rules and installs
   `local/skills/<name>/` beside the shared skills. Git ignores `local/`.
+- **Back up personal files.** Set `local.repository` in `config.json`, or Repository under
+  Personal files in Settings, to a separate Git repository. A normal build clones it into
+  `local/` or downloads updates with a fast-forward. Existing edits and unpushed commits stay
+  intact. Automatic builds never contact the remote. Commit and push changes from `local/`
+  to back them up.
 - **What is installed where.** `node bin/status.mjs` prints it.
 
 ## One command, start to finish

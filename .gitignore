@@ -2,6 +2,7 @@
 .specs/
 config.json
 local/
+.local-clone-*/
 .build-state.json
 .update-check.json
 .panel-stats*

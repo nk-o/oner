@@ -70,6 +70,7 @@ export function status(repo) {
     home: homedir(),
     configExists: existsSync(join(repo, 'config.json')),
     language: config.language,
+    localRepository: config.localRepository,
     version: version(repo),
     targets,
     effort,

@@ -14,6 +14,18 @@
       "minLength": 1,
       "default": "English"
     },
+    "local": {
+      "description": "Optional Git repository whose root supplies local/.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "description": "HTTPS or SSH Git URL. A normal build clones or fast-forwards local/; automatic builds never use the network. Existing edits and local commits are kept. Empty or null disables downloading without deleting local/.",
+          "type": ["string", "null"],
+          "default": null
+        }
+      }
+    },
     "skills": {
       "type": "object",
       "additionalProperties": false,

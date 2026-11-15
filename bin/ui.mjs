@@ -48,6 +48,9 @@ const startedAt = revision();
 function merge(raw, body) {
   const next = { $schema: './config.schema.json', ...raw };
   if (typeof body.language === 'string') next.language = body.language;
+  if (body.localRepository === null || typeof body.localRepository === 'string') {
+    next.local = { ...raw.local, repository: body.localRepository };
+  }
   if (Array.isArray(body.disabledSkills)) next.skills = { ...raw.skills, disabled: body.disabledSkills };
   next.targets = { ...raw.targets };
   for (const name of Object.keys(TARGETS)) {

@@ -52,10 +52,32 @@ export function loadConfig(repoDir) {
 export function validateConfig(raw, repoDir) {
   const at = (path, msg) => new BuildError(`config.json ${path}: ${msg}`);
   if (!isObject(raw)) throw at('', 'must be an object');
-  onlyKeys(raw, ['$schema', 'language', 'skills', 'effort', 'externalReview', 'reviewBots', 'browser', 'attribution', 'telemetry', 'autoCompact', 'targets'], '', at);
+  onlyKeys(raw, ['$schema', 'language', 'local', 'skills', 'effort', 'externalReview', 'reviewBots', 'browser', 'attribution', 'telemetry', 'autoCompact', 'targets'], '', at);
 
   if (raw.language !== undefined && (typeof raw.language !== 'string' || !raw.language.trim())) {
     throw at('language', 'must be a language name, such as "English"');
+  }
+
+  const local = objectAt(raw.local, 'local', at);
+  onlyKeys(local, ['repository'], 'local', at);
+  let localRepository = null;
+  if (local.repository !== undefined && local.repository !== null && local.repository !== '') {
+    const value = local.repository;
+    if (typeof value !== 'string' || /[\0\r\n]/.test(value) || !value) {
+      throw at('local.repository', 'must be a Git repository URL or an absolute path');
+    }
+    if (/^(?:\/|~\/)/.test(value)) localRepository = expandHome(value, repoDir);
+    else if (/\s/.test(value)) throw at('local.repository', 'encode spaces in Git URLs');
+    else if (/^[\w.-]+@[\w.-]+:[^\s]+$/.test(value)) localRepository = value;
+    else {
+      let url;
+      try { url = new URL(value); } catch {}
+      if (!url || !['https:', 'ssh:', 'file:'].includes(url.protocol) || url.password
+        || url.protocol === 'https:' && url.username || url.search || url.hash) {
+        throw at('local.repository', 'use an HTTPS, SSH or file URL without embedded credentials');
+      }
+      localRepository = value;
+    }
   }
 
   const skills = objectAt(raw.skills, 'skills', at);
@@ -136,7 +158,7 @@ export function validateConfig(raw, repoDir) {
     targets[name] = { enabled: t.enabled ?? (spec.alwaysOn || existsSync(dir)), explicit: t.enabled !== undefined, dir };
   }
 
-  return { language: raw.language?.trim() ?? 'English', disabledSkills: disabled, effort, reviewers, reviewBots, ...switches, autoCompact: compact.tokens ?? null, targets };
+  return { language: raw.language?.trim() ?? 'English', localRepository, disabledSkills: disabled, effort, reviewers, reviewBots, ...switches, autoCompact: compact.tokens ?? null, targets };
 }
 
 export function listSkills(repoDir) {

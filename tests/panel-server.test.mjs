@@ -28,7 +28,7 @@ before(async () => {
   repo = join(home, 'oner');
   cpSync(source, repo, {
     recursive: true,
-    filter: (p) => !/\/(\.git|\.claude|\.specs|tests|docs)(\/|$)/.test(p.slice(source.length)) && !/\.panel-stats/.test(p),
+    filter: (p) => !/\/(\.git|\.claude|\.specs|tests|docs|local|config\.json|\.build-state\.json|\.update-check\.json|\.local-clone-[^/]+)(\/|$)/.test(p.slice(source.length)) && !/\.panel-stats/.test(p),
   });
   execFileSync('git', ['-C', repo, 'init', '-q']);
   execFileSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'x']);
@@ -145,6 +145,28 @@ test('the editor saves through the real build, and a build refusal restores the 
   const restored = await post('/api/local/restore', { id: removed.body.id, name: 'panel-made' });
   assert.equal(restored.status, 200);
   assert.equal(existsSync(installed), true);
+});
+
+test('saving a personal repository downloads files and clearing it keeps the checkout', async () => {
+  const remote = join(home, 'personal-remote');
+  mkdirSync(remote);
+  execFileSync('git', ['-C', remote, 'init', '-q', '-b', 'main']);
+  writeFileSync(join(remote, 'downloaded.md'), 'Personal repository download.\n');
+  execFileSync('git', ['-C', remote, 'add', '--all']);
+  execFileSync('git', ['-C', remote, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'personal files']);
+  const saved = await post('/api/config', { localRepository: remote });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.equal(saved.body.state.localRepository, remote);
+  assert.equal(readFileSync(join(repo, 'local', 'downloaded.md'), 'utf8'), 'Personal repository download.\n');
+  assert.equal(JSON.parse(readFileSync(join(repo, 'config.json'), 'utf8')).local.repository, remote);
+  const cleared = await post('/api/config', { localRepository: null });
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
+  assert.equal(cleared.body.state.localRepository, null);
+  assert.equal(existsSync(join(repo, 'local', '.git')), true);
+  assert.equal(readFileSync(join(repo, 'local', 'downloaded.md'), 'utf8'), 'Personal repository download.\n');
+  const refused = await post('/api/config', { localRepository: 'ext::unsafe' });
+  assert.equal(refused.status, 400);
+  assert.equal(JSON.parse(readFileSync(join(repo, 'config.json'), 'utf8')).local.repository, null);
 });
 
 test('a server left from before an update of this checkout is replaced', async () => {

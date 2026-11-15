@@ -32,6 +32,7 @@ console.log(`Checkout   ${s.repo} (${s.version.branch} ${s.version.commit}, ${s.
 if (s.version.behind) console.log(`Update     ${s.version.behind} commit(s) on ${s.version.upstream}`);
 console.log(`Config     ${s.configExists ? 'config.json' : 'none, defaults in use'}`);
 console.log(`Language   ${s.language}`);
+console.log(`Local repo ${s.localRepository ?? 'none, local files only'}`);
 console.log('\nAgents');
 for (const t of s.targets) {
   const installed = t.installedFrom === s.repo ? `installed, ${t.files} files` : t.installedFrom ? `installed from ${t.installedFrom}` : 'not installed';

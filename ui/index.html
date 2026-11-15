@@ -240,6 +240,7 @@
   .model select { min-width: 96px; }
   .lang { display: flex; gap: 12px; align-items: center; padding: 12px 18px; flex-wrap: wrap; }
   .lang input { width: 220px; }
+  #local-repository { flex: 1; min-width: min(240px, 100%); }
   .switch { position: relative; width: 32px; height: 18px; flex: none; }
   .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
   .switch span { position: absolute; inset: 0; border-radius: 9px; background: rgb(0 0 0 / 12%); transition: background 150ms; pointer-events: none; }
@@ -347,6 +348,15 @@
       </div>
     </section>
 
+    <section aria-labelledby="h-local">
+      <h2 id="h-local">Personal files</h2>
+      <p class="help" id="local-repository-help">Optional Git repository for local rules and skills. Save and rebuild downloads updates when local files are committed. Commit and push edits to back them up.</p>
+      <div class="card lang">
+        <label for="local-repository">Repository</label>
+        <input type="text" id="local-repository" placeholder="git@github.com:you/oner-local.git" autocomplete="off" spellcheck="false" aria-describedby="local-repository-help">
+      </div>
+    </section>
+
     <section aria-labelledby="h-agents">
       <h2 id="h-agents">Agents</h2>
       <p class="help">Which agents get the rules and skills. Turning one off removes what oner put there and leaves the rest of that agent's files alone.</p>
@@ -434,6 +444,7 @@ const toggle = (id, checked, label, onchange, disabled = false) =>
 function draftFrom(s) {
   return {
     language: s.language,
+    localRepository: s.localRepository ?? null,
     targets: Object.fromEntries(s.targets.map((t) => [t.name, t.enabled])),
     effort: Object.fromEntries(s.effort.map((e) => [e.stage, e.level])),
     reviewers: Object.fromEntries(s.reviewers.map((r) => [r.name, { enabled: r.enabled, model: r.model, ...(r.effort ? { effort: r.effort } : {}) }])),
@@ -470,7 +481,7 @@ function changes() {
   for (const [name, mode] of Object.entries(draft.reviewBots)) {
     if (mode !== base.reviewBots[name]) (out.reviewBots ??= {})[name] = mode;
   }
-  for (const key of ["browser", "attribution", "telemetry", "autoCompact"]) {
+  for (const key of ["browser", "attribution", "telemetry", "autoCompact", "localRepository"]) {
     if (draft[key] !== base[key]) out[key] = draft[key];
   }
   if (JSON.stringify(draft.disabledSkills) !== JSON.stringify(base.disabledSkills)) out.disabledSkills = draft.disabledSkills;
@@ -627,6 +638,7 @@ function renderSkills() {
 
 function render() {
   $("language").value = draft.language;
+  $("local-repository").value = draft.localRepository ?? "";
   renderUpdate();
   renderAgents();
   renderEffort();
@@ -664,6 +676,7 @@ async function load() {
 }
 
 $("language").addEventListener("input", (e) => { draft.language = e.target.value.trim(); refreshBar(); });
+$("local-repository").addEventListener("input", (e) => { draft.localRepository = e.target.value.trim() || null; refreshBar(); });
 $("filter").addEventListener("input", renderSkills);
 $("discard").addEventListener("click", () => { draft = draftFrom(state); $("result").hidden = true; render(); });
 $("save").addEventListener("click", async () => {

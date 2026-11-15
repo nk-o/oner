@@ -31,6 +31,23 @@ about the current setup from it without changing anything.
 When the whole setup is being redone, or the user asks to set oner up from scratch, follow
 `{{repo_dir}}/INSTALL.md` from step 2.
 
+## Personal repository
+
+`local.repository` is an optional HTTPS or SSH Git URL. Its root supplies `local/`, including
+`AGENTS.md`, `skills/` and other personal files. Use the machine's existing Git authentication
+for a private repository. Never put credentials in the URL.
+
+A normal build clones a missing checkout or downloads updates with a fast-forward. It can
+connect an existing plain `local/` directory when overlapping files match, preserving files
+that exist only locally. A different file at the same path stops the connection before writes.
+Automatic builds use the files on disk and never contact the remote.
+
+`node {{repo_dir}}/bin/local.mjs` downloads only personal files without rebuilding agents.
+Dirty files are kept and stop this command. A normal build keeps using them and reports that
+downloading was skipped. Diverged history, another origin or a detached HEAD stops the update.
+The tool does not stash, reset, commit or push. Back up intentional edits with Git from `local/`.
+Clearing the setting stops downloading without removing the checkout or installed personal skills.
+
 ## External review consent
 
 Enabling a provider under `externalReview` is the user's consent to send it sanitized code from

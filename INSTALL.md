@@ -74,6 +74,11 @@ Write `config.json` at the checkout root with only what differs from the default
 }
 ```
 
+If the user has a separate repository for personal files, set `local.repository` to its Git
+URL in the same config. Its root becomes `local/`, so it holds `AGENTS.md`, `skills/` and any
+other personal files directly. Git must already have access to a private repository. Omit this
+setting to keep personal files on disk only. Clearing it later leaves `local/` intact.
+
 Then build:
 
 ```bash
@@ -86,6 +91,8 @@ It prints one line per agent. When it refuses, it names the file in the way and 
   show the user the file, and with their agreement move its content into `local/AGENTS.md`,
   which the build appends to the rules. Personal skills go in `local/skills/<name>/`.
 - A symlink into something that is not a checkout of this repository: show it and ask.
+- Existing `local/` files that differ from the personal repository: the build keeps every
+  file and refuses the connection. Reconcile the named files before retrying.
 
 A symlink into an older checkout of this repository is replaced on its own, with the settings it
 pointed at kept. When that older checkout sits at `~/.agents`, tell the user to remove it once
