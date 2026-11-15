@@ -300,6 +300,8 @@ stops further removal. A private `.dev-tidy-purge.json` journal in the wp-env ho
 ownership across partial failures, even without compose files. It binds retries to the same
 Docker engine and runtime directory identities and is removed after success. Explicit foreign
 project labels and compose locations take precedence over matching resource names.
+If the Docker engine was intentionally replaced, remove the old journal before previewing
+again. Its saved ownership applies only to the previous engine.
 It cannot be combined with
 `--keep`, `--stop-wp-env`, `--ports-only`, `--inspect`, `--drop` or `--skip-wp-env`.
 Normal scheduled cleanup never enables purge mode.

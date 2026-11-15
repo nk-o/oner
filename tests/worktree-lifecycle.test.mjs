@@ -811,6 +811,31 @@ test('wp-env purge retries anonymous orphan resources only on the same Docker en
   assert.equal(existsSync(join(d.home, '.dev-tidy-purge.json')), false);
 });
 
+test('wp-env purge retains retry ownership while an unrelated container temporarily shares a volume', () => {
+  const f = fixture(); const d = purgeFixture(f, false); const state = structuredClone(d.initial);
+  state.volume[0].Labels = null;
+  d.write({ ...state, fail: 'volume-rm' }); assert.equal(d.run('--yes').status, 1);
+  const shared = d.read(); shared.container[0].Mounts.push({ Type: 'volume', Name: 'wp-data' }); shared.fail = 'image-rm'; d.write(shared);
+  assert.equal(d.run('--yes').status, 1);
+  assert.ok(JSON.parse(readFileSync(join(d.home, '.dev-tidy-purge.json'), 'utf8')).volumes['wp-data'] !== undefined);
+  const released = d.read(); released.container[0].Mounts.pop(); delete released.fail; d.write(released);
+  const result = d.run('--yes'); assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(d.read().volume.map(x => x.Name), ['other-data']);
+  assert.deepEqual(d.read().container, [d.initial.container[1]]);
+});
+
+test('wp-env purge trusts proven ownership over an overlapping foreign project prefix', () => {
+  const f = fixture(); const d = purgeFixture(f); const state = structuredClone(d.initial);
+  state.volume[0].Name = 'wp-env-fixture_data'; state.volume[0].Labels = null;
+  state.container[0].Mounts[0].Name = 'wp-env-fixture_data';
+  state.container[1].Config.Labels = { 'com.docker.compose.project': 'wp-env', 'com.docker.compose.project.working_dir': f.repo };
+  d.write(state);
+  const result = d.run('--yes'); assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(d.read().volume.map(x => x.Name), ['other-data']);
+  assert.deepEqual(d.read().image.map(x => x.Id), ['other-image']);
+  assert.deepEqual(d.read().container, [state.container[1]]);
+});
+
 test('wp-env purge normalizes implicit tags and resumes a partly removed runtime', () => {
   const f = fixture(); const d = purgeFixture(f); const state = structuredClone(d.initial);
   writeFileSync(join(d.dir, 'docker-compose.yml'), 'services:\n  admin:\n    image: docker.io/library/phpmyadmin\n');

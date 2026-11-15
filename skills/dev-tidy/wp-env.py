@@ -155,9 +155,9 @@ def make_plan(home, containers, volumes, images, pending=None):
     selected_volumes = []
     for v in volumes:
         project = labels(v).get("com.docker.compose.project", "")
-        if not project and v["Name"].startswith(foreign_prefixes):
-            continue
         remembered = v["Name"] in pending.get("volumes", {}) and (v.get("CreatedAt") or "") == pending["volumes"][v["Name"]]
+        if not project and v["Name"].startswith(foreign_prefixes) and v["Name"] not in used_volumes and not remembered:
+            continue
         owned_volume = owned_project(project) if project else v["Name"] in used_volumes or remembered or any(v["Name"].startswith(p + "_") for p in projects - excluded_projects)
         if not owned_volume:
             continue
@@ -178,7 +178,7 @@ def make_plan(home, containers, volumes, images, pending=None):
         refs = []
         for tag in tags:
             repo = tag.rsplit(":", 1)[0]
-            if repo.startswith(foreign_prefixes):
+            if repo.startswith(foreign_prefixes) and not (own or image["Id"] in used_images or tag in remembered_refs):
                 continue
             wp_tag = own or image_name(tag) in compose_images or tag in remembered_refs or repo in {"wordpress", "library/wordpress", "docker.io/library/wordpress"} or repo.startswith(prefixes)
             runtime_base = image["Id"] in used_images and repo in {"mariadb", "mysql", "php"}
@@ -229,9 +229,9 @@ def purge(home, apply):
         project_ids.update(labels(v).get("com.docker.compose.project", "") for v in volumes if v["Name"] in selected_volumes)
         project_ids.update(p.name for p in paths)
         save_pending(home, {"version": 1, "engine": engine, "projects": sorted(project_ids - {""}),
-                           "volumes": {v["Name"]: v.get("CreatedAt") or "" for v in volumes if v["Name"] in selected_volumes},
-                           "images": selected_images,
-                           "paths": [{"path": str(p), "inode": p.lstat().st_ino, "device": p.lstat().st_dev} for p in paths]})
+                           "volumes": {**pending.get("volumes", {}), **{v["Name"]: v.get("CreatedAt") or "" for v in volumes if v["Name"] in selected_volumes}},
+                           "images": sorted(set(tuple(pair) for pair in pending.get("images", [])) | set(selected_images)),
+                           "paths": list({item["path"]: item for item in pending.get("paths", []) + [{"path": str(p), "inode": p.lstat().st_ino, "device": p.lstat().st_dev} for p in paths]}.values())})
         for c in selected:
             docker("container", "rm", "-f", c["Id"])
         remaining, other = foreign_references(home)
