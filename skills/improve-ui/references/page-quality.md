@@ -39,8 +39,13 @@ canonical, is P1. The rest are P2.
 
 ## Fix or decide
 
-Sizing and preloading images, deferring a script, reserving space, splitting a bundle, and
-fixing a canonical, a `noindex`, a sitemap, or heading order are fixes. A title, a description,
-link text, and structured data say something about the product, so they follow the copy rule in
-the decision table: the run proposes the text and the user approves it. Removing a third-party
-script, such as analytics or chat, is a decision.
+These rows sit inside the decision table in step 3 of `SKILL.md`, which wins where they meet.
+
+- **Fixes.** Sizing and preloading images, deferring a script, reserving space, splitting a
+  bundle, fixing a canonical, a `noindex`, or a sitemap, and changing a heading's level so the
+  levels run in order while the page looks and reads the same.
+- **Decisions.** A heading that moves, appears, or goes, since that changes page structure. A
+  title, a description, link text that is vague rather than wrong, and structured data, since
+  they state something about the product: the run proposes the text and the user approves it.
+  Link text that names the wrong target is a wrong label, and the table makes that a fix.
+  Removing a third-party script, such as analytics or chat.

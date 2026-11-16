@@ -127,7 +127,11 @@ stops at the merge and this is the one thing still watching. In T3 Code, where
   identical failure is not flake. A real failure goes to **A broken release**.
 - **Exit 3.** Report what it still waits on.
 
-**Production.** After `deployed`, when the change reaches a page a user sees, open each such page
+`deploy` reads commit statuses only. When it says `nothing deploys` but the project deploys from
+a workflow, such as a GitHub Actions job on the default branch, wait for that run on the merge
+commit, `gh run list --commit <merge sha>`, and treat its failure as a deploy failure.
+
+**Production.** After the deploy, when the change reaches a page a user sees, open each such page
 in production with the browser driver, the way a user arrives: it loads, its main content
 renders, the console shows no page error, and no request for the app's own assets or API fails.
 The production URL comes from the deploy status's link, the project's `verify-<app>` skill, or
@@ -141,9 +145,11 @@ gets one of two answers:
 - **Fix forward** when the cause is known and the fix is small: a new branch from the base,
   carried through the same steps as this pull request, merge included.
 - **Revert** when users are blocked and the cause is not known yet, or a fix forward already
-  failed once. Open the revert as its own pull request from the base, by how this one merged:
-  `git revert <sha>` for a squash, `git revert -m 1 <sha>` for a merge commit, and each of its
-  commits, newest first, for a rebase. Carry it through the same steps.
+  failed once. Open the revert as its own pull request from the base. The sha is the commit that
+  landed on the base, `gh pr view <pr> --json mergeCommit`, never the pull request's head:
+  `git revert <sha>` for a squash, `git revert -m 1 <sha>` for a merge commit. A rebase merge
+  landed new copies of the pull request's `<n>` commits, ending at `<sha>`, so revert
+  `<sha>~<n>..<sha>`, which git takes newest first. Carry it through the same steps.
 
 A revert does not undo a migration that ran or a message, webhook, or API change that already
 reached someone. Those, and any failed migration, go to the user with the pull request's
