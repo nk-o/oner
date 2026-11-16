@@ -2,8 +2,9 @@
 name: frontend-design
 description: >-
   Designs and builds UI that serves its task and fits its product. Use before creating or
-  reshaping a visible screen, section, component, or interactive prototype. Reads DESIGN.md,
-  preserves existing systems, and verifies the rendered result without imposing a style.
+  reshaping a visible screen, section, or component. Reads DESIGN.md, preserves existing
+  systems, and verifies the rendered result without imposing a style. For variants to compare
+  or a clickable prototype, use `prototype`.
 license: Complete terms in LICENSE.txt
 ---
 

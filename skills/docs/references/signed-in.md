@@ -11,8 +11,8 @@ a bot check (Shopify's admin answers "Just a moment..." to Playwright), so the u
 the first choice, not the fallback. The Agent Window works in the background, and its overlay
 stays out of the page, so a capture holds the page alone.
 
-1. Start the session with `--agent-name`, `--project` and `--name`, as `AGENTS.md` says, and
-   size the tab:
+1. Start the session with `--agent-name` set to the agent's own name, `--project` to the
+   repository's directory name, and `--name` to the task in a few words, and size the tab:
    ```bash
    bsk emulate --width 1440 --height 900 --dpr 2 --session <id> --context <ctx> --observation <obs>
    bsk evaluate '({ page: [innerWidth, innerHeight], dpr: devicePixelRatio })' --session <id> --context <ctx> --observation <obs>

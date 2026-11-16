@@ -1,13 +1,11 @@
 ---
 name: stale-pr
 description: >-
-  Brings an old pull request up to date, or shows it should not be. Decides whether its goal
-  still holds against the current base branch (MODERNIZE, REWORK, or CLOSE), and for MODERNIZE
-  merges the base in and checks the change survived. Also sweeps every open pull request older
+  Brings an old pull request up to date, or shows it should not be, by checking whether its
+  goal still holds against the current base branch. Also sweeps every open pull request older
   than a given age into one table of verdicts, changing nothing. Use when asked to update,
   rebase, revive, or triage an old or stale pull request, or to go through the open pull
-  requests that have been sitting. For new review feedback on a fresh pull request, use
-  `pr-feedback`.
+  requests that have been sitting. For new review feedback on a fresh pull request, use `pr-feedback`.
 argument-hint: "[pull request number or URL, or an age in days for a sweep]"
 ---
 

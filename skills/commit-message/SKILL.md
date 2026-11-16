@@ -1,10 +1,9 @@
 ---
 name: commit-message
 description: >-
-  Writes the commit message for a staged change in Conventional Commits form: an imperative
-  subject under fifty characters, a body only when the why is not in the diff, no filler and no
-  attribution. Use before every `git commit`, whether the user asked for the message or the
-  commit is a step in a run, and when asked to write or rewrite a commit message.
+  Writes the commit message for a staged change in Conventional Commits form. Use before every
+  `git commit`, whether the user asked for the message or the commit is a step in a run, and
+  when asked to write or rewrite a commit message.
 allowed-tools: Bash(git rev-parse *) Bash(git diff *) Bash(git log *) Bash(git status *)
 ---
 

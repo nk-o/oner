@@ -1,15 +1,12 @@
 ---
 name: prototype
 description: >-
-  Build working UI prototypes and meaningful variants of a component, section, page, screen, or
-  short flow, from a wide round of many different directions down to live controls for the
-  parameters still open in a chosen one, or a clickable
-  single-file demo that pushes a state model or business rule through its awkward cases. Use
-  when the user asks to prototype, compare designs, explore alternatives, make screen or
-  section variations, tune a design's open parameters live, or check whether a state machine,
-  workflow rule, or data shape holds up before building it. Applies to browser and
-  Figma exploration across agents. Ordinary implementation of an already chosen design
-  belongs to frontend-design or figma-design.
+  Builds working UI prototypes and variants of a component, section, page, screen, or short
+  flow, from many directions down to live controls for a chosen one, or a clickable demo that
+  pushes a state model or business rule through its awkward cases. Use when the user asks to
+  prototype, compare designs, explore alternatives, tune a design's open parameters live, or
+  check whether a state machine, workflow rule, or data shape holds up before building it. A
+  design already chosen goes to `frontend-design` or `figma-design`.
 license: MIT. Adapted material and attribution in LICENSE.txt and references/sources.md.
 ---
 

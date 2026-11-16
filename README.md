@@ -25,8 +25,8 @@ something that worked the day before. Read it and take what helps. There is no s
   checks its work, and treats review comments.
 - **`/oneshot`.** It takes a feature or a bug from idea to an open pull request and stops once,
   early, for your decisions.
-- **Review by other vendors' models.** Codex, Cursor, and Claude review a change through your own
-  subscriptions, each on a sanitized copy of the code.
+- **Review by other vendors' models.** Codex, Cursor, Claude, and Grok review a change through
+  your own subscriptions, each on a sanitized copy of the code.
 - **Skills** for planning, interface design, debugging, review, and shipping, listed below.
 - **A panel** with what waits on you across agents and pull requests, activity charts for any dates, an
   editor for your local skills, and the settings: the reply language, the agents, the reviewers,
@@ -88,16 +88,16 @@ The same work, one step at a time, for when you want to see each stage:
 
 | Step | Command | What you get |
 | --- | --- | --- |
-| Isolate the work | `wt new <name>` | a worktree on a fresh branch, with its own dev port, env files, and dependencies |
+| Isolate the work | `/worktree new <name>` | a worktree on a fresh branch, with its own dev port, env files, and dependencies |
 | Think it through | `/brainstorm <idea>` | the idea checked against the real code, and every decision that can be settled now |
 | Write it down | `/spec` | `plan.md`, plus `spec.md` when the work is big, each approved before the next |
 | Build it | `/implement` | `plan.md` worked task by task, with each acceptance criterion checked in the product |
 | Open the PR | `/pr`, then `gh pr create` | a title and body written for a person |
 | Wait for CI and review | `/pr-wait` | the PR watched until it is ready, real defects fixed, every thread answered |
 | Merge | `/pr-wait` | the PR merged once checks and review are through |
-| Clean up | `wt finish` | the dev server stopped, the branch and worktree removed |
+| Clean up | `/worktree finish` | the dev server stopped, the branch and worktree removed |
 
-A one-file fix needs only `wt new`, the edit, `/pr`, the merge, and `wt finish`.
+A one-file fix needs only `/worktree new`, the edit, `/pr`, the merge, and `/worktree finish`.
 [docs/workflow.md](docs/workflow.md) explains why planning takes three skills and how to prepare
 a new project.
 
@@ -196,8 +196,8 @@ These skills ran beside ours for a while and were later removed: `brainstorming`
 `zoom-out` from [mattpocock/skills](https://github.com/mattpocock/skills); `copywriting` and
 `copy-editing` from [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills);
 `documentation-writer` from [github/awesome-copilot](https://github.com/github/awesome-copilot);
-`improve` from [shadcn/improve](https://github.com/shadcn/improve); and `find-skills` from
-[vercel-labs/skills](https://github.com/vercel-labs/skills).
+the upstream `improve` from [shadcn/improve](https://github.com/shadcn/improve), which
+`improve-code` replaced; and `find-skills` from [vercel-labs/skills](https://github.com/vercel-labs/skills).
 
 ## License
 

@@ -5,10 +5,10 @@ planning skills split the work and how to prepare a project for it.
 
 ## Worktrees
 
-Each feature gets its own worktree and its own chat. `wt new <name>` creates the worktree on a
-fresh branch, with its own dev port, local env files, and installed dependencies. `wt status`
-prints every worktree with its port, dev server, and pull request state. Once the pull request has merged, `wt finish`
-stops the dev server and deletes the branch and the worktree. It prints a plan and changes
+Each feature gets its own worktree and its own chat. `/worktree new <name>` creates the worktree
+on a fresh branch, with its own dev port, local env files, and installed dependencies.
+`/worktree status` prints every worktree with its port, dev server, and pull request state. Once
+the pull request has merged, `/worktree finish` stops the dev server and deletes the branch and the worktree. It prints a plan and changes
 nothing until you add `--yes`. `dev-tidy` sweeps every merged worktree on the machine.
 
 ## Why brainstorm, spec, and implement are three skills
@@ -52,4 +52,4 @@ of every place a user can reach and the files behind it. When that CLI exists, `
 `/implement` use it to check the features a diff reaches.
 
 Run it again on a project that has `worktree.json` but no verify skill yet. Check the result with
-`wt new`.
+`/worktree new`.

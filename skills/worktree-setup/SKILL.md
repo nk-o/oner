@@ -1,12 +1,12 @@
 ---
 name: worktree-setup
 description: >-
-  Prepares a project for parallel worktrees and for verification. Reserves a dev port block,
-  writes .claude/worktree.json and a verify-<app> skill (a CLI and a map of every feature a
-  user reaches) that proves a change on the running app, fixes the gitignore entries, and
-  records shared local services that only one worktree may own. Run once per repository. Use when worktree work starts in a repository that has no
-  .claude/worktree.json, including a session that begins inside an app-created worktree, when
-  wt.sh reports the file missing or wrong, or when a project has no verify-<app> skill yet.
+  Prepares a repository for parallel worktrees and for verification: a dev port block,
+  .claude/worktree.json, and a verify-<app> skill that drives the running app. Run once per
+  repository. Use when worktree work starts in a repository with no .claude/worktree.json,
+  including a session that begins inside an app-created worktree, when wt.sh reports the file
+  missing or wrong, or when a project has no verify-<app> skill yet. When the file exists, use
+  `worktree`.
 ---
 
 # Worktree setup

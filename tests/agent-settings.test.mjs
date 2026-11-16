@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { mergeTables, mergeTopKeys } from '../build/codex-config.mjs';
-import { validateConfig } from '../build/config.mjs';
+import { readFileSync } from 'node:fs';
+import { listSkills, validateConfig } from '../build/config.mjs';
 import { mergeSettings } from '../build/install.mjs';
 
 const personal = 'model = "gpt"\n\n[mcp_servers.node_repl]\ncommand = "node_repl"\n';
@@ -73,4 +74,11 @@ test('Grok review needs explicit consent and accepts its model and effort', () =
   assert.equal(validateConfig({}, repo).reviewers.grok.enabled, false);
   const config = validateConfig({ externalReview: { grok: { enabled: true, model: 'grok-4.7', effort: 'high' } } }, repo);
   assert.deepEqual(config.reviewers.grok, { enabled: true, model: 'grok-4.7', effort: 'high' });
+});
+
+test('the settings page puts every skill under a stage, so none falls into Other', () => {
+  const page = readFileSync(resolve('ui/index.html'), 'utf8');
+  const stages = page.match(/const STAGES = \[([\s\S]*?)\n\];/)[1];
+  const staged = new Set([...stages.matchAll(/"([a-z][a-z-]*)"/g)].map((m) => m[1]));
+  assert.deepEqual(listSkills(resolve('.')).filter((name) => !staged.has(name)), []);
 });

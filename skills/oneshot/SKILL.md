@@ -1,15 +1,12 @@
 ---
 name: oneshot
 description: >-
-  Carries one task from idea to open pull request in one run. Stops at most once, early, and
-  only for decisions the user could answer differently, then builds, checks, reviews with several models from different
-  vendors, fixes what the review proves, opens the PR, and watches it until checks and review
-  bots are through, without stopping again. Work whose parts must
-  reach production in order becomes a series of PRs, each merged, deployed, and verified in
-  production once the user authorizes that release at the gate. The user starts it by name. Start it
-  yourself only when the user hands over a whole feature or bug and asks for it carried through
-  to a pull request. A question, a one-line edit, a review of shipped code, or work already
-  under way in the chat goes the ordinary way.
+  Carries one task from idea to an open pull request in one run, stopping at most once, early,
+  for decisions the user could answer differently. Work whose parts must reach production in
+  order becomes a series of pull requests. The user starts it by name. Start it yourself only
+  when the user hands over a whole feature or bug and asks for it carried to a pull request. A
+  question, a one-line edit, a review of shipped code, or work already under way in the chat
+  goes the ordinary way.
 argument-hint: "[feature idea, ticket, bug report, or question]"
 ---
 
