@@ -57,7 +57,7 @@ of files it touches.
 
 The sections above are rules. Who acts on them is the caller's to say, as `pr-wait` and the
 oneshot review lane do. Run on its own, this skill drafts and the user acts: report per
-`resolve-review`'s Report, in the numbers from the Comments step, recommend the one rerun and
-the merge or rebase for the user to start, and add a ready-to-paste reply with its citation
+`resolve-review`'s Report, in the numbers from the Comments step, recommend the one rerun and,
+for a conflict, merging the base in, for the user to start, and add a ready-to-paste reply with its citation
 for every `WRONG` and `LATER` item, under the thread or comment link from the context block.
 One pass, and no second one on your own.

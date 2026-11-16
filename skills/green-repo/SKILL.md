@@ -1,12 +1,10 @@
 ---
 name: green-repo
 description: >-
-  Makes the repository pass its own gates: the checks list in .claude/worktree.json when the
-  project has one, otherwise the package.json verification scripts in order (format, lint,
-  type-check, test, knip, build, then whatever CI runs). Uses the project's own autofix scripts,
-  understands a failure before editing, fixes the right layer, and repeats until green or
-  blocked. Use when the user wants the project green or the checks passing, before opening a
-  pull request, and as the Green step of a oneshot run.
+  Makes the repository pass its own gates, the checks in .claude/worktree.json or the
+  package.json scripts, fixing each failure at the right layer until green or blocked. Use when
+  the user wants the project green or the checks passing, before opening a pull request, and as
+  the Green step of a oneshot run.
 ---
 
 # Green repo

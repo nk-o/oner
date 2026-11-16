@@ -1,9 +1,9 @@
 ---
 name: design-context
 description: >-
-  Reads a project's DESIGN.md and existing visual system before designing or changing UI.
-  Creates or updates DESIGN.md when asked to document a design system or when an approved
-  new visual direction needs to be recorded. Also uses measured website or Figma references.
+  Reads a project's DESIGN.md and existing visual system. Use before designing or changing UI,
+  and to create or update DESIGN.md when asked to document a design system or to record an
+  approved new visual direction. Also uses measured website or Figma references.
 ---
 
 # Design context

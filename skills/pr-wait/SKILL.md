@@ -2,12 +2,11 @@
 name: pr-wait
 description: >-
   Watches a pull request until it is ready and works what arrives on the way: failed checks,
-  merge conflicts, and comments and threads from people and review bots. Fixes what is real,
-  answers every thread, and resolves the bots' threads. Use right after opening a pull request,
-  when asked to watch, babysit, or wait for CI or review on one, when a `<ci-monitor-event>`
-  arrives, before merging a pull request once it is ready, and after merging one to watch its
-  deployment. For one pass over a pull request's feedback without waiting, use `pr-feedback`.
-  A pull request is watched with this skill, never with `loop`.
+  merge conflicts, and comments and threads from people and review bots. Use right after
+  opening a pull request, when asked to watch, babysit, or wait for CI or review on one, when a
+  `<ci-monitor-event>` arrives, before merging a pull request once it is ready, and after
+  merging one to watch its deployment. For one pass over a pull request's feedback without
+  waiting, use `pr-feedback`. A pull request is watched with this skill, never with `loop`.
 argument-hint: "[pull request number or URL]"
 ---
 

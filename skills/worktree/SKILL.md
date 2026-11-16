@@ -4,9 +4,9 @@ description: >-
   Runs the feature lifecycle on a git worktree. Creates one with its own dev port and env files,
   then removes the branch, the directory, and the dev server once its pull request has merged.
   Use when starting a feature in a worktree, when a session begins inside a worktree the app
-  created and the environment is not set up yet, when checking what worktrees and pull requests
-  are open, or when finishing one. Also for stale-port complaints. To clean up
-  merged worktrees across the machine, use `dev-tidy`.
+  created and the repository has .claude/worktree.json, when checking what worktrees and pull
+  requests are open, when finishing one, and for stale-port complaints. Without that file, use
+  `worktree-setup`. To clean up merged worktrees across the machine, use `dev-tidy`.
 allowed-tools: Bash(git worktree list*) Bash(gh pr view*) Bash(*/wt.sh status*)
 ---
 
