@@ -3,10 +3,10 @@ name: improve-ui
 description: >-
   Audits a running product's screens the way a UI/UX designer would and fixes what it finds in
   rounds: spacing, overlap, overflow, contrast, missing states, keyboard and touch, awkward
-  flows, and on public pages load speed and what search engines read. Covers one screen, a section, or every screen a user reaches, public pages included,
-  and ends with an HTML report that pairs a before and an after screenshot with a verdict and a
-  reason for each change. Product decisions go into the report, not the code. The user starts it
-  by name. For one screen in one direction, use `refine`. For a report without edits, use
+  flows, and on public pages load speed and what search engines read. Covers one screen, a
+  section, or every screen a user reaches, public pages included, and ends with an HTML report
+  that pairs a before and an after screenshot with a verdict and a reason for each change.
+  Product decisions go into the report, not the code. The user starts it by name. For one screen in one direction, use `refine`. For a report without edits, use
   `design-review`.
 disable-model-invocation: true
 argument-hint: "[screen, route, section, or all] [focus, such as mobile, contrast, or forms]"
