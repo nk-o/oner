@@ -60,6 +60,38 @@ const rows = [
   ['rm -rf node_modules dist', 'pass'],
   ['rm -rf "$SCRATCH/home"', 'pass'],
   ['echo git push --force origin main', 'pass'],
+  // What the shell runs, wherever it sits in the line.
+  ["bash -c 'git push --force origin main'", 'deny'],
+  ["sh -lc 'rm -rf /'", 'deny'],
+  ['git commit -m "$(git push --force origin main)"', 'deny'],
+  ['echo `rm -rf ~`', 'deny'],
+  ['if true; then rm -rf "$HOME"; fi', 'deny'],
+  ['for d in a b; do rm -rf "$d"; done', 'pass'],
+  ['echo "example; rm -rf /; done"', 'pass'],
+  ["git commit -F - <<'EOF'\ngit push --force origin main\nrm -rf /\nEOF\n", 'pass'],
+  ["git commit -F - <<'EOF'\nfine\nEOF\ngit push --force origin main", 'deny'],
+  // The directory a cd moved to, and paths only a variable names.
+  [`cd .. && rm -rf ${repo.split('/').pop()}`, 'deny'],
+  [`rm -rf ${root}`, 'deny'],
+  ['cd /tmp && rm -rf *', 'pass'],
+  [`cd / && cd ${repo} && rm -rf *`, 'deny'],
+  ['rm -rf /Users/$USER', 'deny'],
+  ['rm -rf "${HOME:-/}"', 'deny'],
+  // Every way git spells a remote, a refspec, or a flag.
+  ['git push --repo=origin :main', 'deny'],
+  ['git push --repo=origin +HEAD:main', 'deny'],
+  ['git push --force origin :', 'deny'],
+  ["git push origin '+refs/heads/*:refs/heads/*'", 'deny'],
+  ['git push origin :', 'pass'],
+  ['git checkout -qf main', 'ask'],
+  ['git switch -f main', 'ask'],
+  ['git switch --discard-changes main', 'ask'],
+  ['git branch -d --force old-work', 'ask'],
+  ['git branch -df old-work', 'ask'],
+  ['git branch -d merged-work', 'pass'],
+  ['git restore -S .', 'pass'],
+  ['git restore -SW .', 'ask'],
+  ['git clean -fn', 'pass'],
 ];
 
 for (const [command, expected] of rows) {
