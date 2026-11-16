@@ -4,8 +4,8 @@ description: >-
   Watches a pull request until it is ready and works what arrives on the way: failed checks,
   merge conflicts, and comments and threads from people and review bots. Use right after
   opening a pull request, when asked to watch, babysit, or wait for CI or review on one, when a
-  `<ci-monitor-event>` arrives, before merging a pull request once it is ready, and after
-  merging one to watch its deployment. For one pass over a pull request's feedback without
+  `<ci-monitor-event>` arrives, before merging a pull request once it is ready, and after a
+  merge, yours or the user's, to watch the deployment and check production. For one pass over a pull request's feedback without
   waiting, use `pr-feedback`. A pull request is watched with this skill, never with `loop`.
 argument-hint: "[pull request number or URL]"
 ---
@@ -110,23 +110,52 @@ again. The merge method is the one the repository allows, squash when several ar
 `gh pr merge <n> --<method> --match-head-commit <sha>` as a command of its own, as `AGENTS.md`
 says, and check the result in a second call.
 
-## After a merge you made
+## After a merge
 
-The task ends when the change is live, not when it merged. Run `pr-wait.mjs deploy <pr>` as a
-background command, because the app's Auto-fix stops at the merge and this is the one thing still
-watching. In T3 Code, where `t3_background_wait` exists, call it with the command's task ID
-before the turn ends. A series skips this, since `series.mjs` verifies its own deploys.
+This runs after a merge you made, and after one the user made by hand when the task is to see
+the work through. The task ends when the change is live, not when it merged. A series skips this
+section, since `series.mjs` verifies its own deploys.
+
+**Deploy.** Run `pr-wait.mjs deploy <pr>` as a background command, because the app's Auto-fix
+stops at the merge and this is the one thing still watching. In T3 Code, where
+`t3_background_wait` exists, call it with the command's task ID before the turn ends.
 
 - **Exit 0.** Report the line it printed. `nothing deploys` is the normal result for a branch that
   does not deploy.
 - **Exit 1.** The deployment is blocked, and so is every deployment after it. Open the failed
   status's link. A flaky failure gets one rerun, `gh run rerun <run-id> --failed`, and a second
-  identical failure is not flake. A real failure gets a fix on a new branch from the base, carried
-  through the same steps as this pull request, merge included. A failed migration goes to the user.
+  identical failure is not flake. A real failure goes to **A broken release**.
 - **Exit 3.** Report what it still waits on.
+
+**Production.** After `deployed`, when the change reaches a page a user sees, open each such page
+in production with the browser driver, the way a user arrives: it loads, its main content
+renders, the console shows no page error, and no request for the app's own assets or API fails.
+The production URL comes from the deploy status's link, the project's `verify-<app>` skill, or
+its deploy config. A failure counts when it shows on two checks a minute apart, since a cache
+or a cold start can fail once. Never sign in as a real user or write data in production for the
+check. Without a URL, report `Production not checked` and why.
+
+**A broken release.** A real deploy failure, or a production failure this change can cause,
+gets one of two answers:
+
+- **Fix forward** when the cause is known and the fix is small: a new branch from the base,
+  carried through the same steps as this pull request, merge included.
+- **Revert** when users are blocked and the cause is not known yet, or a fix forward already
+  failed once. Open the revert as its own pull request from the base, by how this one merged:
+  `git revert <sha>` for a squash, `git revert -m 1 <sha>` for a merge commit, and each of its
+  commits, newest first, for a rebase. Carry it through the same steps.
+
+A revert does not undo a migration that ran or a message, webhook, or API change that already
+reached someone. Those, and any failed migration, go to the user with the pull request's
+rollback note.
+
+**Clean up.** Once the change is live, update the issue through `issue-tracker` when one is in
+scope, and delete this work's `.specs/` folder per `AGENTS.md`. For the work's worktree, print
+the plan `wt.sh finish` shows and leave the removal to the user, unless the task said to finish
+it.
 
 ## Report
 
 The pull request's link and the head it is ready on, or what it still waits on. The commits
 the fixes added, the threads answered and the ones resolved, and what went to the user. After a
-merge, the line `deploy` printed.
+merge, the line `deploy` printed, the production check's result, and what was cleaned up.
