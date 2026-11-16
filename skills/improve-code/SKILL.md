@@ -1,5 +1,5 @@
 ---
-name: improve
+name: improve-code
 description: >-
   Sweeps a repository for what is worth changing and turns the rows the user picks into plans
   that `/oneshot` builds. Three kinds: modules worth deepening, shown in an HTML report with
@@ -11,12 +11,12 @@ disable-model-invocation: true
 argument-hint: "[architecture | recurrence | bugs] [path, module, or pain point] [base ref]"
 ---
 
-# Improve
+# Improve code
 
 Agents extend the patterns they read, and the code that changes most is where a shallow module
 or a missed bug costs the most. This pass finds both, verifies every candidate, and writes a plan
 for each concern the user picks. It changes no tracked file. Everything it writes goes in the
-ignored `.specs/` of the primary checkout: the ledger `.specs/improve.md` and one plan folder
+ignored `.specs/` of the primary checkout: the ledger `.specs/improve-code.md` and one plan folder
 per concern. `/oneshot <folder>` builds a plan.
 
 ## 1. Scope
@@ -27,11 +27,13 @@ per concern. `/oneshot <folder>` builds a plan.
 - **Primary checkout.** The first entry of `git worktree list`. When neither its `.gitignore`
   nor `$(git rev-parse --git-common-dir)/info/exclude` carries a `.specs/` line, add one to the
   exclude file, so this pass changes no tracked file.
-- **Ledger.** Read `<primary>/.specs/improve.md` before anything else. When it is missing,
-  create it in this shape with `Last pass. none` and empty sections. Step 4 writes the lines.
+- **Ledger.** Read `<primary>/.specs/improve-code.md` before anything else. When it is missing
+  and `.specs/improve.md` exists, rename that file, the ledger from before this skill's rename.
+  When both are missing, create it in this shape with `Last pass. none` and empty sections.
+  Step 4 writes the lines.
 
   ```markdown
-  # improve
+  # improve-code
 
   Last pass. none
 
@@ -175,7 +177,7 @@ cases that remain.
 Order the rows: `FIX` by blast radius, then `GUARD` and `REMOVE`, then `DEEPEN` and `DECIDE`,
 `Strong` first within each, and the `LEAVE` rows last, under their own heading. When there is a
 `DEEPEN` row, also render the architecture rows as an HTML report per
-[HTML-REPORT.md](HTML-REPORT.md), write it to `<tmpdir>/improve-<timestamp>.html`, open it, and
+[HTML-REPORT.md](HTML-REPORT.md), write it to `<tmpdir>/improve-code-<timestamp>.html`, open it, and
 give its absolute path.
 
 Post the table, then ask with the question routing in `AGENTS.md` which rows to plan and which
@@ -207,7 +209,7 @@ Then update the ledger. Lines already there stay unless a rule in step 3 took th
   `.specs/` and `specs/`, in the shape of `spec`'s plan-only plan (its **Depth** and **Step 2**).
   Skip its checkpoints, because the answer in step 4 is the approval, and its `.gitignore` step,
   because step 1 keeps `.specs/` out of git. Under the title and before **Done when**, put two
-  lines: `Source. improve <YYYY-MM-DD>`, and `Lane. fix` for a single `FIX`, `Lane. refactor`
+  lines: `Source. improve-code <YYYY-MM-DD>`, and `Lane. fix` for a single `FIX`, `Lane. refactor`
   for a `DEEPEN`, or `Lane. feature` for the cleanup folder. **Decisions** carry one line per
   row with its finding, evidence, and verdict, plus the choice a `DECIDE` row got and what
   `grilling` settled.

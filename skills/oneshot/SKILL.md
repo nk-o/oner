@@ -181,8 +181,9 @@ and go on with the rest of the lane.
 
 Say which lane you picked in one line before doing anything else. A feature that needs several
 pull requests becomes a series inside the feature lane, per its step 1. A task that names a
-`.specs/` folder whose plan.md carries a `Source. improve` line takes the lane its `Lane.` line
-names, per **An improve plan** in step 1.
+`.specs/` folder whose plan.md carries a `Source. improve-code` line, or `Source. improve` from
+before that skill's rename, takes the lane its `Lane.` line names, per **An improve-code plan**
+in step 1.
 
 When no lane fits, write one. Put its steps in the run log's **Lane** in full, since no file
 holds them, in the shape of the others: ground, gate, build, then
@@ -253,14 +254,14 @@ screenshot path, the output of the run that settled it>
 <per round: findings from each reviewer, fixed, refuted, deferred>
 ```
 
-**An improve plan.** `improve` wrote the folder in the primary checkout, which this run's
+**An improve-code plan.** `improve-code` wrote the folder in the primary checkout, which this run's
 worktree does not carry. Move its files into the run folder and delete the source folder. In the
-primary checkout's `.specs/improve.md`, put this branch on each **Planned** line that names the
+primary checkout's `.specs/improve-code.md`, put this branch on each **Planned** line that names the
 folder, so the next pass knows the rows are being built. When the run ends `stopped`, take
 those lines out of **Planned**, so the next pass can raise the rows again. The plan's
 **Decisions** are the gate: copy them into **Gate**. The lane's gate step posts its screen as a
 status note and asks only what a user would notice that the Decisions leave open. In the
-feature lane, **Ground and gate** and **Spec** are ticked `skip: approved improve plan <path>`
+feature lane, **Ground and gate** and **Spec** are ticked `skip: approved improve-code plan <path>`
 and **Build** runs `implement` on the moved plan.md. In the fix and refactor lanes, the lane's
 own steps build it, with plan.md's tasks as their list, ticked as each lands. Every other step
 runs as written, so the fix lane still proves the finding holds before it fixes it, and the

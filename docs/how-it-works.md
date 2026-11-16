@@ -47,7 +47,7 @@ their own, because a second copy would list every skill twice.
 `allowed-tools`, `argument-hint`, and `disable-model-invocation` are Claude Code keys. Codex and
 Cursor read only `name` and `description`, so every `description` says both what the skill does
 and when to use it. Codex also ignores `disable-model-invocation`. The skills that run only when you
-start them (`deslop`, `external-review`, `improve`, `oneshot-auto`) therefore carry an
+start them (`deslop`, `external-review`, `improve-code`, `improve-ui`, `oneshot-auto`) therefore carry an
 `agents/openai.yaml` with `allow_implicit_invocation: false`, which keeps a skill off the model's
 list in Codex.
 

@@ -109,7 +109,7 @@ a new project.
 | | `/spec` | turns a settled discussion into a staged plan, and a spec when the size calls for one |
 | | `/grilling` | questions a plan or decision you already have until its weak points show |
 | | `/codebase-design` | vocabulary for designing a deep module or placing a seam |
-| | `/improve` | sweeps the repository for modules worth deepening, mistakes that spread, and bugs in the busiest code, then plans the rows you pick |
+| | `/improve-code` | sweeps the repository for modules worth deepening, mistakes that spread, and bugs in the busiest code, then plans the rows you pick |
 | Design | `/design-context` | reads the product's `DESIGN.md` and visual system before any UI work |
 | | `/frontend-design` | builds UI that fits the product it lives in, checked on screenshots |
 | | `/figma-design` | editable Figma screens with auto layout, variables, and components |
@@ -117,6 +117,7 @@ a new project.
 | | `/refine` | improves a working screen in one direction: polish, quieter, bolder, distill, or clearer copy |
 | | `/motion-design` | purpose, timing, easing, and reduced motion for UI animation |
 | | `/design-review` | checks hierarchy, readability, accessibility, and states on the rendered result |
+| | `/improve-ui` | audits every screen a user reaches, fixes defects in rounds, and reports each change with a before and an after screenshot |
 | Build | `/implement` | works through an approved plan until every task and criterion is done |
 | | `/diagnose` | builds a command that fails on the bug first, then rules out causes until one is left |
 | | `/humanizer` | removes AI tells from a blog post, a README, or other published copy |
@@ -147,8 +148,8 @@ a new project.
 | | `/deslop` | slims a project: narrating comments, tests that guard nothing, unreached code, and copied helpers go |
 
 An agent also loads a skill on its own when a task calls for it. `/deslop`,
-`/external-review`, `/improve`, and `/oneshot-auto` are the exceptions and run only when you
-start them.
+`/external-review`, `/improve-code`, `/improve-ui`, and `/oneshot-auto` are the exceptions
+and run only when you start them.
 
 ## Agents
 
@@ -174,17 +175,17 @@ the rules in `AGENTS.md`.
 
 | Source | What came from it |
 | --- | --- |
-| [mattpocock/skills](https://github.com/mattpocock/skills) | `grilling`, `codebase-design`, and the architecture kind of `improve` (upstream `improve-codebase-architecture`); `diagnose`, from `diagnosing-bugs`; the logic branch of `prototype`; the information-access, tool-cost, and unwired-check lessons in `reflect`, from `retro`; the call tree and rollback note in `pr`; `writing-for-agents` in this repository's `.claude/skills` |
-| [pstack](https://github.com/cursor/plugins/tree/main/pstack) | `blast-radius` and the evidence rungs in `AGENTS.md`; `model-check`, from `create-formal-verification-skill`; the **Shaping code** principles in `AGENTS.md`; `reflect`; the `verify-<app>` skill `worktree-setup` writes, from `create-verification-skill`, with its CLI and feature map from Lauren Tan's Control Glass; **Mistakes that recur** in `AGENTS.md` and the recurrence kind of `improve`, from the same talk; the multi-model review in `external-review`, from `interrogate`; four technical-prose patterns in `humanizer`, from `unslop`; the comment keep list in `AGENTS.md` and `deslop`, from `no-comments` |
+| [mattpocock/skills](https://github.com/mattpocock/skills) | `grilling`, `codebase-design`, and the architecture kind of `improve-code` (upstream `improve-codebase-architecture`); `diagnose`, from `diagnosing-bugs`; the logic branch of `prototype`; the information-access, tool-cost, and unwired-check lessons in `reflect`, from `retro`; the call tree and rollback note in `pr`; `writing-for-agents` in this repository's `.claude/skills` |
+| [pstack](https://github.com/cursor/plugins/tree/main/pstack) | `blast-radius` and the evidence rungs in `AGENTS.md`; `model-check`, from `create-formal-verification-skill`; the **Shaping code** principles in `AGENTS.md`; `reflect`; the `verify-<app>` skill `worktree-setup` writes, from `create-verification-skill`, with its CLI and feature map from Lauren Tan's Control Glass; **Mistakes that recur** in `AGENTS.md` and the recurrence kind of `improve-code`, from the same talk; the multi-model review in `external-review`, from `interrogate`; four technical-prose patterns in `humanizer`, from `unslop`; the comment keep list in `AGENTS.md` and `deslop`, from `no-comments` |
 | [cursor/plugins](https://github.com/cursor/plugins) `cursor-team-kit` | the diff scope, behavior rule, and guards kind of `deslop`, from `deslop` |
-| [garrytan/gstack](https://github.com/garrytan/gstack) | the relaxed-gate rule in `AGENTS.md` and `deslop`'s criteria, from `review/gate-integrity.md`; the test kind's copied-scaffolding and test-only-caller rows, from `test-audit` |
+| [garrytan/gstack](https://github.com/garrytan/gstack) | the relaxed-gate rule in `AGENTS.md` and `deslop`'s criteria, from `review/gate-integrity.md`; the test kind's copied-scaffolding and test-only-caller rows, from `test-audit`; the round loop of `improve-ui`, from `design-review`: a baseline, one look per round, a revert on a new page error, a stop after repeated reverts, and claims left to the user |
 | [obra/superpowers](https://github.com/obra/superpowers) | the test bar in `AGENTS.md`, from `writing-good-tests` |
 | [blader/humanizer](https://github.com/blader/humanizer) | `humanizer`, built on Wikipedia's "Signs of AI writing" |
 | [emilkowalski/skills](https://github.com/emilkowalski/skills) | `prototype`; the field map, catalog, and failure signatures in `break-ui` |
 | [t3dotgg/tstack](https://github.com/t3dotgg/tstack) | `pr-wait`, from `babysit-pr` and its `pr-wait` script; `stale-pr`, from `modernize`; `oneshot-auto`, from `full-send`; the extra review round for security, access, data loss, and concurrency in `oneshot`, from `sol-loop`; the secrets check in `pr`, from `file-pr` |
-| [shadcn/improve](https://github.com/shadcn/improve) | the name of `improve`, its one table across kinds of finding, and its ledger of rejected findings |
+| [shadcn/improve](https://github.com/shadcn/improve) | the name of `improve-code`, its one table across kinds of finding, and its ledger of rejected findings |
 | [anthropics/skills](https://github.com/anthropics/skills) | `frontend-design`, extended with a branch for screens inside an existing product; the fresh-reader check in `docs`, from `doc-coauthoring` |
-| [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | `refine` and its five directions; `break-api` and the cases in `break-ui`, from its `harden`; the product UI rules, templated habits, and bounded screenshot rounds in `frontend-design` |
+| [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | `refine` and its five directions; `break-api` and the cases in `break-ui`, from its `harden`; the product UI rules, templated habits, and bounded screenshot rounds in `frontend-design`; the P0 to P3 levels and per-change verdicts in `improve-ui` |
 | [juliusbrussee/caveman](https://github.com/juliusbrussee/caveman) | `commit-message`, from `caveman-commit` |
 | Diátaxis, the Google, Microsoft, and GitLab documentation style guides, GitHub Docs' screenshot guidelines, Shopify's release-notes rules | the article types, procedure rules, screenshot rules, and metadata limits in `docs` |
 | Anthropic's prompting guides for Opus 5, Opus 5.5, and Fable 5.1 | the writing and reporting rules in `AGENTS.md`, and the named design defaults in `frontend-design` |
