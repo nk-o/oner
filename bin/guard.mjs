@@ -384,7 +384,7 @@ function checkGit(w, cwd, depth) {
   }
 }
 
-function checkRm(w, dir, roots, vars) {
+function checkRm(w, dir, roots, vars, shellDir = dir) {
   const args = w.slice(1);
   const end = args.indexOf('--');
   const head = end < 0 ? args : args.slice(0, end);
@@ -392,7 +392,9 @@ function checkRm(w, dir, roots, vars) {
   const home = homedir();
   const operands = [...head.filter((a) => !a.startsWith('-')), ...(end < 0 ? [] : args.slice(end + 1))];
   for (const raw of operands.flatMap(braces)) {
-    for (const expanded of expandAll(raw, dir, vars)) {
+    for (const expanded of expandAll(raw, shellDir, vars)) {
+      // An empty word names nothing for rm to delete.
+      if (expanded === '') continue;
       // A path that is only a variable or a substitution can be anything, / included.
       if (/^(\$\{?\w+\}?|\$\(.*\))\/?\*?$/.test(expanded)) return ['ask', `${raw} can be any path, / included`];
       if (/\$\{[^}]*[^\w}]/.test(expanded)) return ['ask', `${raw} is a path this guard cannot work out`];
@@ -463,7 +465,8 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     while (entry.depth > lastDepth) { saved.push({ dirs: new Set(dirs), chain }); lastDepth++; }
     while (entry.depth < lastDepth) {
       ({ dirs, chain } = saved.pop());
-      if (chain) { dirs = new Set([...dirs, ...chain]); chain = null; }
+      // A cd that may have failed before the subshell leaves both directories possible.
+      if (chain && ![...chain].every(isDir)) { dirs = new Set([...dirs, ...chain]); chain = null; }
       lastDepth--;
     }
     const here = [...(chain ?? dirs)];
@@ -475,21 +478,25 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     }
     for (const dir of here) for (const script of entry.nested) inner(script, dir);
     if (verdict?.[0] === 'deny') return verdict;
-    // A value only joins the ones a name already had: a skipped branch, a short-circuit, or a
-    // subshell can leave the old one in place.
-    const bind = (name, values) => {
-      const before = vars.get(name) ?? (process.env[name] === undefined ? [] : [process.env[name]]);
-      vars.set(name, [...new Set([...before, ...values])]);
+    // An assignment that surely runs replaces the value. One a branch, a short-circuit, a
+    // subshell, or a pipeline can skip or confine only joins the values the name already had,
+    // unset included.
+    const surely = !branches && !entry.depth && before !== '&&' && before !== '||' && before !== '|' &&
+      entry.op !== '|' && entry.op !== '&';
+    const bind = (name, values, replace = surely) => {
+      vars.set(name, replace ? values : [...new Set([...(vars.get(name) ?? [process.env[name]]), ...values])]);
     };
     const lead = entry.words.findIndex((word) => !JOINS.has(word) && !OPENS.has(word) && !CLOSES.has(word));
     if (entry.words[lead - 1] === 'for' && entry.words[lead + 1] === 'in') {
       const list = entry.words.slice(lead + 2).flatMap(braces);
-      bind(entry.words[lead], here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))));
+      bind(entry.words[lead], here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))), true);
       continue;
     }
     let declared = entry.words.slice(Math.max(lead, 0));
-    if (['export', 'declare', 'local', 'readonly', 'typeset'].includes(declared[0])) declared = declared.slice(1).filter((word) => !word.startsWith('-'));
-    if (lead >= 0 && declared.length && declared.every((word) => /^[A-Za-z_][A-Za-z0-9_]*(=|$)/.test(word))) {
+    const builtin = ['export', 'declare', 'local', 'readonly', 'typeset'].includes(declared[0]);
+    if (builtin) declared = declared.slice(1).filter((word) => !word.startsWith('-'));
+    const shape = builtin ? /^[A-Za-z_][A-Za-z0-9_]*(=|$)/ : /^[A-Za-z_][A-Za-z0-9_]*=/;
+    if (lead >= 0 && declared.length && declared.every((word) => shape.test(word))) {
       for (const word of declared.filter((item) => item.includes('='))) {
         const [name, ...value] = word.split('=');
         bind(name, here.flatMap((dir) => expandAll(value.join('='), dir, vars)));
@@ -498,10 +505,16 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     const chdir = [];
     const w = stripPrefixes(entry.words, chdir);
     const name = w[0]?.split('/').pop();
-    const at = chdir.length ? here.flatMap((dir) => chdir.map((to) => resolve(dir, expand(to, dir, vars)))) : here;
+    // Pairs of the directory a command runs in and the one its words were expanded in.
+    const at = here.flatMap((dir) => (chdir.length
+      ? chdir.flatMap((to) => expandAll(to, dir, vars)).map((to) => [resolve(dir, to), dir])
+      : [[dir, dir]]));
+    // A shell later in the pipeline with no script of its own runs what this command prints.
     let piped = false;
     for (let n = k; commands[n]?.op === '|'; n++) {
-      if (SHELLS.has(stripPrefixes(commands[n + 1].words)[0]?.split('/').pop())) piped = true;
+      const consumer = stripPrefixes(commands[n + 1].words);
+      const reads = consumer.slice(1).every((a) => a.startsWith('-') && !/^-[a-zA-Z]*c/.test(a));
+      if (SHELLS.has(consumer[0]?.split('/').pop()) && reads) piped = true;
     }
     for (const heredoc of entry.heredocs) {
       for (const dir of here) {
@@ -530,8 +543,8 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       const flag = w.findIndex((a, n) => n > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
       if (flag > 0 && w[flag + 1] !== undefined) for (const dir of here) inner(w[flag + 1], dir);
     } else if (name === 'eval') for (const dir of here) inner(w.slice(1).join(' '), dir);
-    else if (name === 'git') for (const dir of at) take(checkGit(w, dir, depth));
-    else if (name === 'rm') for (const dir of at) take(checkRm(w, dir, [...tops], vars));
+    else if (name === 'git') for (const [dir] of at) take(checkGit(w, dir, depth));
+    else if (name === 'rm') for (const [dir, shellDir] of at) take(checkRm(w, dir, [...tops], vars, shellDir));
     if (verdict?.[0] === 'deny') return verdict;
     if (chain && entry.op !== '&&') {
       dirs = new Set([...dirs, ...chain]);

@@ -154,6 +154,17 @@ const rows = [
   [`for d in ${Array.from({ length: 40 }, (_, n) => `d${n}`).join(' ')} "$HOME"; do rm -rf "$d"; done`, 'ask'],
   ['export OUT=dist; rm -rf "$OUT"', 'pass'],
   [`env -C .. rm -rf ${repo.split('/').pop()}`, 'deny'],
+  // Fifth review round: where env -C expands words, which assignments replace a value.
+  ['env -C /tmp rm -rf "$PWD"', 'deny'],
+  ['env -C /tmp rm -rf "$(pwd)"', 'deny'],
+  ['dir="$PWD"; dir="$dir/dist"; rm -rf "$dir"', 'pass'],
+  ['HOME=/tmp/guard-empty-home; rm -rf "$HOME"', 'pass'],
+  ['DIR="$PWD" git status; rm -rf "$DIR"', 'ask'],
+  ['cd /tmp && (true); rm -rf *', 'pass'],
+  ["cat <<'EOF' | bash -c 'cat >/dev/null'\nrm -rf ~\nEOF", 'pass'],
+  ['if false; then UNSET_IN_THIS_TEST=dist; fi; rm -rf "${UNSET_IN_THIS_TEST:-$HOME}"', 'deny'],
+  ['echo UNSET_IN_THIS_TEST=dist; rm -rf "${UNSET_IN_THIS_TEST:-$HOME}"', 'deny'],
+  ['if true; then OUT=dist; fi; rm -rf "$OUT"', 'pass'],
 ];
 
 test('a logical path to the repository counts the same as git\'s physical one', (t) => {
