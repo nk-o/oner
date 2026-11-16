@@ -76,9 +76,11 @@ Model, effort, and permission mode are left to the host. Each takes effect in th
   and pull requests.
 - `telemetry.enabled` (on by default). Off sets `DISABLE_TELEMETRY` for Claude Code and
   `[analytics] enabled = false` in Codex's `config.toml`.
-- `guard.enabled` (on by default) adds a Claude Code hook, `bin/guard.mjs`, that refuses a
-  force-push or delete of the default branch and a recursive delete of `/`, the home directory,
-  or a repository root, and asks before a hard reset, a forced clean, or another force-push.
+- `guard.enabled` (on by default) adds a hook, `bin/guard.mjs`, to Claude Code and Codex that
+  refuses a force-push or delete of the default branch and a recursive delete of `/`, the home
+  directory, or a repository root, and asks before a hard reset, a forced clean, or another
+  force-push. Codex cannot ask, so there it refuses those too, and the user trusts the hook once
+  in `/hooks`.
 - `autoCompact.tokens` sets Claude Code's `autoCompactWindow` and Codex's
   `model_auto_compact_token_limit`. Without it each agent keeps its own default.
 

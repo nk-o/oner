@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Claude Code PreToolUse hook for Bash, written when `guard.enabled` is on. It refuses what
+// PreToolUse hook for Bash in Claude Code and, with `--host codex`, in Codex, written when
+// `guard.enabled` is on. It refuses what
 // would destroy shared history or the machine (a force-push or delete of the default branch,
 // a mirror push, a recursive delete of /, the home directory, or a repository root) and asks
 // before what would lose local work (a hard reset, a forced clean, discarding every change, a
@@ -113,10 +114,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (input.tool_name === 'Bash') {
       const verdict = decide(input.tool_input?.command ?? '', input.cwd || process.cwd());
       if (verdict) {
-        const [decision, why] = verdict;
-        const reason = decision === 'deny'
+        const [found, why] = verdict;
+        // Codex parses `ask` but does not act on it, so the command would run unasked.
+        const at = process.argv.indexOf('--host');
+        const askable = at < 0 || process.argv[at + 1] !== 'codex';
+        const decision = found === 'ask' && askable ? 'ask' : 'deny';
+        const reason = found === 'deny'
           ? `Blocked by the oner guard: ${why}. If it is intended, the user runs it themselves, or turns off guard in config.json.`
-          : `The oner guard asks first: ${why}.`;
+          : askable ? `The oner guard asks first: ${why}.`
+            : `Stopped by the oner guard, since this agent cannot ask: ${why}. Ask the user, who runs it themselves if it is intended.`;
         process.stdout.write(JSON.stringify({
           hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason },
         }));
