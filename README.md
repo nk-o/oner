@@ -124,7 +124,6 @@ a new project.
 | | `/humanizer` | removes AI tells from a blog post, a README, or other published copy |
 | | `/changelog` | a release entry from commit history, keeping only what users would notice |
 | | `/docs` | help-center articles with screenshots from the running product, published through Poise |
-| | `/product-video` | a short product video recorded from the running site |
 | Check | `/prod-review` | reviews a change or shipped code by what it will do in production |
 | | `/blast-radius` | what a change breaks outside its own diff, with the key safety fact proven by running code |
 | | `/break-ui` | renders a screen with the worst data it can get, and gives a fix for each break |
