@@ -17,7 +17,7 @@ argument-hint: "[screen, route, section, or all] [focus, such as mobile, contras
 Screens drift: a gap set by hand, a state nobody rendered, a control that works only with a
 mouse. This run looks at each screen where a user meets it, fixes the defects inside the
 product's own system, and looks again, until a fresh look finds nothing it may fix. It edits the
-current checkout, on a branch other than the default one, and commits only the checkpoint in
+current checkout on its own branch, and commits only the setup in step 1 and the checkpoint in
 step 2. Its evidence goes to the run folder,
 `.specs/improve-ui-<YYYY-MM-DD>/` in this checkout, and its ledger to `.specs/improve-ui.md` in
 the primary checkout, the first entry of `git worktree list`. Keep `.specs/` out of git as
@@ -30,11 +30,13 @@ the primary checkout, the first entry of `git worktree list`. Keep `.specs/` out
   argument narrows the checks, not the screens.
 - **Clean tree.** The run checkpoints its rounds in the git index, so it starts from a tree with
   no changes. When there are changes, ask whether to commit them, set them aside, or stop, with
-  the question routing in `AGENTS.md`.
+  the question routing in `AGENTS.md`. Get off the default branch the way oneshot's Step 1
+  does, onto `improve-ui-<date>`.
 - **Driver.** Run `{{skills_dir}}/worktree/wt.sh adopt` when the repository has
   `.claude/worktree.json`. The project's `verify-<app>` skill drives every capture, so rounds
   compare the same states: run its `start`, `doctor`, and `map`. Without one, run
-  `worktree-setup` first. A capture or a state the CLI cannot reach is added to the CLI, per
+  `worktree-setup` first and commit what it writes on its own, so round 1 holds only UI fixes.
+  A capture or a state the CLI cannot reach is added to the CLI, per
   that skill's rules, not written as a one-off script.
 - **Context.** Read `design-context` for `DESIGN.md`, tokens, shared components, and the screens
   the target must match. Without a `DESIGN.md`, the existing system is the authority.
@@ -169,5 +171,5 @@ their pairs to the report.
 
 In chat: what changed, counted by surface and level, before and after. What you ran and what it
 printed. The decisions still open. What stayed unverified, such as WebKit, real devices, or a
-state the CLI could not reach. The changes stay staged, beside the step 2 checkpoint when there
-is one, and `/oneshot` or `/pr` carries them to a pull request.
+state the CLI could not reach. The changes stay staged on the run's branch. When the user asks
+for a pull request, commit them per `commit-message` and open it per `pr`.
