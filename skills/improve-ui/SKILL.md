@@ -3,7 +3,7 @@ name: improve-ui
 description: >-
   Audits a running product's screens the way a UI/UX designer would and fixes what it finds in
   rounds: spacing, overlap, overflow, contrast, missing states, keyboard and touch, awkward
-  flows. Covers one screen, a section, or every screen a user reaches, public pages included,
+  flows, and on public pages load speed and what search engines read. Covers one screen, a section, or every screen a user reaches, public pages included,
   and ends with an HTML report that pairs a before and an after screenshot with a verdict and a
   reason for each change. Product decisions go into the report, not the code. The user starts it
   by name. For one screen in one direction, use `refine`. For a report without edits, use
@@ -88,7 +88,8 @@ Look at every capture and operate the real controls: tab through, use touch targ
 rendered size, open each menu and dialog. Check against **Check the result** in
 `design-review` and its interface checks, then against "Habits to question" in
 `frontend-design`, in that order. Measure contrast and target sizes on the rendered page. A
-ratio read from a screenshot is a guess.
+ratio read from a screenshot is a guess. For a Read or Sell surface a search engine indexes,
+also measure it per [page quality](references/page-quality.md).
 
 Write each finding as a row in `run.md`:
 
@@ -130,7 +131,8 @@ together before looking again.
 3. **Capture again** into `<run>/r<N>/`, with the same width, theme, data, state, and scroll
    position as the row's earlier capture, so each pair differs only by the fix. Give each row a
    verdict, `resolved`, `partial`, or `unresolved`, from the pair, not from the diff.
-4. **Regression.** A page error the CLI reports that `r0` did not have, a new finding at another
+4. **Regression.** A page error the CLI reports that `r0` did not have, a page quality metric
+   worse than its `r0` median by more than the spread of its runs, a new finding at another
    width or theme, a consumer of a changed shared component that now looks wrong, or a failing
    test that covers a changed file reverts the fix that caused it: by hand when the cause is one
    fix, or the whole round with its patch when it is unclear, and the other fixes then run again
