@@ -262,7 +262,8 @@ function expandAll(word, dir, vars = new Map()) {
       if (!m) return [text];
       const found = value(m);
       return found === null ? [text] : found.map((v) => text.slice(0, m.index) + v + text.slice(m.index + m[0].length));
-    }).slice(0, 32);
+    });
+    if (out.length > 32) throw new Unreadable('too many values to check');
   };
   for (let round = 0; round < 8; round++) {
     const before = out.join('\0');
@@ -395,7 +396,15 @@ function checkRm(w, dir, roots, vars) {
       // A path that is only a variable or a substitution can be anything, / included.
       if (/^(\$\{?\w+\}?|\$\(.*\))\/?\*?$/.test(expanded)) return ['ask', `${raw} can be any path, / included`];
       if (/\$\{[^}]*[^\w}]/.test(expanded)) return ['ask', `${raw} is a path this guard cannot work out`];
-      if (expanded.includes('$')) continue;
+      if (expanded.includes('$')) {
+        const empty = expanded.replace(/\$\{?\w+\}?/g, '');
+        if (!empty.includes('$') && empty !== expanded) {
+          const blank = resolve(dir, empty.replace(/(^|\/)\*$/, '$1'));
+          const under = (path) => path === blank || path.startsWith(blank === '/' ? '/' : blank + sep);
+          if (blank === '/' || under(home) || roots.some(under)) return ['ask', `${raw} deletes ${blank} when a variable in it is empty`];
+        }
+        continue;
+      }
       const glob = /(^|\/)\*$/.test(expanded);
       const named = resolve(dir, expanded.replace(/(^|\/)\*$/, '$1'));
       for (const target of new Set([named, real(named)])) {
@@ -409,7 +418,7 @@ function checkRm(w, dir, roots, vars) {
   return null;
 }
 
-function stripPrefixes(w) {
+function stripPrefixes(w, chdir = []) {
   for (;;) {
     while (w.length && (JOINS.has(w[0]) || OPENS.has(w[0]) || CLOSES.has(w[0]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]))) w = w.slice(1);
     const prefix = PREFIXES[w[0]];
@@ -417,6 +426,8 @@ function stripPrefixes(w) {
     w = w.slice(1);
     while (w.length && w[0].startsWith('-')) {
       const option = w[0];
+      if (prefix === PREFIXES.env && (option === '-C' || option === '--chdir')) chdir.push(w[1] ?? '.');
+      else if (prefix === PREFIXES.env && option.startsWith('--chdir=')) chdir.push(option.slice(8));
       w = w.slice(prefix.takes?.includes(option) ? 2 : 1);
       if (option === '--') break;
     }
@@ -450,7 +461,11 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
   for (let k = 0; k < commands.length; k++) {
     const entry = commands[k];
     while (entry.depth > lastDepth) { saved.push({ dirs: new Set(dirs), chain }); lastDepth++; }
-    while (entry.depth < lastDepth) { ({ dirs, chain } = saved.pop()); lastDepth--; }
+    while (entry.depth < lastDepth) {
+      ({ dirs, chain } = saved.pop());
+      if (chain) { dirs = new Set([...dirs, ...chain]); chain = null; }
+      lastDepth--;
+    }
     const here = [...(chain ?? dirs)];
     const before = commands[k - 1]?.op;
     for (const word of entry.words) {
@@ -458,39 +473,52 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       else if (CLOSES.has(word)) branches = Math.max(0, branches - 1);
       else if (!JOINS.has(word)) break;
     }
+    for (const dir of here) for (const script of entry.nested) inner(script, dir);
+    if (verdict?.[0] === 'deny') return verdict;
+    // A value only joins the ones a name already had: a skipped branch, a short-circuit, or a
+    // subshell can leave the old one in place.
+    const bind = (name, values) => {
+      const before = vars.get(name) ?? (process.env[name] === undefined ? [] : [process.env[name]]);
+      vars.set(name, [...new Set([...before, ...values])]);
+    };
     const lead = entry.words.findIndex((word) => !JOINS.has(word) && !OPENS.has(word) && !CLOSES.has(word));
     if (entry.words[lead - 1] === 'for' && entry.words[lead + 1] === 'in') {
       const list = entry.words.slice(lead + 2).flatMap(braces);
-      vars.set(entry.words[lead], here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))));
+      bind(entry.words[lead], here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))));
       continue;
     }
-    const assignments = entry.words.slice(Math.max(lead, 0)).every((word) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(word));
-    if (lead >= 0 && assignments) {
-      for (const word of entry.words.slice(lead)) {
+    let declared = entry.words.slice(Math.max(lead, 0));
+    if (['export', 'declare', 'local', 'readonly', 'typeset'].includes(declared[0])) declared = declared.slice(1).filter((word) => !word.startsWith('-'));
+    if (lead >= 0 && declared.length && declared.every((word) => /^[A-Za-z_][A-Za-z0-9_]*(=|$)/.test(word))) {
+      for (const word of declared.filter((item) => item.includes('='))) {
         const [name, ...value] = word.split('=');
-        const values = here.flatMap((dir) => expandAll(value.join('='), dir, vars));
-        vars.set(name, branches ? [...(vars.get(name) ?? [process.env[name]]), ...values] : values);
+        bind(name, here.flatMap((dir) => expandAll(value.join('='), dir, vars)));
       }
     }
-    for (const dir of here) for (const script of entry.nested) inner(script, dir);
-    const w = stripPrefixes(entry.words);
+    const chdir = [];
+    const w = stripPrefixes(entry.words, chdir);
     const name = w[0]?.split('/').pop();
+    const at = chdir.length ? here.flatMap((dir) => chdir.map((to) => resolve(dir, expand(to, dir, vars)))) : here;
+    let piped = false;
+    for (let n = k; commands[n]?.op === '|'; n++) {
+      if (SHELLS.has(stripPrefixes(commands[n + 1].words)[0]?.split('/').pop())) piped = true;
+    }
     for (const heredoc of entry.heredocs) {
       for (const dir of here) {
-        if (SHELLS.has(name) || name === 'eval') inner(heredoc.body, dir);
+        if (SHELLS.has(name) || name === 'eval' || piped) inner(heredoc.body, dir);
         else if (!heredoc.quoted) for (const script of substitutions(heredoc.body)) inner(script, dir);
       }
     }
     if (verdict?.[0] === 'deny') return verdict;
-    const piped = entry.op === '|' || before === '|' || entry.op === '&';
+    const background = entry.op === '|' || before === '|' || entry.op === '&';
     if ((name === 'cd' && w[1] === '-') || name === 'popd') {
-      if (!piped) dirs = new Set(seen);
+      if (!background) dirs = new Set(seen);
     } else if (name === 'cd' || name === 'pushd') {
       let operands = w.slice(1);
       while (operands.length && /^-[LPe@]+$/.test(operands[0])) operands = operands.slice(1);
       if (operands[0] === '--') operands = operands.slice(1);
       const targets = here.flatMap((dir) => expandAll(operands[0] ?? '~', dir, vars).filter((to) => !to.includes('$')).map((to) => resolve(dir, to)));
-      if (!piped && targets.length) {
+      if (!background && targets.length) {
         targets.forEach((target) => { seen.add(target); addTop(target); });
         if (entry.op === '&&') chain = new Set(targets);
         else {
@@ -502,8 +530,8 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       const flag = w.findIndex((a, n) => n > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
       if (flag > 0 && w[flag + 1] !== undefined) for (const dir of here) inner(w[flag + 1], dir);
     } else if (name === 'eval') for (const dir of here) inner(w.slice(1).join(' '), dir);
-    else if (name === 'git') for (const dir of here) take(checkGit(w, dir, depth));
-    else if (name === 'rm') for (const dir of here) take(checkRm(w, dir, [...tops], vars));
+    else if (name === 'git') for (const dir of at) take(checkGit(w, dir, depth));
+    else if (name === 'rm') for (const dir of at) take(checkRm(w, dir, [...tops], vars));
     if (verdict?.[0] === 'deny') return verdict;
     if (chain && entry.op !== '&&') {
       dirs = new Set([...dirs, ...chain]);

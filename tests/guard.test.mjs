@@ -143,6 +143,17 @@ const rows = [
   ['OUT=dist; rm -rf "$OUT"', 'pass'],
   ['timeout 30 git push --force origin main', 'deny'],
   ['timeout -s KILL 10 rm -rf /', 'deny'],
+  // Fourth review round: values a skipped assignment leaves, and what a pipe hands a shell.
+  ['rm -rf "$HOME/$UNSET_IN_THIS_TEST"', 'ask'],
+  ['TARGET="$PWD"; false && TARGET=dist; rm -rf "$TARGET"', 'deny'],
+  ['TARGET="$PWD"; (TARGET=dist); rm -rf "$TARGET"', 'deny'],
+  ['OUT=dist; export OUT="$PWD"; rm -rf "$OUT"', 'deny'],
+  ['for d in $(git push --force origin main); do echo "$d"; done', 'deny'],
+  ["cat <<'EOF' | bash\nrm -rf ~\nEOF", 'deny'],
+  ['cd /dev/null && (true); rm -rf *', 'deny'],
+  [`for d in ${Array.from({ length: 40 }, (_, n) => `d${n}`).join(' ')} "$HOME"; do rm -rf "$d"; done`, 'ask'],
+  ['export OUT=dist; rm -rf "$OUT"', 'pass'],
+  [`env -C .. rm -rf ${repo.split('/').pop()}`, 'deny'],
 ];
 
 test('a logical path to the repository counts the same as git\'s physical one', (t) => {
