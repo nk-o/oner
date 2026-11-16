@@ -12,6 +12,11 @@
 // aliases, and every directory a cd can leave the shell in, counting a cd that may fail or that
 // runs in a subshell or a pipeline. Anything else passes untouched. A line it fails to read is
 // asked about, and input it cannot parse at all passes to the host's own check.
+//
+// It refuses only what is certain: a command that reaches a protected path in every directory
+// and with every value the shell can have at that point. When only some of them reach it, it
+// asks. So the model of the shell can stay simple and over-cautious, since a case it cannot
+// settle becomes a question rather than a silent pass or a hard refusal.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -391,30 +396,38 @@ function checkRm(w, dir, roots, vars, shellDir = dir) {
   if (!head.some((a) => a === '--recursive' || /^-[a-zA-Z]*[rR]/.test(a))) return null;
   const home = homedir();
   const operands = [...head.filter((a) => !a.startsWith('-')), ...(end < 0 ? [] : args.slice(end + 1))];
+  let doubt = null;
   for (const raw of operands.flatMap(braces)) {
-    for (const expanded of expandAll(raw, shellDir, vars)) {
-      // An empty word names nothing for rm to delete.
-      if (expanded === '') continue;
-      // A path that is only a variable or a substitution can be anything, / included.
-      if (/^(\$\{?\w+\}?|\$\(.*\))\/?\*?$/.test(expanded)) return ['ask', `${raw} can be any path, / included`];
-      if (/\$\{[^}]*[^\w}]/.test(expanded)) return ['ask', `${raw} is a path this guard cannot work out`];
-      if (expanded.includes('$')) {
-        const empty = expanded.replace(/\$\{?\w+\}?/g, '');
-        if (!empty.includes('$') && empty !== expanded) {
-          const blank = resolve(dir, empty.replace(/(^|\/)\*$/, '$1'));
-          const under = (path) => path === blank || path.startsWith(blank === '/' ? '/' : blank + sep);
-          if (blank === '/' || under(home) || roots.some(under)) return ['ask', `${raw} deletes ${blank} when a variable in it is empty`];
-        }
-        continue;
-      }
-      const glob = /(^|\/)\*$/.test(expanded);
-      const named = resolve(dir, expanded.replace(/(^|\/)\*$/, '$1'));
-      for (const target of new Set([named, real(named)])) {
-        const holds = (path) => path === target || path.startsWith(target === '/' ? '/' : target + sep);
-        if (target === '/' || holds(home) || holds(real(home)) || roots.some(holds) || /(^|\/)\.git$/.test(target)) {
-          return ['deny', `this deletes ${glob ? 'everything in ' : ''}${named}`];
-        }
-      }
+    const values = expandAll(raw, shellDir, vars).filter((value) => value !== '');
+    const hits = values.map((expanded) => protectedPath(expanded, raw, dir, roots, home));
+    const found = hits.find((hit) => hit?.[0] === 'deny');
+    if (found && hits.every((hit) => hit?.[0] === 'deny')) return found;
+    if (found) doubt ??= ['ask', `${found[1].replace(/^this /, 'this may ')}, depending on the value ${raw} takes`];
+    doubt ??= hits.find(Boolean) ?? null;
+  }
+  return doubt;
+}
+
+// Whether one value of an rm operand reaches /, the home directory, a repository root, or .git.
+function protectedPath(expanded, raw, dir, roots, home) {
+  // A path that is only a variable or a substitution can be anything, / included.
+  if (/^(\$\{?\w+\}?|\$\(.*\))\/?\*?$/.test(expanded)) return ['ask', `${raw} can be any path, / included`];
+  if (/\$\{[^}]*[^\w}]/.test(expanded)) return ['ask', `${raw} is a path this guard cannot work out`];
+  if (expanded.includes('$')) {
+    const empty = expanded.replace(/\$\{?\w+\}?/g, '');
+    if (!empty.includes('$') && empty !== expanded) {
+      const blank = resolve(dir, empty.replace(/(^|\/)\*$/, '$1'));
+      const under = (path) => path === blank || path.startsWith(blank === '/' ? '/' : blank + sep);
+      if (blank === '/' || under(home) || roots.some(under)) return ['ask', `${raw} deletes ${blank} when a variable in it is empty`];
+    }
+    return null;
+  }
+  const glob = /(^|\/)\*$/.test(expanded);
+  const named = resolve(dir, expanded.replace(/(^|\/)\*$/, '$1'));
+  for (const target of new Set([named, real(named)])) {
+    const holds = (path) => path === target || path.startsWith(target === '/' ? '/' : target + sep);
+    if (target === '/' || holds(home) || holds(real(home)) || roots.some(holds) || /(^|\/)\.git$/.test(target)) {
+      return ['deny', `this deletes ${glob ? 'everything in ' : ''}${named}`];
     }
   }
   return null;
@@ -453,7 +466,17 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     const top = git(dir, ['rev-parse', '--show-toplevel']);
     if (top) tops.add(top);
   };
-  const inner = (script, dir) => take(decide(script, dir, [...tops], depth + 1, vars));
+  const inner = (script, dir) => decide(script, dir, [...tops], depth + 1, vars);
+  // A refusal holds only when the command is refused in every directory the shell can be in.
+  // Refused in some of them, it is asked about.
+  const across = (places, check) => {
+    const found = places.map(check);
+    const refused = found.find((hit) => hit?.[0] === 'deny');
+    if (refused && found.every((hit) => hit?.[0] === 'deny')) return refused;
+    if (refused) return ['ask', `${refused[1].replace(/^this /, 'this may ')}, depending on which directory the shell is in`];
+    return found.find(Boolean) ?? null;
+  };
+  const strongest = (found) => found.find((hit) => hit?.[0] === 'deny') ?? found.find(Boolean) ?? null;
   let dirs = new Set([cwd]);
   const seen = new Set([cwd]);
   let chain = null;
@@ -465,8 +488,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     while (entry.depth > lastDepth) { saved.push({ dirs: new Set(dirs), chain }); lastDepth++; }
     while (entry.depth < lastDepth) {
       ({ dirs, chain } = saved.pop());
-      // A cd that may have failed before the subshell leaves both directories possible.
-      if (chain && ![...chain].every(isDir)) { dirs = new Set([...dirs, ...chain]); chain = null; }
+      if (chain) { dirs = new Set([...dirs, ...chain]); chain = null; }
       lastDepth--;
     }
     const here = [...(chain ?? dirs)];
@@ -476,20 +498,17 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       else if (CLOSES.has(word)) branches = Math.max(0, branches - 1);
       else if (!JOINS.has(word)) break;
     }
-    for (const dir of here) for (const script of entry.nested) inner(script, dir);
+    take(across(here, (dir) => strongest(entry.nested.map((script) => inner(script, dir)))));
     if (verdict?.[0] === 'deny') return verdict;
-    // An assignment that surely runs replaces the value. One a branch, a short-circuit, a
-    // subshell, or a pipeline can skip or confine only joins the values the name already had,
-    // unset included.
-    const surely = !branches && !entry.depth && before !== '&&' && before !== '||' && before !== '|' &&
-      entry.op !== '|' && entry.op !== '&';
-    const bind = (name, values, replace = surely) => {
-      vars.set(name, replace ? values : [...new Set([...(vars.get(name) ?? [process.env[name]]), ...values])]);
+    // A name only gains values, unset included, because a skipped branch, a short-circuit, or a
+    // subshell can leave the old one in place. The doubt this leaves turns into a question.
+    const bind = (name, values) => {
+      vars.set(name, [...new Set([...(vars.get(name) ?? [process.env[name]]), ...values])]);
     };
     const lead = entry.words.findIndex((word) => !JOINS.has(word) && !OPENS.has(word) && !CLOSES.has(word));
     if (entry.words[lead - 1] === 'for' && entry.words[lead + 1] === 'in') {
       const list = entry.words.slice(lead + 2).flatMap(braces);
-      bind(entry.words[lead], here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))), true);
+      bind(entry.words[lead], here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))));
       continue;
     }
     let declared = entry.words.slice(Math.max(lead, 0));
@@ -513,14 +532,12 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     let piped = false;
     for (let n = k; commands[n]?.op === '|'; n++) {
       const consumer = stripPrefixes(commands[n + 1].words);
-      const reads = consumer.slice(1).every((a) => a.startsWith('-') && !/^-[a-zA-Z]*c/.test(a));
+      const reads = !consumer.slice(1).some((a) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
       if (SHELLS.has(consumer[0]?.split('/').pop()) && reads) piped = true;
     }
     for (const heredoc of entry.heredocs) {
-      for (const dir of here) {
-        if (SHELLS.has(name) || name === 'eval' || piped) inner(heredoc.body, dir);
-        else if (!heredoc.quoted) for (const script of substitutions(heredoc.body)) inner(script, dir);
-      }
+      const scripts = SHELLS.has(name) || name === 'eval' || piped ? [heredoc.body] : heredoc.quoted ? [] : substitutions(heredoc.body);
+      take(across(here, (dir) => strongest(scripts.map((script) => inner(script, dir)))));
     }
     if (verdict?.[0] === 'deny') return verdict;
     const background = entry.op === '|' || before === '|' || entry.op === '&';
@@ -541,10 +558,10 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       }
     } else if (name && SHELLS.has(name)) {
       const flag = w.findIndex((a, n) => n > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
-      if (flag > 0 && w[flag + 1] !== undefined) for (const dir of here) inner(w[flag + 1], dir);
-    } else if (name === 'eval') for (const dir of here) inner(w.slice(1).join(' '), dir);
-    else if (name === 'git') for (const [dir] of at) take(checkGit(w, dir, depth));
-    else if (name === 'rm') for (const [dir, shellDir] of at) take(checkRm(w, dir, [...tops], vars, shellDir));
+      if (flag > 0 && w[flag + 1] !== undefined) take(across(here, (dir) => inner(w[flag + 1], dir)));
+    } else if (name === 'eval') take(across(here, (dir) => inner(w.slice(1).join(' '), dir)));
+    else if (name === 'git') take(across(at, ([dir]) => checkGit(w, dir, depth)));
+    else if (name === 'rm') take(across(at, ([dir, shellDir]) => checkRm(w, dir, [...tops], vars, shellDir)));
     if (verdict?.[0] === 'deny') return verdict;
     if (chain && entry.op !== '&&') {
       dirs = new Set([...dirs, ...chain]);
