@@ -2,13 +2,14 @@
 name: improve-code
 description: >-
   Sweeps a repository for what is worth changing and turns the rows the user picks into plans
-  that `/oneshot` builds. Three kinds: modules worth deepening, shown in an HTML report with
+  that `/oneshot` builds. Five kinds: modules worth deepening, shown in an HTML report with
   before and after diagrams; mistakes, workarounds, silenced checks, copies, and dead code that
-  spread since the last pass; and bugs or security holes in the code that changes most. Keeps
+  spread since the last pass; bugs in the code that changes most; holes across every entry point
+  an attacker reaches; and vulnerable, abandoned, or unused dependencies. Keeps
   what the user rejected so the next pass does not raise it again. The user starts it by name.
   For a review of one change or one feature, use `prod-review`.
 disable-model-invocation: true
-argument-hint: "[architecture | recurrence | bugs] [path, module, or pain point] [base ref]"
+argument-hint: "[architecture | recurrence | bugs | security | dependencies] [path, module, or pain point] [base ref]"
 ---
 
 # Improve code
@@ -21,8 +22,8 @@ per concern. `/oneshot <folder>` builds a plan.
 
 ## 1. Scope
 
-- **Kinds.** The argument names `architecture`, `recurrence`, `bugs`, or several of them. With
-  none, run all three. A path, a module, a subsystem, or a pain point in the argument narrows
+- **Kinds.** The argument names `architecture`, `recurrence`, `bugs`, `security`,
+  `dependencies`, or several of them. With none, run all five. A path, a module, a subsystem, or a pain point in the argument narrows
   every kind to it.
 - **Primary checkout.** The first entry of `git worktree list`. When neither its `.gitignore`
   nor `$(git rev-parse --git-common-dir)/info/exclude` carries a `.specs/` line, add one to the
@@ -68,13 +69,14 @@ per concern. `/oneshot <folder>` builds a plan.
 
 This pass reads. Call the project's tools through their binaries, such as
 `node_modules/.bin/<tool>`, not through the package manager, which can install on its own and
-rewrite dependencies under a running dev server.
+rewrite dependencies under a running dev server. The read-only commands the dependencies kind
+names are the exception.
 
 ## 2. Sweep
 
 Give each kind to its own read-only subagent where the host has them, all at once. On Claude
-Code, architecture goes to `Explore`. Recurrence and bugs go to `general-purpose`, because they
-judge by rules in `AGENTS.md` and Explore skips it. Each brief carries the scope, the ledger's
+Code, architecture goes to `Explore`. The other kinds go to `general-purpose`, because they
+judge by rules in `AGENTS.md` or run commands, and Explore does neither. Each brief carries the scope, the ledger's
 **Rejected** lines for its kind, the row format in step 3, the added-lines file for
 recurrence, and the rule that it returns leads with `file:line` and no fixes. Without
 subagents, sweep the kinds yourself one after another.
@@ -131,7 +133,43 @@ Findings start in the range. A fix may land in older code when that is where the
 ### Bugs
 
 Run `prod-review` on the hot-spot paths as shipped code. Keep its verified findings in
-correctness, security, data loss, and concurrency. Its style and size remarks are not rows.
+correctness, data loss, and concurrency. Its style and size remarks are not rows.
+
+### Security
+
+An attacker does not start where the code changes most, so this kind covers every entry point,
+not the hot spots.
+
+1. **Map the surface.** List every entry point: routes, server actions, API handlers, webhooks,
+   background jobs fed by outside data, file uploads, and commands. For each, name who may call
+   it, what it reads or writes, and the tenant or owner boundary it sits behind. Name where
+   secrets live and how they reach the code.
+2. **Check each entry** against the **Access and injection** and **CI and automation** passes in
+   `prod-review`.
+3. **Keep only what an attacker can reach.** A row names the input an attacker controls, the
+   boundary it crosses, what they gain, and the control you checked that does not stop it. A
+   hole behind a check that holds is not a row.
+4. **Verify apart.** Give each candidate to a second read-only subagent with its location and
+   the invariant it breaks, not the first one's conclusion, and keep the rows it confirms.
+5. **Look for siblings.** Once a row holds, search the other entry points for the same pattern.
+   The row takes the worst instance's severity and lists the rest.
+
+### Dependencies
+
+Read the manifests and lockfiles, and run only commands that read: the package manager's
+`audit`, `outdated`, and `ls`, and `osv-scanner` when it is installed. Never `install`,
+`update`, or `audit fix`.
+
+- **Vulnerable.** A known advisory on an installed version. Trace whether the code reaches the
+  affected function. A reachable one is a `FIX`, and one nothing calls is a `LEAVE` with that
+  reason.
+- **Abandoned.** No release in two years, an archived repository, or a deprecation notice, on a
+  package the product depends on at run time. Name what replaces it.
+- **Install scripts.** A dependency added since the last pass that runs a script on install.
+- **Unused.** Declared and imported nowhere, per the project's `knip` or the same check by
+  hand.
+- **Behind.** A major version behind only when the gap blocks a security fix or a platform the
+  project targets. Otherwise it is not a row.
 
 ## 3. Verify every candidate
 
@@ -153,7 +191,7 @@ Each row carries:
 
 | Field | Holds |
 | --- | --- |
-| Kind | `architecture`, `recurrence`, or `bugs` |
+| Kind | `architecture`, `recurrence`, `bugs`, `security`, or `dependencies` |
 | Finding | One line, in the codebase's own names |
 | Evidence | `file:line`, plus the commit or input that shows it |
 | Verdict | One from the table below |
