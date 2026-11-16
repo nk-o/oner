@@ -21,8 +21,8 @@ g(repo, 'remote', 'add', 'origin', remote);
 g(repo, 'push', '-q', '-u', 'origin', 'main');
 g(repo, 'remote', 'set-head', 'origin', 'main');
 
-function verdict(command, { tool_name = 'Bash', cwd = repo } = {}) {
-  const r = spawnSync(process.execPath, [hook], { input: JSON.stringify({ tool_name, tool_input: { command }, cwd }), encoding: 'utf8' });
+function verdict(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
+  const r = spawnSync(process.execPath, [hook, ...args], { input: JSON.stringify({ tool_name, tool_input: { command }, cwd }), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   return r.stdout ? JSON.parse(r.stdout).hookSpecificOutput.permissionDecision : 'pass';
 }
@@ -70,4 +70,11 @@ test('a tool other than Bash, and input the hook cannot read, pass untouched', (
   assert.equal(verdict('git push --force origin main', { tool_name: 'Read' }), 'pass');
   const r = spawnSync(process.execPath, [hook], { input: 'not json', encoding: 'utf8' });
   assert.deepEqual([r.status, r.stdout], [0, '']);
+});
+
+test('in Codex, which cannot ask, what would ask is refused and the rest is unchanged', () => {
+  const codex = { args: ['--host', 'codex'] };
+  assert.equal(verdict('git reset --hard origin/main', codex), 'deny');
+  assert.equal(verdict('git push --force origin main', codex), 'deny');
+  assert.equal(verdict('git push -u origin feature', codex), 'pass');
 });

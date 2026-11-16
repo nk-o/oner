@@ -66,6 +66,13 @@ export const TARGETS = {
     vendor: 'codex',
     options: {
       browser: () => ({ rules: browserRule('Codex') }),
+      guard: () => ({
+        json: {
+          'hooks.json': {
+            hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node "{{repo_dir}}/bin/guard.mjs" --host codex', timeout: 5 }] }] },
+          },
+        },
+      }),
       noTelemetry: () => ({ toml: { tables: { analytics: { enabled: false } } } }),
       autoCompact: (config) => ({ toml: { keys: { model_auto_compact_token_limit: config.autoCompact } } }),
     },
