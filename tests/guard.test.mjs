@@ -147,7 +147,7 @@ const rows = [
   ['rm -rf "$HOME/$UNSET_IN_THIS_TEST"', 'ask'],
   ['TARGET="$PWD"; false && TARGET=dist; rm -rf "$TARGET"', 'ask'],
   ['TARGET="$PWD"; (TARGET=dist); rm -rf "$TARGET"', 'ask'],
-  ['OUT=dist; export OUT="$PWD"; rm -rf "$OUT"', 'deny'],
+  ['OUT=dist; export OUT="$PWD"; rm -rf "$OUT"', 'ask'],
   ['for d in $(git push --force origin main); do echo "$d"; done', 'deny'],
   ["cat <<'EOF' | bash\nrm -rf ~\nEOF", 'deny'],
   ['cd /dev/null && (true); rm -rf *', 'ask'],
@@ -180,6 +180,16 @@ const rows = [
   ['OUT=dist; OUT=; rm -rf "${OUT:+$HOME}"', 'pass'],
   ["cat <<'EOF' | bash /dev/null\nrm -rf ~\nEOF", 'pass'],
   ['d="$HOME"; for d in; do :; done; rm -rf "$d"', 'deny'],
+  // Eighth review round: declarations that can fail, readonly names, a shell reading a pipe.
+  ["cat <<'EOF' | bash --rcfile /dev/null\nrm -rf ~\nEOF", 'deny'],
+  ["cat <<'EOF' | bash /dev/stdin\nrm -rf ~\nEOF", 'deny'],
+  ["cat <<'EOF' | bash -- ./run.sh\nrm -rf ~\nEOF", 'pass'],
+  ["cat <<'EOF' | bash -sc 'cat >/dev/null'\nrm -rf ~\nEOF", 'pass'],
+  ['local HOME=/tmp/safe; rm -rf "$HOME"', 'ask'],
+  ['readonly HOME; HOME=/tmp/safe; rm -rf "$HOME"', 'ask'],
+  ['d="$HOME"; export d=dist e="$d"; rm -rf "$e"', 'ask'],
+  ['{ cd /tmp; rm -rf *; }', 'pass'],
+  ['false && { cd /tmp; }; rm -rf *', 'ask'],
 ];
 
 test('a logical path to the repository counts the same as git\'s physical one', (t) => {

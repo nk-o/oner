@@ -483,6 +483,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
   // The compound commands open at this point: if, loops, case, and { } groups. A for loop
   // remembers the value its variable had before it.
   const open = [];
+  const frozen = new Set();
   const saved = [];
   let lastDepth = 0;
   for (let k = 0; k < commands.length; k++) {
@@ -496,14 +497,16 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     const here = [...(chain ?? dirs)];
     const before = commands[k - 1]?.op;
     for (const word of entry.words) {
-      if (OPENS.has(word) || word === '{') open.push({ word });
+      // A { } group runs for certain unless && or || can skip it, or it is a function's body.
+      if (OPENS.has(word)) open.push({ word, skippable: true });
+      else if (word === '{') open.push({ word, skippable: before === '&&' || before === '||' || before === ')' });
       else if (CLOSES.has(word) || word === '}') {
         const closed = open.pop();
         // After the loop the variable holds its last item, or its old value when the list was empty.
         if (closed?.name) vars.set(closed.name, [...new Set([...closed.previous, ...(vars.get(closed.name) ?? [])])]);
       } else if (!JOINS.has(word)) break;
     }
-    const branches = open.length;
+    const branches = open.filter((item) => item.skippable).length;
     take(across(here, (dir) => strongest(entry.nested.map((script) => inner(script, dir)))));
     if (verdict?.[0] === 'deny') return verdict;
     // An assignment that surely runs replaces the value. One inside a compound command, a
@@ -526,12 +529,22 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     }
     let declared = entry.words.slice(Math.max(lead, 0));
     const builtin = ['export', 'declare', 'local', 'readonly', 'typeset'].includes(declared[0]);
+    const flags = builtin ? declared.slice(1).filter((word) => word.startsWith('-')) : [];
     if (builtin) declared = declared.slice(1).filter((word) => !word.startsWith('-'));
     const shape = builtin ? /^[A-Za-z_][A-Za-z0-9_]*(=|$)/ : /^[A-Za-z_][A-Za-z0-9_]*=/;
     if (lead >= 0 && declared.length && declared.every((word) => shape.test(word))) {
-      for (const word of declared.filter((item) => item.includes('='))) {
+      // Every value is expanded before any is set, as the shell does. A declaration builtin can
+      // fail, and a readonly name keeps its value, so neither replaces what the name held.
+      const values = declared.filter((item) => item.includes('=')).map((word) => {
         const [name, ...value] = word.split('=');
-        bind(name, here.flatMap((dir) => expandAll(value.join('='), dir, vars)));
+        return [name, here.flatMap((dir) => expandAll(value.join('='), dir, vars))];
+      });
+      for (const [name, found] of values) {
+        if (builtin || frozen.has(name)) vars.set(name, [...new Set([...(vars.get(name) ?? [process.env[name]]), ...found])]);
+        else bind(name, found);
+      }
+      if (declared[0] && (entry.words[lead] === 'readonly' || flags.some((flag) => flag.includes('r')))) {
+        for (const word of declared) frozen.add(word.split('=')[0]);
       }
     }
     const chdir = [];
@@ -545,13 +558,16 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     let piped = false;
     for (let n = k; commands[n]?.op === '|'; n++) {
       const consumer = stripPrefixes(commands[n + 1].words);
-      let reads = true;
-      for (let n2 = 1; n2 < consumer.length; n2++) {
-        const a = consumer[n2];
-        if (/^-[a-zA-Z]*s[a-zA-Z]*$/.test(a) || a === '--') break;
-        if (/^-[a-zA-Z]*c[a-zA-Z]*$/.test(a)) { reads = false; break; }
-        if (/^[-+][oO]$/.test(a)) { n2++; continue; }
-        if (!/^[-+]/.test(a)) { reads = false; break; }
+      const args = consumer.slice(1);
+      let reads = !args.some((a) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
+      if (reads && !args.some((a) => /^-[a-zA-Z]*s[a-zA-Z]*$/.test(a))) {
+        for (let n2 = 0; n2 < args.length; n2++) {
+          const a = args[n2];
+          if (/^[-+][oO]$/.test(a) || a === '--rcfile' || a === '--init-file') { n2++; continue; }
+          // The first operand is a script file, unless it names standard input.
+          const script = a === '--' ? args[n2 + 1] : /^[-+]/.test(a) ? null : a;
+          if (script !== null) { reads = script === undefined || script === '/dev/stdin' || script === '-'; break; }
+        }
       }
       if (SHELLS.has(consumer[0]?.split('/').pop()) && reads) piped = true;
     }
