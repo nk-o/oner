@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { basename, dirname, join, resolve } from 'node:path';
 import { after, test } from 'node:test';
 
 const hook = resolve('bin/guard.mjs');
@@ -75,7 +75,7 @@ const rows = [
   [`rm -rf ${root}`, 'deny'],
   ['cd /tmp && rm -rf *', 'pass'],
   [`cd / && cd ${repo} && rm -rf *`, 'deny'],
-  ['rm -rf /Users/$USER', 'deny'],
+  [`rm -rf ${dirname(homedir())}/${process.env.USER === basename(homedir()) ? '$USER' : basename(homedir())}`, 'deny'],
   ['rm -rf "${HOME:-/}"', 'deny'],
   // Every way git spells a remote, a refspec, or a flag.
   ['git push --repo=origin :main', 'deny'],
@@ -92,6 +92,44 @@ const rows = [
   ['git restore -S .', 'pass'],
   ['git restore -SW .', 'ask'],
   ['git clean -fn', 'pass'],
+  // Second review round: what a here-document feeds, where a cd really leaves the shell.
+  ["bash <<'EOF'\ngit push --force origin main\nEOF", 'deny'],
+  ['cat <<EOF\n$(rm -rf ~)\nEOF', 'deny'],
+  ["cat <<'EOF'\n$(rm -rf ~)\nEOF", 'pass'],
+  ['cat <<\\EOF\nEOF\ngit push --force origin main', 'deny'],
+  ["git commit -F - <<'EOF'\ntext\nEOF \ngit push --force origin main\nEOF", 'pass'],
+  ['(cd /tmp); rm -rf *', 'deny'],
+  ['(cd /tmp && rm -rf *)', 'pass'],
+  ['cd /tmp | cat; rm -rf *', 'deny'],
+  ['cd -- .; rm -rf *', 'deny'],
+  ['cd /definitely-missing-dir; rm -rf *', 'deny'],
+  ['false && cd /tmp; rm -rf *', 'deny'],
+  ['cd /dev/null || rm -rf *', 'deny'],
+  ['cd /tmp && rm -rf *; rm -rf *', 'deny'],
+  [`cd -P .. && rm -rf ${repo.split('/').pop()}`, 'deny'],
+  ['cd /tmp && echo "$(rm -rf *)"', 'pass'],
+  // Spellings the shell and git accept.
+  ['git push --force-with-l origin main', 'deny'],
+  ["git push --force origin '+refs/tags/*:refs/tags/*'", 'ask'],
+  ["git push origin '+refs/heads/feature/*:refs/heads/feature/*'", 'ask'],
+  ['rm -rf ~ --', 'deny'],
+  ["bash -c $'rm -rf ~'", 'deny'],
+  ['rm -rf "${HOME:0}"', 'deny'],
+  ['rm -rf "${PATH:+$HOME}"', 'deny'],
+  ['rm -rf "${PATH:+/}"', 'deny'],
+  ['rm -rf "${DIR%/*}"', 'ask'],
+  ['echo <(rm -rf ~)', 'deny'],
+  ["git -c alias.p='push --force origin main' p", 'deny'],
+  ['git -c remote.origin.mirror=true push origin', 'deny'],
+  ['rm -rf "$(pwd)"', 'deny'],
+  ['rm -rf "$(git rev-parse --show-toplevel)/dist"', 'pass'],
+  ['rm -rf /{tmp,}', 'deny'],
+  ['rm -rf ~/{.ssh,}', 'deny'],
+  ['sudo -n rm -rf ~', 'deny'],
+  ['env -u FOO rm -rf ~', 'deny'],
+  ['nice -n 5 rm -rf ~', 'deny'],
+  ['time -p git push --force origin main', 'deny'],
+  [`${"bash -c '".repeat(1)}${'eval '.repeat(12)}rm -rf ~'`, 'ask'],
 ];
 
 for (const [command, expected] of rows) {
