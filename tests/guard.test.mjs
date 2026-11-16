@@ -147,7 +147,7 @@ const rows = [
   ['rm -rf "$HOME/$UNSET_IN_THIS_TEST"', 'ask'],
   ['TARGET="$PWD"; false && TARGET=dist; rm -rf "$TARGET"', 'ask'],
   ['TARGET="$PWD"; (TARGET=dist); rm -rf "$TARGET"', 'ask'],
-  ['OUT=dist; export OUT="$PWD"; rm -rf "$OUT"', 'ask'],
+  ['OUT=dist; export OUT="$PWD"; rm -rf "$OUT"', 'deny'],
   ['for d in $(git push --force origin main); do echo "$d"; done', 'deny'],
   ["cat <<'EOF' | bash\nrm -rf ~\nEOF", 'deny'],
   ['cd /dev/null && (true); rm -rf *', 'ask'],
@@ -157,8 +157,8 @@ const rows = [
   // Fifth review round: where env -C expands words, which assignments replace a value.
   ['env -C /tmp rm -rf "$PWD"', 'deny'],
   ['env -C /tmp rm -rf "$(pwd)"', 'deny'],
-  ['dir="$PWD"; dir="$dir/dist"; rm -rf "$dir"', 'ask'],
-  ['HOME=/tmp/guard-empty-home; rm -rf "$HOME"', 'ask'],
+  ['dir="$PWD"; dir="$dir/dist"; rm -rf "$dir"', 'pass'],
+  ['HOME=/tmp/guard-empty-home; rm -rf "$HOME"', 'pass'],
   ['DIR="$PWD" git status; rm -rf "$DIR"', 'ask'],
   ['cd /tmp && (true); rm -rf *', 'ask'],
   ["cat <<'EOF' | bash -c 'cat >/dev/null'\nrm -rf ~\nEOF", 'pass'],
@@ -172,6 +172,14 @@ const rows = [
   ['TARGET="$HOME"; false && { :; TARGET=dist; }; rm -rf "$TARGET"', 'ask'],
   ["cat <<'EOF' | bash -s -- arg\nrm -rf ~\nEOF", 'deny'],
   ["cat <<'EOF' | bash -o pipefail\nrm -rf ~\nEOF", 'deny'],
+  // Seventh review round: an assignment that surely runs replaces, empty values are harmless.
+  ['d="$PWD"; for d in dist build; do rm -rf "$d"; done', 'pass'],
+  ['d=dist; d=$d/a; d=$d/b; d=$d/c; d=$d/e; d=$d/f; rm -rf "$d"', 'pass'],
+  ['dir="$PWD"; dir=""; rm -rf "$dir"', 'pass'],
+  ['if false; then OUT=/; fi; rm -rf "$OUT"', 'ask'],
+  ['OUT=dist; OUT=; rm -rf "${OUT:+$HOME}"', 'pass'],
+  ["cat <<'EOF' | bash /dev/null\nrm -rf ~\nEOF", 'pass'],
+  ['d="$HOME"; for d in; do :; done; rm -rf "$d"', 'deny'],
 ];
 
 test('a logical path to the repository counts the same as git\'s physical one', (t) => {

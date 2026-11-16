@@ -398,8 +398,8 @@ function checkRm(w, dir, roots, vars, shellDir = dir) {
   const operands = [...head.filter((a) => !a.startsWith('-')), ...(end < 0 ? [] : args.slice(end + 1))];
   let doubt = null;
   for (const raw of operands.flatMap(braces)) {
-    const values = expandAll(raw, shellDir, vars).filter((value) => value !== '');
-    const hits = values.map((expanded) => protectedPath(expanded, raw, dir, roots, home));
+    // An empty value deletes nothing, so it counts as a harmless alternative.
+    const hits = expandAll(raw, shellDir, vars).map((expanded) => (expanded === '' ? null : protectedPath(expanded, raw, dir, roots, home)));
     const found = hits.find((hit) => hit?.[0] === 'deny');
     if (found && hits.every((hit) => hit?.[0] === 'deny')) return found;
     if (found) doubt ??= ['ask', `${found[1].replace(/^this /, 'this may ')}, depending on the value ${raw} takes`];
@@ -480,7 +480,9 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
   let dirs = new Set([cwd]);
   const seen = new Set([cwd]);
   let chain = null;
-  let branches = 0;
+  // The compound commands open at this point: if, loops, case, and { } groups. A for loop
+  // remembers the value its variable had before it.
+  const open = [];
   const saved = [];
   let lastDepth = 0;
   for (let k = 0; k < commands.length; k++) {
@@ -494,21 +496,32 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     const here = [...(chain ?? dirs)];
     const before = commands[k - 1]?.op;
     for (const word of entry.words) {
-      if (OPENS.has(word)) branches++;
-      else if (CLOSES.has(word)) branches = Math.max(0, branches - 1);
-      else if (!JOINS.has(word)) break;
+      if (OPENS.has(word) || word === '{') open.push({ word });
+      else if (CLOSES.has(word) || word === '}') {
+        const closed = open.pop();
+        // After the loop the variable holds its last item, or its old value when the list was empty.
+        if (closed?.name) vars.set(closed.name, [...new Set([...closed.previous, ...(vars.get(closed.name) ?? [])])]);
+      } else if (!JOINS.has(word)) break;
     }
+    const branches = open.length;
     take(across(here, (dir) => strongest(entry.nested.map((script) => inner(script, dir)))));
     if (verdict?.[0] === 'deny') return verdict;
-    // A name only gains values, unset included, because a skipped branch, a short-circuit, or a
-    // subshell can leave the old one in place. The doubt this leaves turns into a question.
+    // An assignment that surely runs replaces the value. One inside a compound command, a
+    // subshell, or a pipeline, or after && or ||, can be skipped or confined, so it only joins
+    // the values the name already had, unset included.
+    const surely = !branches && !entry.depth && before !== '&&' && before !== '||' && before !== '|' &&
+      entry.op !== '|' && entry.op !== '&';
     const bind = (name, values) => {
-      vars.set(name, [...new Set([...(vars.get(name) ?? [process.env[name]]), ...values])]);
+      vars.set(name, surely ? values : [...new Set([...(vars.get(name) ?? [process.env[name]]), ...values])]);
     };
     const lead = entry.words.findIndex((word) => !JOINS.has(word) && !OPENS.has(word) && !CLOSES.has(word));
     if (entry.words[lead - 1] === 'for' && entry.words[lead + 1] === 'in') {
       const list = entry.words.slice(lead + 2).flatMap(braces);
-      bind(entry.words[lead], here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))));
+      const name = entry.words[lead];
+      const loop = open.findLast((item) => item.word === 'for');
+      if (loop) Object.assign(loop, { name, previous: vars.get(name) ?? [process.env[name]] });
+      // Inside the body the variable is one of the items, nothing else.
+      vars.set(name, here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))));
       continue;
     }
     let declared = entry.words.slice(Math.max(lead, 0));
@@ -532,7 +545,14 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     let piped = false;
     for (let n = k; commands[n]?.op === '|'; n++) {
       const consumer = stripPrefixes(commands[n + 1].words);
-      const reads = !consumer.slice(1).some((a) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
+      let reads = true;
+      for (let n2 = 1; n2 < consumer.length; n2++) {
+        const a = consumer[n2];
+        if (/^-[a-zA-Z]*s[a-zA-Z]*$/.test(a) || a === '--') break;
+        if (/^-[a-zA-Z]*c[a-zA-Z]*$/.test(a)) { reads = false; break; }
+        if (/^[-+][oO]$/.test(a)) { n2++; continue; }
+        if (!/^[-+]/.test(a)) { reads = false; break; }
+      }
       if (SHELLS.has(consumer[0]?.split('/').pop()) && reads) piped = true;
     }
     for (const heredoc of entry.heredocs) {
