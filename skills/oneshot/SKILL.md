@@ -253,7 +253,8 @@ screenshot path, the output of the run that settled it>
 
 **An improve-code plan.** `improve-code` wrote the folder in the primary checkout, which this run's
 worktree does not carry. Move its files into the run folder and delete the source folder. In the
-primary checkout's `.specs/improve-code.md`, put this branch on each **Planned** line that names the
+primary checkout's `.specs/improve-code.md`, renamed from `.specs/improve.md` when only that one
+exists, put this branch on each **Planned** line that names the
 folder, so the next pass knows the rows are being built. When the run ends `stopped`, take
 those lines out of **Planned**, so the next pass can raise the rows again. The plan's
 **Decisions** are the gate: copy them into **Gate**. The lane's gate step posts its screen as a
