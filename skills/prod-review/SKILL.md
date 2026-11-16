@@ -98,6 +98,8 @@ Pick by what the change actually touches. Running all of them produces volume, n
 | **Data and migrations** | Schema, SQL, or stored data changed | Behaviour on a populated table: locks, rewrites, unbounded updates, policies that widen |
 | **Concurrency and lifecycle** | Locks, retries, queues, background work, caches, timers | Interleavings, double-spend, orphaned work, a lock released by the wrong holder, a claim nothing releases. `model-check` settles a suspected interleaving by running it |
 | **Boundary inputs** | A new or changed surface a user or caller touches | What it does at the edge the code admits: the longest accepted value, nothing at all, a failed dependency, the same action twice. `break-ui` runs these against a screen, `break-api` against an endpoint or command |
+| **Access and injection** | A route, handler, server action, job, webhook, or query is new or changed, or code reads a session, a role, or a tenant | Who can reach it, and whether the code checks that caller against the object it touches, not only that someone signed in. Tenant scope on every query. User input reaching SQL, a shell, HTML, a redirect, a fetched URL, or a file path. A webhook with no signature check. Secrets or personal data in logs, errors, responses, or the client bundle. A finding names the input an attacker controls and the boundary it crosses |
+| **CI and automation** | `.github/workflows` or another pipeline file changed | `pull_request_target` or `workflow_run` that checks out or runs the pull request's code. Text an outsider writes, such as a title, a branch name, or a comment, inside a `run:` line or an agent's prompt. A token with more permissions than its job uses. An action pinned to a tag that can move |
 | **Dead ends** | New state machines or gates | States a user can enter and never leave: work assigned to something that never runs, a refusal with no way forward |
 | **Weight** | A shipped library, the first page load, or code that runs every frame | Bytes or time the change adds, measured before and after with the project's own size or timing script, or a gzip of the built entry when it has none |
 | **Language and framework** | Always, cheaply | The known footguns of this stack, in the lines the diff adds |
@@ -196,8 +198,15 @@ Report every confirmed defect rather than cutting the list to a round number: gi
 one numbered line each. Where a real finding is out of scope to fix now, say so in its own
 entry and say why. An honest deferral beats a half-built fix.
 
-Close with two lines, not sections: what you traced and found unchanged, and what this review
-could not reach. Name the load you assumed in one of them.
+Close with three lines, not sections. First **Gate edits.**: every hunk that changes a check
+rather than the code it checks, such as a deleted or loosened assertion, a skip or only, a
+timeout, a retry count, a threshold, an updated snapshot, a suppression, or a CI or linter
+config. Find them in the diff's test, snapshot, and config files and in its added suppression
+comments, read each one, and say what it relaxes. One with no measurement in the diff and no
+decision from the user is a finding, per **Verifying** in `AGENTS.md`. With none, write
+`Gate edits. none`, and for shipped code, `Gate edits. not a diff`. Then what you traced and
+found unchanged, and what this review could not reach. Name the load you assumed in one of
+them.
 
 ## 9. If you also fix
 
