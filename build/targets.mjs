@@ -43,6 +43,13 @@ export const TARGETS = {
       noAttribution: () => ({ json: { 'settings.json': { attribution: { commit: '', pr: '' } } } }),
       noTelemetry: () => ({ json: { 'settings.json': { env: { DISABLE_TELEMETRY: '1' } } } }),
       autoCompact: (config) => ({ json: { 'settings.json': { autoCompactWindow: config.autoCompact } } }),
+      guard: () => ({
+        json: {
+          'settings.json': {
+            hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node "{{repo_dir}}/bin/guard.mjs"', timeout: 5 }] }] },
+          },
+        },
+      }),
     },
   },
   codex: {
@@ -139,6 +146,7 @@ export const OPTIONS = {
   noAttribution: (config) => !config.attribution,
   noTelemetry: (config) => !config.telemetry,
   autoCompact: (config) => config.autoCompact !== null,
+  guard: (config) => config.guard,
 };
 
 // The levels Claude Code's --effort and `effort` frontmatter accept.

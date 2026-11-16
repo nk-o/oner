@@ -4,8 +4,8 @@ description: >-
   Sets up, changes, and updates oner, the shared rules and skills installed into the user's
   coding agents. Use when the user asks to set up or reconfigure oner, to change the reply
   language, which agents get it, which external reviewers run, which skills are off, or the
-  agent settings (Chrome access, attribution, telemetry, auto-compact), to update
-  it, or to open its settings page. Also when a session-start note says an update is available.
+  agent settings (Chrome access, attribution, telemetry, the command guard, auto-compact), to
+  update it, or to open its settings page. Also when a session-start note says an update is available.
 ---
 
 # Configure
@@ -76,6 +76,9 @@ Model, effort, and permission mode are left to the host. Each takes effect in th
   and pull requests.
 - `telemetry.enabled` (on by default). Off sets `DISABLE_TELEMETRY` for Claude Code and
   `[analytics] enabled = false` in Codex's `config.toml`.
+- `guard.enabled` (on by default) adds a Claude Code hook, `bin/guard.mjs`, that refuses a
+  force-push or delete of the default branch and a recursive delete of `/`, the home directory,
+  or a repository root, and asks before a hard reset, a forced clean, or another force-push.
 - `autoCompact.tokens` sets Claude Code's `autoCompactWindow` and Codex's
   `model_auto_compact_token_limit`. Without it each agent keeps its own default.
 
