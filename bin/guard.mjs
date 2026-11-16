@@ -13,23 +13,29 @@
 // runs in a subshell or a pipeline. Anything else passes untouched. A line it fails to read is
 // asked about, and input it cannot parse at all passes to the host's own check.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// Wrappers that run the command after them, with the options of theirs that take a value.
+// Wrappers that run the command after them: the options of theirs that take a value, and how
+// many words of their own come before the command.
 const PREFIXES = {
-  sudo: ['-u', '-g', '-C', '-h', '-p', '-U', '-r', '-t', '-D'],
-  env: ['-u', '-C', '-S', '--unset', '--chdir'],
-  nice: ['-n', '--adjustment'],
-  nohup: [],
-  time: ['-f', '-o'],
-  command: [],
-  builtin: [],
-  exec: ['-a'],
+  sudo: { takes: ['-u', '-g', '-C', '-h', '-p', '-U', '-r', '-t', '-D'] },
+  env: { takes: ['-u', '-C', '-S', '--unset', '--chdir'] },
+  nice: { takes: ['-n', '--adjustment'] },
+  nohup: {},
+  time: { takes: ['-f', '-o'] },
+  timeout: { takes: ['-s', '-k', '--signal', '--kill-after'], words: 1 },
+  gtimeout: { takes: ['-s', '-k', '--signal', '--kill-after'], words: 1 },
+  command: {},
+  builtin: {},
+  exec: { takes: ['-a'] },
 };
-const KEYWORDS = new Set(['if', 'then', 'else', 'elif', 'fi', 'do', 'done', 'while', 'until', '!', '{', '}']);
+// Shell words that open a body the shell may skip, close one, or only join two commands.
+const OPENS = new Set(['if', 'while', 'until', 'for', 'case', 'select']);
+const CLOSES = new Set(['fi', 'done', 'esac']);
+const JOINS = new Set(['then', 'else', 'elif', 'do', '!', '{', '}']);
 const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
 const GIT_BUILTINS = new Set(['status', 'log', 'diff', 'show', 'add', 'commit', 'fetch', 'pull', 'merge', 'rebase', 'rev-parse',
   'remote', 'config', 'tag', 'worktree', 'ls-files', 'grep', 'blame', 'init', 'clone', 'cherry-pick', 'revert', 'mv', 'rm', 'apply',
@@ -245,17 +251,37 @@ function braces(word) {
   return m[2].split(',').flatMap((alt) => braces(m[1] + alt + m[3]));
 }
 
-function expand(word, dir) {
-  const env = (name) => (name === 'HOME' ? homedir() : name === 'PWD' ? dir : process.env[name]);
-  return word
-    .replace(/^~(?=\/|$)/, homedir())
-    .replace(/\$\(pwd\)/g, dir)
-    .replace(/\$\{(\w+):?-([^}]*)\}/g, (all, name, fallback) => env(name) || fallback)
-    .replace(/\$\{(\w+):?\+([^}]*)\}/g, (all, name, alt) => (env(name) ? alt : ''))
-    .replace(/\$\{(\w+):0\}/g, (all, name) => env(name) ?? all)
-    .replace(/\$\{(\w+)\}|\$(\w+)/g, (all, a, b) => env(a ?? b) ?? all)
-    .replace(/^~(?=\/|$)/, homedir());
+// Every value a word can take. Variables come from the line's own assignments and loops first,
+// then the environment. A name with no value stays as written.
+function expandAll(word, dir, vars = new Map()) {
+  const values = (name) => vars.get(name) ?? [name === 'HOME' ? homedir() : name === 'PWD' ? dir : process.env[name]];
+  let out = [word.replace(/^~(?=\/|$)/, homedir()).replace(/\$\(pwd\)/g, dir)];
+  const step = (pattern, value) => {
+    out = out.flatMap((text) => {
+      const m = pattern.exec(text);
+      if (!m) return [text];
+      const found = value(m);
+      return found === null ? [text] : found.map((v) => text.slice(0, m.index) + v + text.slice(m.index + m[0].length));
+    }).slice(0, 32);
+  };
+  for (let round = 0; round < 8; round++) {
+    const before = out.join('\0');
+    step(/\$\{(\w+):?-([^}]*)\}/, (m) => values(m[1]).map((v) => v || m[2]));
+    step(/\$\{(\w+):?\+([^}]*)\}/, (m) => values(m[1]).map((v) => (v ? m[2] : '')));
+    step(/\$\{(\w+):0\}|\$\{(\w+)\}|\$(\w+)/, (m) => {
+      const found = values(m[1] ?? m[2] ?? m[3]);
+      return found.every((v) => v === undefined) ? null : found.map((v) => v ?? '');
+    });
+    if (out.join('\0') === before) break;
+  }
+  return out.map((text) => text.replace(/^~(?=\/|$)/, homedir()));
 }
+
+const expand = (word, dir, vars) => expandAll(word, dir, vars)[0];
+
+const real = (path) => {
+  try { return realpathSync(path); } catch { return path; }
+};
 
 function defaultBranches(cwd) {
   const head = git(cwd, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).replace(/^origin\//, '');
@@ -357,7 +383,7 @@ function checkGit(w, cwd, depth) {
   }
 }
 
-function checkRm(w, dir, roots) {
+function checkRm(w, dir, roots, vars) {
   const args = w.slice(1);
   const end = args.indexOf('--');
   const head = end < 0 ? args : args.slice(0, end);
@@ -365,16 +391,19 @@ function checkRm(w, dir, roots) {
   const home = homedir();
   const operands = [...head.filter((a) => !a.startsWith('-')), ...(end < 0 ? [] : args.slice(end + 1))];
   for (const raw of operands.flatMap(braces)) {
-    const expanded = expand(raw, dir);
-    // An empty variable or substitution turns `$DIR/` into `/`.
-    if (/^(\$\{?\w+\}?|\$\(.*\))\/\*?$/.test(expanded)) return ['ask', `${raw} deletes / when it is empty`];
-    if (/\$\{[^}]*[^\w}]/.test(expanded) || /^\$\(.*\)$/.test(expanded)) return ['ask', `${raw} is a path this guard cannot work out`];
-    if (expanded.includes('$')) continue;
-    const glob = /(^|\/)\*$/.test(expanded);
-    const target = resolve(dir, expanded.replace(/(^|\/)\*$/, '$1'));
-    const holds = (path) => path === target || path.startsWith(target === '/' ? '/' : target + sep);
-    if (target === '/' || holds(home) || roots.some(holds) || /(^|\/)\.git$/.test(target)) {
-      return ['deny', `this deletes ${glob ? 'everything in ' : ''}${target}`];
+    for (const expanded of expandAll(raw, dir, vars)) {
+      // A path that is only a variable or a substitution can be anything, / included.
+      if (/^(\$\{?\w+\}?|\$\(.*\))\/?\*?$/.test(expanded)) return ['ask', `${raw} can be any path, / included`];
+      if (/\$\{[^}]*[^\w}]/.test(expanded)) return ['ask', `${raw} is a path this guard cannot work out`];
+      if (expanded.includes('$')) continue;
+      const glob = /(^|\/)\*$/.test(expanded);
+      const named = resolve(dir, expanded.replace(/(^|\/)\*$/, '$1'));
+      for (const target of new Set([named, real(named)])) {
+        const holds = (path) => path === target || path.startsWith(target === '/' ? '/' : target + sep);
+        if (target === '/' || holds(home) || holds(real(home)) || roots.some(holds) || /(^|\/)\.git$/.test(target)) {
+          return ['deny', `this deletes ${glob ? 'everything in ' : ''}${named}`];
+        }
+      }
     }
   }
   return null;
@@ -382,23 +411,26 @@ function checkRm(w, dir, roots) {
 
 function stripPrefixes(w) {
   for (;;) {
-    while (w.length && (KEYWORDS.has(w[0]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]))) w = w.slice(1);
-    const takes = PREFIXES[w[0]];
-    if (!takes) return w;
+    while (w.length && (JOINS.has(w[0]) || OPENS.has(w[0]) || CLOSES.has(w[0]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]))) w = w.slice(1);
+    const prefix = PREFIXES[w[0]];
+    if (!prefix) return w;
     w = w.slice(1);
     while (w.length && w[0].startsWith('-')) {
       const option = w[0];
-      w = w.slice(takes.includes(option) ? 2 : 1);
+      w = w.slice(prefix.takes?.includes(option) ? 2 : 1);
       if (option === '--') break;
     }
+    w = w.slice(prefix.words ?? 0);
   }
 }
 
-// Every directory the shell can be in when it reaches each command, with the roots of the
-// repositories those directories sit in.
-export function decide(command, cwd, roots = null, depth = 0) {
+// Walks the commands with every directory the shell can be in at each one. A cd counts for
+// certain only when it runs unconditionally, outside a subshell or a pipeline, into a
+// directory that exists. Otherwise its target joins the directories already possible.
+export function decide(command, cwd, roots = null, depth = 0, inherited = new Map()) {
   if (depth > MAX_DEPTH) throw new Unreadable('nested too deep');
   const tops = new Set(roots ?? [git(cwd, ['rev-parse', '--show-toplevel'])].filter(Boolean));
+  const vars = new Map(inherited);
   const commands = lex(String(command));
   let verdict = null;
   const take = (found) => {
@@ -408,8 +440,11 @@ export function decide(command, cwd, roots = null, depth = 0) {
     const top = git(dir, ['rev-parse', '--show-toplevel']);
     if (top) tops.add(top);
   };
+  const inner = (script, dir) => take(decide(script, dir, [...tops], depth + 1, vars));
   let dirs = new Set([cwd]);
+  const seen = new Set([cwd]);
   let chain = null;
+  let branches = 0;
   const saved = [];
   let lastDepth = 0;
   for (let k = 0; k < commands.length; k++) {
@@ -418,39 +453,57 @@ export function decide(command, cwd, roots = null, depth = 0) {
     while (entry.depth < lastDepth) { ({ dirs, chain } = saved.pop()); lastDepth--; }
     const here = [...(chain ?? dirs)];
     const before = commands[k - 1]?.op;
-    for (const dir of here) {
-      for (const script of entry.nested) take(decide(script, dir, [...tops], depth + 1));
+    for (const word of entry.words) {
+      if (OPENS.has(word)) branches++;
+      else if (CLOSES.has(word)) branches = Math.max(0, branches - 1);
+      else if (!JOINS.has(word)) break;
     }
+    const lead = entry.words.findIndex((word) => !JOINS.has(word) && !OPENS.has(word) && !CLOSES.has(word));
+    if (entry.words[lead - 1] === 'for' && entry.words[lead + 1] === 'in') {
+      const list = entry.words.slice(lead + 2).flatMap(braces);
+      vars.set(entry.words[lead], here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))));
+      continue;
+    }
+    const assignments = entry.words.slice(Math.max(lead, 0)).every((word) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(word));
+    if (lead >= 0 && assignments) {
+      for (const word of entry.words.slice(lead)) {
+        const [name, ...value] = word.split('=');
+        const values = here.flatMap((dir) => expandAll(value.join('='), dir, vars));
+        vars.set(name, branches ? [...(vars.get(name) ?? [process.env[name]]), ...values] : values);
+      }
+    }
+    for (const dir of here) for (const script of entry.nested) inner(script, dir);
     const w = stripPrefixes(entry.words);
     const name = w[0]?.split('/').pop();
     for (const heredoc of entry.heredocs) {
       for (const dir of here) {
-        if (SHELLS.has(name) || name === 'eval') take(decide(heredoc.body, dir, [...tops], depth + 1));
-        else if (!heredoc.quoted) for (const script of substitutions(heredoc.body)) take(decide(script, dir, [...tops], depth + 1));
+        if (SHELLS.has(name) || name === 'eval') inner(heredoc.body, dir);
+        else if (!heredoc.quoted) for (const script of substitutions(heredoc.body)) inner(script, dir);
       }
     }
     if (verdict?.[0] === 'deny') return verdict;
-    if (name === 'cd' || name === 'pushd') {
+    const piped = entry.op === '|' || before === '|' || entry.op === '&';
+    if ((name === 'cd' && w[1] === '-') || name === 'popd') {
+      if (!piped) dirs = new Set(seen);
+    } else if (name === 'cd' || name === 'pushd') {
       let operands = w.slice(1);
       while (operands.length && /^-[LPe@]+$/.test(operands[0])) operands = operands.slice(1);
       if (operands[0] === '--') operands = operands.slice(1);
-      const to = expand(operands[0] ?? '~', here[0]);
-      const piped = entry.op === '|' || before === '|' || entry.op === '&';
-      if (!piped && to !== '-' && !to.includes('$')) {
-        const targets = here.map((dir) => resolve(dir, to));
-        targets.forEach(addTop);
-        if (entry.op === '&&') chain = new Set(targets.filter(isDir));
+      const targets = here.flatMap((dir) => expandAll(operands[0] ?? '~', dir, vars).filter((to) => !to.includes('$')).map((to) => resolve(dir, to)));
+      if (!piped && targets.length) {
+        targets.forEach((target) => { seen.add(target); addTop(target); });
+        if (entry.op === '&&') chain = new Set(targets);
         else {
-          const certain = before !== '&&' && before !== '||' && entry.op !== '||' && targets.every(isDir);
-          dirs = certain ? new Set(targets) : new Set([...dirs, ...targets.filter(isDir)]);
+          const certain = !branches && before !== '&&' && before !== '||' && entry.op !== '||' && targets.every(isDir);
+          dirs = certain ? new Set(targets) : new Set([...dirs, ...targets]);
         }
       }
     } else if (name && SHELLS.has(name)) {
       const flag = w.findIndex((a, n) => n > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
-      if (flag > 0 && w[flag + 1] !== undefined) for (const dir of here) take(decide(w[flag + 1], dir, [...tops], depth + 1));
-    } else if (name === 'eval') for (const dir of here) take(decide(w.slice(1).join(' '), dir, [...tops], depth + 1));
+      if (flag > 0 && w[flag + 1] !== undefined) for (const dir of here) inner(w[flag + 1], dir);
+    } else if (name === 'eval') for (const dir of here) inner(w.slice(1).join(' '), dir);
     else if (name === 'git') for (const dir of here) take(checkGit(w, dir, depth));
-    else if (name === 'rm') for (const dir of here) take(checkRm(w, dir, [...tops]));
+    else if (name === 'rm') for (const dir of here) take(checkRm(w, dir, [...tops], vars));
     if (verdict?.[0] === 'deny') return verdict;
     if (chain && entry.op !== '&&') {
       dirs = new Set([...dirs, ...chain]);

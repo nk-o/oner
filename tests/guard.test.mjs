@@ -130,7 +130,26 @@ const rows = [
   ['nice -n 5 rm -rf ~', 'deny'],
   ['time -p git push --force origin main', 'deny'],
   [`${"bash -c '".repeat(1)}${'eval '.repeat(12)}rm -rf ~'`, 'ask'],
+  // Third review round: directories created on the way, returns, conditions, local variables.
+  [`mkdir -p ${root}/fresh && cd ${root}/fresh && rm -rf /`, 'deny'],
+  [`git clone ${remote} ${root}/fresh2 && cd ${root}/fresh2 && git push --force origin main`, 'deny'],
+  ['cd /tmp; cd -; rm -rf *', 'deny'],
+  ['pushd /tmp; popd; rm -rf *', 'deny'],
+  ['if false; then cd /tmp; fi; rm -rf *', 'deny'],
+  ['for d in /tmp; do cd "$d"; done; rm -rf *', 'deny'],
+  ['TARGET="$PWD"; rm -rf "$TARGET"', 'deny'],
+  ['rm -rf "$UNSET_IN_THIS_TEST"', 'ask'],
+  ['for d in build dist; do rm -rf "$d"; done', 'pass'],
+  ['OUT=dist; rm -rf "$OUT"', 'pass'],
+  ['timeout 30 git push --force origin main', 'deny'],
+  ['timeout -s KILL 10 rm -rf /', 'deny'],
 ];
+
+test('a logical path to the repository counts the same as git\'s physical one', (t) => {
+  const link = join(root, 'link');
+  execFileSync('ln', ['-s', repo, link]);
+  assert.equal(verdict('rm -rf .', { cwd: link }), 'deny');
+});
 
 for (const [command, expected] of rows) {
   test(`${expected}: ${command}`, () => assert.equal(verdict(command), expected));
