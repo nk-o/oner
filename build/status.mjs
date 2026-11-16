@@ -79,6 +79,7 @@ export function status(repo) {
     browser: config.browser,
     attribution: config.attribution,
     telemetry: config.telemetry,
+    guard: config.guard,
     autoCompact: config.autoCompact,
     skills,
   };

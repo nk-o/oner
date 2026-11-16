@@ -113,15 +113,12 @@ function install(ctx, spec, dir, auto, config) {
         '\nMove personal rules into local/AGENTS.md and personal skills into local/skills/, then build again.',
     );
   }
+  const tokens = tokenValues(pathsFor(ctx, spec, dir, config), 'home', config);
   const template =
-    spec.settings &&
-    renderJson(
-      JSON.parse(readFileSync(join(ctx.repo, spec.settings.template), 'utf8')),
-      tokenValues(pathsFor(ctx, spec, dir, config), 'home', config),
-    );
+    spec.settings && renderJson(JSON.parse(readFileSync(join(ctx.repo, spec.settings.template), 'utf8')), tokens);
   const merged =
     spec.settings &&
-    mergeSettings(settings.value, deepMerge(template, writes.json[spec.settings.file] ?? {}), old?.settings, spec.legacy);
+    mergeSettings(settings.value, deepMerge(template, renderJson(writes.json[spec.settings.file] ?? {}, tokens)), old?.settings, spec.legacy);
   // Agent-owned files the options write keys into, beside the settings file. A
   // missing file is left for the agent to create.
   const extra = [...new Set([...Object.keys(writes.json), ...Object.keys(old?.json ?? {})])]
