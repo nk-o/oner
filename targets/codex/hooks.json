@@ -7,7 +7,8 @@
           {
             "type": "command",
             "command": "\"{{skills_dir}}/oneshot/hook.sh\" --host codex",
-            "timeout": 5
+            "timeout": 5,
+            "statusMessage": "oner: oneshot run state"
           }
         ]
       },
@@ -16,7 +17,8 @@
           {
             "type": "command",
             "command": "node \"{{repo_dir}}/bin/build.mjs\" --auto",
-            "timeout": 30
+            "timeout": 30,
+            "statusMessage": "oner: rebuild skills and rules"
           }
         ]
       },
@@ -26,7 +28,8 @@
           {
             "type": "command",
             "command": "node \"{{repo_dir}}/bin/update-check.mjs\"",
-            "timeout": 10
+            "timeout": 10,
+            "statusMessage": "oner: check for updates"
           }
         ]
       }
@@ -37,7 +40,8 @@
           {
             "type": "command",
             "command": "\"{{skills_dir}}/oneshot/hook.sh\" --host codex",
-            "timeout": 5
+            "timeout": 5,
+            "statusMessage": "oner: oneshot run state"
           }
         ]
       }
@@ -45,7 +49,12 @@
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "\"{{skills_dir}}/oneshot/hook.sh\" --host codex", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "\"{{skills_dir}}/oneshot/hook.sh\" --host codex",
+            "timeout": 10,
+            "statusMessage": "oner: oneshot run state"
+          }
         ]
       }
     ]
