@@ -69,7 +69,7 @@ export const TARGETS = {
       guard: () => ({
         json: {
           'hooks.json': {
-            hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node "{{repo_dir}}/bin/guard.mjs" --host codex', timeout: 5 }] }] },
+            hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node "{{repo_dir}}/bin/guard.mjs" --host codex', timeout: 5, statusMessage: 'oner: guard against destructive commands' }] }] },
           },
         },
       }),
