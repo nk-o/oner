@@ -30,6 +30,7 @@ function verdict(command, { tool_name = 'Bash', cwd = repo } = {}) {
 const rows = [
   ['git push --force origin main', 'deny'],
   ['git push -f', 'deny'],
+  ['git push -f origin HEAD', 'deny'],
   ['git push origin +HEAD:main', 'deny'],
   ['git push origin :main', 'deny'],
   ['git push --mirror origin', 'deny'],

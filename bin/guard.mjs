@@ -38,9 +38,10 @@ function checkPush(args, cwd) {
   const colon = refs.some((r) => r.startsWith(':'));
   if (!force && !del && !plus && !colon) return null;
   const main = defaultBranches(cwd);
+  const current = git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
   const targets = args.includes('--all') ? main
-    : refs.length ? refs.map((r) => r.replace(/^\+/, '').split(':').pop().replace(/^refs\/heads\//, ''))
-      : [git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'])];
+    : refs.length ? refs.map((r) => r.replace(/^\+/, '').split(':').pop().replace(/^refs\/heads\//, '').replace(/^HEAD$/, current))
+      : [current];
   if (targets.some((t) => main.includes(t))) {
     return ['deny', `this rewrites or deletes ${targets.find((t) => main.includes(t))}, the default branch`];
   }
