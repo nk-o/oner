@@ -37,7 +37,8 @@ export function readRawConfig(repoDir) {
   }
 }
 
-const MERGED_INTO_IMPROVE = new Set(['architecture-scan', 'gardener']);
+const MERGED_INTO_IMPROVE_CODE = new Set(['architecture-scan', 'gardener']);
+const RENAMED = { improve: 'improve-code' };
 
 // Returns the config with every default filled in and every dir absolute:
 // { language, disabledSkills, effort: { <stage>: <level> }, reviewers: { <provider>: { enabled, ... } },
@@ -86,7 +87,7 @@ export function validateConfig(raw, repoDir) {
   if (!Array.isArray(listed) || listed.some((s) => typeof s !== 'string')) {
     throw at('skills.disabled', 'must be a list of skill names');
   }
-  const disabled = listed.filter((name) => !MERGED_INTO_IMPROVE.has(name));
+  const disabled = listed.filter((name) => !MERGED_INTO_IMPROVE_CODE.has(name)).map((name) => RENAMED[name] ?? name);
   const known = new Set(listSkills(repoDir));
   for (const name of disabled) {
     if (!known.has(name)) throw at('skills.disabled', `no skill named "${name}" in skills/`);
