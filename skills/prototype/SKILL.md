@@ -56,10 +56,8 @@ Name each direction by its decision, such as "List", "Media first", or "Ledger",
 "Option A".
 
 Before drafting directions, list what the screen already has that could carry the new action
-or state: a control that can change role for a moment, as Send becomes Stop while text
-generates, a menu that can take one more item, the place where the product already shows a
-status of this kind. The first direction uses them and adds no element. Every other direction
-names the element it adds and what the first one could not do without it.
+or state. The first direction uses only that and adds no element. Every other direction names
+the element it adds and why the first could not do without it.
 
 Give each direction a control for every axis that stays open inside it, at most five on
 screen at a time, shared ones included. A control offers values the product can ship: steps
@@ -85,9 +83,8 @@ fonts, spacing, or navigation turns the review into a review of the redraw.
    capture from step 1 at the same width. It proves the harness renders the real product, and
    every direction is judged against it. A new screen has no `Current`.
 
-A standalone file from an earlier round is a redraw by now, because the product kept
-changing. Before building on it, put it beside a fresh capture from step 1 and bring every
-element outside the brief back to what the product shows today.
+A standalone file from an earlier round is a redraw. Check it against a fresh capture from
+step 1 before building on it.
 
 A standalone file is for a project with no runnable interface, or when the user asks for a
 file. Start it from the running app's rendered markup and computed styles, saved from the
