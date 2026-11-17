@@ -9,6 +9,8 @@ stays together. No external scripts. Inline CSS with light and dark colors under
 
 1. **Header.** Product, date, branch, scope, widths, themes, rounds run. One table of findings
    by level, P0 to P3, before and after. The checks from step 5, each with its result.
+   Then the user's complaints, one line each in their words, with what was done or the
+   decision it became.
 2. **Changes.** One card per resolved or partial row, P0 first.
 3. **Decisions.** One card per `decide` row.
 4. **Not fixed.** Reverted and unresolved rows, each with its cause in one line.

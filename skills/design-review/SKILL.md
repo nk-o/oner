@@ -35,15 +35,22 @@ If browser or rendered access is unavailable, name the unverified checks.
   Removal test: hide each line of text, control, and status in turn. One the task still reads
   and completes without fails "Every element has a job" in `frontend-design`. It is a defect
   of the change when the change added it, and a proposal to remove when it was already there.
+  Purpose test: for each card or widget, say in one line what it tells the user and what they
+  do next. One that answers neither leaves the user asking whether to act on it. It says what
+  it is and the next step, or folds away when it is reference material.
 - **System consistency.** Tokens, components, terminology, and meaningful states match the
   product. A local change does not introduce a second visual language. A new surface built in
   an older UI layer while the platform has a current one is a system conflict, per
-  `design-context`.
+  `design-context`. Frame: put the target beside a sibling screen at the same width. Content
+  width, alignment, gutters, the surface content sits on, and the header's position match,
+  unless the system gives the target its own frame for a stated reason.
 - **Text and layout.** Real copy wraps without hiding essential information. Containers adapt
   to content. Numbers align where comparison matters. Images reserve their space. Repeated
   elements stay consistent, and intentional differences have a content or interaction reason.
 - **Interaction.** Actions work, feedback appears near its trigger, errors offer recovery,
-  and empty states give the next useful action. Touch does not depend on hover. Existing
+  and empty states give the next useful action. Arrive the way a user does, from navigation and
+  after scrolling elsewhere: the page opens at its top, and nothing shifts when data, images,
+  or a scrollbar arrive. Touch does not depend on hover. Existing
   accessible primitives own focus and keyboard behavior.
 - **Accessibility.** Semantic controls, visible labels, accessible names, visible unobscured
   focus, and meaning beyond color. Measure contrast on rendered colors for the applicable
