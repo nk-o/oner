@@ -40,6 +40,14 @@ the primary checkout, the first entry of `git worktree list`. Keep `.specs/` out
   that skill's rules, not written as a one-off script.
 - **Context.** Read `design-context` for `DESIGN.md`, tokens, shared components, and the screens
   the target must match. Without a `DESIGN.md`, the existing system is the authority.
+- **Complaints.** Each thing the user named in the argument is a row in `run.md` before the
+  first capture, in their words. Every one ends `resolved` or as a decision. None is dropped
+  because a measurement found nothing.
+- **References.** Name one to three reference screens: the ones the user calls good, else the
+  ones `DESIGN.md` holds up, else the most used. Measure each on the rendered page at 1280 and
+  write its frame in `run.md`: content width and alignment, gutters, the surface content sits
+  on (a card, a panel, the bare page), where the header starts, and the anatomy of a list row.
+  This frame is the bar every other surface is held to in step 3.
 - **Ledger.** Read `.specs/improve-ui.md` in the primary checkout. Create it when missing, with
   two sections, `## Open` and `## Rejected`, one line per decision:
   `<surface> | <decision> | <reason> | <default branch sha> | <YYYY-MM-DD>`. A finding that
@@ -49,7 +57,7 @@ the primary checkout, the first entry of `git worktree list`. Keep `.specs/` out
   customers. Claims, prices, and testimonials come from the user, never from the run.
 
 Done when `doctor` passes, `map` is clean or each gap is a finding, and `run.md` in the run
-folder lists every surface in scope.
+folder lists every surface in scope, the user's complaints, and the references with their frame.
 
 ## 2. Group the surfaces
 
@@ -69,7 +77,8 @@ checkout, because its fixes move every other surface.
 With `delegate_task` and two or more other groups, start one delegate per group, all at once,
 with `isolation: "worktree"` based on this branch. A worktree starts from a commit, not from the
 index, so first commit the shared group's staged rounds as `style(ui): improve-ui shared layer`.
-Each delegate's brief carries steps 3 and 4 of this file, its surfaces, the files it may write,
+No delegate sees another group's screens, so the frame pass of step 3 runs here, over every
+surface, after the groups return. Each delegate's brief carries steps 3 and 4 of this file, its surfaces, the files it may write,
 the decision table, and the rule that it returns a patch, its captures, and its rows, and
 writes no file outside its group. Otherwise run the groups one after another. Apply
 each returned patch here and capture that group again in this checkout, since two groups' fixes
@@ -84,7 +93,22 @@ the product supports (320 when nothing says), 768, 1280, and 1920, in each theme
 ships. Add the states the surface has: empty, loading, each error through `--block`, and the
 worst realistic data from steps 1 and 2 of `break-ui`. Note each page error the CLI reports.
 
-Look at every capture and operate the real controls: tab through, use touch targets at their
+Look first, measure second. Open every capture at full size, at least one width per surface. A
+contact sheet, a thumbnail grid, or a JSON of measurements is not a look. Then, before any
+defect check, run three passes:
+
+- **Frame.** Put each surface beside a reference at the same width and theme. A different
+  content width, alignment, gutter, surface, header position, or row anatomy is a finding, at
+  least P2, unless `DESIGN.md` gives that surface its own frame for a reason it states.
+- **Purpose.** For each card, panel, and widget, write one line: what it tells the user and
+  what they do next. One you cannot write is a finding. Its fix says what the block is and the
+  next step, or folds it away when it is reference material or kept for agents.
+- **Arrival.** In one session, reach each surface the way a user does: from the navigation,
+  after scrolling another page, and back. A page opens at its top. Content does not shift
+  sideways or jump when data, images, or a scrollbar arrive, so measure the content's left
+  edge before and after the first load. A fresh capture per feature cannot see this.
+
+Then operate the real controls: tab through, use touch targets at their
 rendered size, open each menu and dialog. Check against **Check the result** in
 `design-review` and its interface checks, then against "Habits to question" in
 `frontend-design`, in that order. Measure contrast and target sizes on the rendered page. A
@@ -112,6 +136,12 @@ Write each finding as a row in `run.md`:
 | accessible names, visible focus, keyboard reach, target size | copy that states a fact, a claim, a limit, or a price |
 | an action reachable only on hover, a one-off where a shared component exists | what data is stored, sent, or accepted, per the decisions in `break-ui` |
 | a label that names its control wrongly, per the clarify rules of `refine` | a concept mismatch, which goes to `frontend-design` or `prototype` |
+| a surface whose frame differs from the references, brought back to theirs | a frame rule in `DESIGN.md`: widths, alignment, gutters, the surface content sits on |
+
+`DESIGN.md` records decisions, so the run never edits it to describe what the run just built.
+A frame rule changes only through an answered decision, and the report quotes the old and
+the new rule. A change the user asked for in this run's argument is answered, and its rule is
+written in the same round.
 
 Done when every surface in scope has captures at each width, theme, and state, and every
 finding has a level, a cause with `file:line`, and an action.
@@ -141,7 +171,8 @@ together before looking again.
 5. **Look again** at the whole surface, per step 3, not only at the changed rows. A fix moves
    its neighbors, and new rows join the next round. Then stage the round.
 
-A surface stops when a look finds no open `fix` row at P0 to P2, after its fifth round, or after
+A surface stops when a look finds no open `fix` row at P0 to P2 and its frame matches the
+references, after its fifth round, or after
 its second revert. P3 rows are fixed when a round touches their files anyway, and they never
 start a round by themselves.
 
