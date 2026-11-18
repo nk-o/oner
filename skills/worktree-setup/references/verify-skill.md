@@ -24,6 +24,13 @@ on any failure, so nobody has to read the output to know whether it passed.
 | `map` | The map against the code: a `code` glob that matches nothing, a route or screen the code defines that no feature covers and `omit` does not list |
 | `stop` | Undoes `start`: stops what it started and restores what it switched |
 
+**Server ownership.** `start` reports whether it started or reused the server. Persist the
+identity of a started process with its checkout and start time, so `stop` cannot kill a PID
+that has since been reused. Stop its process tree and wait for its listeners to close.
+Calling `stop` twice is a no-op the second time. A reused server stays running. Apply
+[the worktree lifecycle](../../worktree/SKILL.md#dev-servers-during-verification) around checks,
+including failure paths.
+
 A page error or a failed request for the app's own assets fails the feature, whatever the proof
 shows. Without `--out`, screenshots go to a temp directory and the CLI prints its path. Runtime
 state (a pid, a log, a session) lives in a temp directory keyed by the checkout, never in the
@@ -100,7 +107,9 @@ files pass the project's formatter and linter when those cover `.claude/`.
 Prove it before you report it, with the output pasted: `start`, `doctor`, `map`,
 `check --all`, then a one-line break in a file some feature's proof depends on, where
 `list --affected HEAD` names that feature and `check` on it fails, then the file restored and
-`stop`. A CLI that never failed has not shown it can. A feature that fails `check` is either a
+`stop`. Confirm the owned listener has closed and a second `stop` is a no-op. Repeat
+`start` and `stop` with a server already running in this checkout and confirm it survives.
+A CLI that never failed has not shown it can. A feature that fails `check` is either a
 map error to fix or a product bug to report, and the report says which. A verify skill in the
 older one-file form is migrated: its Features become map entries, its Launch and Doctor become
 commands, its Seed stays.

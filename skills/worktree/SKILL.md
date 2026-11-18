@@ -64,6 +64,26 @@ stack, or generated-types file is shared by every checkout on the machine. Only 
 worktree may own schema changes at a time. Check the project's `AGENTS.md` before
 running migrations or a database reset from a feature worktree.
 
+## Dev servers during verification
+
+Start only the apps the next verification step needs. Reuse a server only after confirming
+that its listener belongs to this checkout. Record which processes the step started and
+which it reused. Use the project's `verify-<app>` start and stop commands when available.
+
+Stop the processes the step started when verification ends, including on failure, before
+returning to editing, review, or waiting for CI. Confirm their listeners have gone. Keep a
+server running when the user requested a live preview or another active check has explicitly
+taken ownership, and report that handoff. Leave servers the step reused and shared databases
+running. An open task or an unmerged PR alone does not require a running dev server.
+
+Keep the worktree, its port assignment, and persistent compiler caches when stopping a
+server. Each checkout retains its own build output and mutable dependencies. A stopped
+server can restart without giving another branch its files or rebuilding a discarded cache.
+
+Before adding a dev server or a heavy check alongside other work, check current memory
+pressure using [the memory investigation](../dev-tidy/references/storage.md#parallel-development).
+Proceed while pressure is normal. Reduce this task's resource use only while pressure stays elevated.
+
 ## When a repository is not set up
 
 `wt.sh` needs a committed `.claude/worktree.json`. When it is missing, run the
