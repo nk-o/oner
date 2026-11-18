@@ -49,6 +49,8 @@ nothing more.
 
 - Use the platform's current controls and accessible primitives. The same action keeps the
   same component and name. Reuse established tokens instead of creating parallel values.
+- A state the product already shows keeps its place and form. An action that lasts only as
+  long as a state takes the place of the control it interrupts.
 - Output that renders inside a page someone else styles, such as a plugin's front end inside a
   theme or an embed on a customer's site, takes type, color, and spacing from that page's
   presets and custom properties, and adds as few values of its own as it can.
@@ -102,6 +104,7 @@ Clutter hides in text more than in decoration. These usually have no job:
   Show and Hide for help that could appear only while it is needed, or two routes to the same
   action on one screen.
 - A status on something that needs no action from the user.
+- A status that restates the user's last action, or a custom way back where undo works.
 
 Keep such an element when the brief, the system, or a real user question needs it, and name
 which one.
@@ -110,7 +113,8 @@ which one.
 
 Write from the user's side. Name what people recognize and control, not implementation
 details. Actions say what happens, such as "Save changes". Keep that vocabulary through the
-flow. Labels label, examples demonstrate, and errors explain recovery.
+flow. Labels label, examples demonstrate, and errors explain recovery. A persistent control
+keeps one label across records. A value that varies per record goes into its tooltip or menu.
 
 Use plain verbs, concise copy, and the product's voice. Preserve factual copy when changing
 visual treatment. Long text and translations are inputs, not reasons to shorten the content

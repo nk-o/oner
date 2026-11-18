@@ -55,6 +55,10 @@ When two directions differ only in a value, they are one direction with a contro
 Name each direction by its decision, such as "List", "Media first", or "Ledger", never
 "Option A".
 
+Before drafting directions, list what the screen already has that could carry the new action
+or state. The first direction uses only that and adds no element. Every other direction names
+the element it adds and why the first could not do without it.
+
 Give each direction a control for every axis that stays open inside it, at most five on
 screen at a time, shared ones included. A control offers values the product can ship: steps
 of the token scale in `DESIGN.md`, the real placements, the drafted copy. A free numeric
@@ -78,6 +82,9 @@ fonts, spacing, or navigation turns the review into a review of the redraw.
 3. Mount the target unchanged as the first picker item, `Current`. Done when it matches the
    capture from step 1 at the same width. It proves the harness renders the real product, and
    every direction is judged against it. A new screen has no `Current`.
+
+A standalone file from an earlier round is a redraw. Check it against a fresh capture from
+step 1 before building on it.
 
 A standalone file is for a project with no runnable interface, or when the user asks for a
 file. Start it from the running app's rendered markup and computed styles, saved from the
