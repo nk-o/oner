@@ -49,6 +49,11 @@ nothing more.
 
 - Use the platform's current controls and accessible primitives. The same action keeps the
   same component and name. Reuse established tokens instead of creating parallel values.
+- Before building a component a library already solves, such as a toast, a command menu, a
+  date picker, a carousel, or animated numbers, look in `package.json` for one the project
+  has. Then read https://reuse.sh/llms.txt for a Reuse part and https://reuse.sh/tools for
+  the outside tools we trust. Bring one choice with its reason, or say why building it here is
+  the better call. A new dependency is the user's decision.
 - A state the product already shows keeps its place and form. An action that lasts only as
   long as a state takes the place of the control it interrupts.
 - Output that renders inside a page someone else styles, such as a plugin's front end inside a
