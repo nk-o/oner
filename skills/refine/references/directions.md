@@ -10,10 +10,12 @@ Fix in this order, and finish one level across the whole target before the next:
 1. A blocked task, lost input, a misleading state, an inaccessible path.
 2. Missing states: loading, empty, error, success, disabled, no permission.
 3. Drift from the neighbors: terminology, component choice, spacing scale, hierarchy.
-4. Details: optical alignment (an icon or a play glyph can sit off its mathematical center),
+4. Composition, per **Composition** in `design-review`: bands, gaps, shared edges, and
+   padding measured as the user sees it.
+5. Details: optical alignment (an icon or a play glyph can sit off its mathematical center),
    icon size and stroke weight, the same role set in the same type, browser surfaces (text
    selection, caret, scrollbars, focus ring, link underline offset, tabular figures in data).
-5. Cleanup: dead styles, unused imports, and values duplicated during the pass.
+6. Cleanup: dead styles, unused imports, and values duplicated during the pass.
 
 Do not add animation to make the polish visible.
 
@@ -54,6 +56,8 @@ system cannot express the direction, ask for the exact addition.
 - Run "Every element has a job" from `frontend-design` on each element of the target. A label
   that repeats its column header goes too.
 - No card inside a card. Remove a container whose content spacing alone would group.
+- Controls that act on the same list share one band: its search, filters, bulk actions, and
+  view options, not a row each.
 - Count the type sizes, weights, and accent colors on the target. Collapse values that differ
   without a role to the nearest token. A product surface rarely needs more than three or four
   sizes, two or three weights, and one or two accents besides the state colors.

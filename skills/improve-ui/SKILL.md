@@ -42,7 +42,9 @@ the primary checkout, the first entry of `git worktree list`. Keep `.specs/` out
   the target must match. Without a `DESIGN.md`, the existing system is the authority.
 - **Complaints.** Each thing the user named in the argument is a row in `run.md` before the
   first capture, in their words. Every one ends `resolved` or as a decision. None is dropped
-  because a measurement found nothing.
+  because a measurement found nothing. A constraint on markup or content, such as "other
+  plugins extend these screens", limits what the DOM holds, not how CSS lays it out. Write it
+  as the selectors and hooks that must keep working, and recompose inside it.
 - **References.** Name one to three reference screens: the ones the user calls good, else the
   ones `DESIGN.md` holds up, else the most used. Measure each on the rendered page at 1280 and
   write its frame in `run.md`: content width and alignment, gutters, the surface content sits
@@ -95,7 +97,7 @@ worst realistic data from steps 1 and 2 of `break-ui`. Note each page error the 
 
 Look first, measure second. Open every capture at full size, at least one width per surface. A
 contact sheet, a thumbnail grid, or a JSON of measurements is not a look. Then, before any
-defect check, run three passes:
+defect check, run four passes:
 
 - **Frame.** Put each surface beside a reference at the same width and theme. A different
   content width, alignment, gutter, surface, header position, or row anatomy is a finding, at
@@ -107,12 +109,15 @@ defect check, run three passes:
   after scrolling another page, and back. A page opens at its top. Content does not shift
   sideways or jump when data, images, or a scrollbar arrive, so measure the content's left
   edge before and after the first load. A fresh capture per feature cannot see this.
+- **Composition.** Run **Composition** from `design-review` on every surface. Each failure is
+  a finding, at least P2. A complaint that a screen reads piled up, cluttered, or hard to
+  scan is checked here first.
 
 Then operate the real controls: tab through, use touch targets at their
 rendered size, open each menu and dialog. Check against **Check the result** in
 `design-review` and its interface checks, then against "Habits to question" in
-`frontend-design`, in that order. Measure contrast and target sizes on the rendered page. A
-ratio read from a screenshot is a guess. For a Read or Sell surface a search engine indexes,
+`frontend-design`, in that order. Measure contrast, target sizes, and padding on the rendered
+page. A value read from a screenshot or from the CSS is a guess. For a Read or Sell surface a search engine indexes,
 also measure it per [page quality](references/page-quality.md).
 
 Write each finding as a row in `run.md`:
@@ -131,8 +136,9 @@ Write each finding as a row in `run.md`:
 | The run fixes it | It goes to decisions |
 | --- | --- |
 | spacing, alignment, overlap, overflow, clipping, text with no way to read the rest | a new token, color, font, radius, or shadow |
+| grouping, order within a row, and gaps of controls the page already has, in CSS with the markup unchanged | which controls a page has |
 | contrast below the requirement, with a value the system already has | removing, hiding, or moving an action, a field, or information people use |
-| a missing loading, empty, error, or disabled state, an error with no retry | a change to navigation, page structure, or the order of a flow |
+| a missing loading, empty, error, or disabled state, an error with no retry | a change to navigation, the sections a page has, or the order of a flow |
 | accessible names, visible focus, keyboard reach, target size | copy that states a fact, a claim, a limit, or a price |
 | an action reachable only on hover, a one-off where a shared component exists | what data is stored, sent, or accepted, per the decisions in `break-ui` |
 | a label that names its control wrongly, per the clarify rules of `refine` | a concept mismatch, which goes to `frontend-design` or `prototype` |
@@ -171,9 +177,11 @@ together before looking again.
 5. **Look again** at the whole surface, per step 3, not only at the changed rows. A fix moves
    its neighbors, and new rows join the next round. Then stage the round.
 
-A surface stops when a look finds no open `fix` row at P0 to P2 and its frame matches the
-references, after its fifth round, or after
-its second revert. P3 rows are fixed when a round touches their files anyway, and they never
+A surface stops when a look finds no open `fix` row at P0 to P2, its frame matches the
+references, and each complaint on it has a before and after pair at 1280 that answers it;
+after its fifth round; or after its second revert. A complaint about how a screen reads that
+the fixes did not answer goes to `prototype`: two or three directions on the real page,
+inside the constraints, shown to the user before the report. P3 rows are fixed when a round touches their files anyway, and they never
 start a round by themselves.
 
 Done when every surface has stopped, `run.md` names why, and `git diff` is empty, every
