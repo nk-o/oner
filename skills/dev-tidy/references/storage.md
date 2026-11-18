@@ -15,6 +15,25 @@ For memory, inspect pressure, swap and process usage. RSS differs from physical 
 omits compressed pages. Cached files are reclaimable. Stop only proven abandoned development
 processes through the script; leave active applications running.
 
+## Parallel development
+
+Size concurrent work from current memory pressure and the measured cost of this project's
+commands. A fixed server count or a fraction of total RAM alone cannot account for a 16 GB
+laptop, a 64 GB workstation, other applications, or different route graphs. Check the operating
+system's memory pressure and sample swap activity over time. Occupied swap alone can outlive
+the pressure that created it. On macOS, use `vmmap -summary <pid>` when RSS looks small despite
+heavy swapping. Include child processes when measuring a dev server or build.
+
+Under sustained elevated pressure, first stop this task's servers that no check or requested preview
+needs. Then reduce workers or defer this task's next build, full test run, or browser test.
+Keep unrelated agents and healthy parallel work running. Per-command worker limits multiply
+across checkouts. Recheck pressure before starting the deferred work.
+
+For Next.js, read the installed version's memory and Turbopack guides. Compare cache settings
+with the same routes and edits, cold and warm runs, idle memory, and restart latency before
+changing defaults. Keep persistent caches when stopping servers. A Node.js heap limit does
+not bound native compiler allocations or the whole process tree.
+
 ## Chrome code-sign clones on macOS
 
 Chrome creates temporary app bundles to keep signed resources available across browser updates.
