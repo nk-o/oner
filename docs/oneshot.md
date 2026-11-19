@@ -22,8 +22,8 @@ and a skill you name wins over the table.
 `oneshot.release` in `config.json` sets where a run ends:
 
 - `pr`, the default. The run ends at a pull request that is ready to merge.
-- `production`. A fix, refactor, or performance run whose gate had nothing to ask or got your
-  answers, and a feature run whose gate you approved, go on to a **Release** step after the
+- `production`. A fix, feature, refactor, or performance run whose gate had nothing to ask,
+  got your answers, or follows a plan you approved goes on to a **Release** step after the
   watch. It merges the pull request once it is ready,
   waits for the repository's own pipeline to deploy, and runs the read-only production checks it
   finds. When nothing tells which commit production runs, it merges and reports production as

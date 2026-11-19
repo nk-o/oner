@@ -130,8 +130,7 @@ the run log for a review.
   `oneshot-auto` run whatever the conditions below say. In any other run it runs only when all
   of these hold, read from the run log: the setting is `production`; the lane is fix, feature,
   refactor, or perf, so the pull request is this run's own; and the **Gate** `Outcome.` line
-  reads `answered` or `approved <path>`, or `nothing to settle` in any lane but feature,
-  because a feature reaches production only once the user approved its gate. Outside
+  reads `nothing to settle`, `answered`, or `approved <path>`, in a feature as in a fix. Outside
   `oneshot-auto`, `away` and `pull request only` never release. Otherwise tick it as
   `skip: <the condition that failed>`. A series stage ticks it `skip:`, because the series
   releases every stage itself, and so does the plan lane.
