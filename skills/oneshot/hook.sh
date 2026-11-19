@@ -84,19 +84,14 @@ pstatus() { jq -r '.status // "running"' "$1/program.json" 2>/dev/null; }
 coordinates() {
   [ -f "$transcript" ] && grep -qF "series program: $1/program.json" "$transcript" 2>/dev/null
 }
-# The open programs this session coordinates, those of them running, and of
-# those the ones with no question open to the user, which a turn may not end on.
+# The open programs this session coordinates, and those of them running.
 coordinated=""
-running=""
 driving=""
 while IFS= read -r program; do
   [ -n "$program" ] && coordinates "$program" || continue
   coordinated="$coordinated$program
 "
-  [ "$(pstatus "$program")" = running ] || continue
-  running="$running$program
-"
-  [ "$(jq -r '[.stages[] | select(.waiting)] | length' "$program/program.json" 2>/dev/null)" = 0 ] && driving="$driving$program
+  [ "$(pstatus "$program")" = running ] && driving="$driving$program
 "
 done <<EOF
 $programs
@@ -162,7 +157,7 @@ Set \`Status. running\` and run each one, or tick it as \`- [x] <title> skip: <r
 $driving
 EOF
       message="$message
-Only series.mjs marks a stage done: a finished worker, green local checks, an open or merged pull request, and a started deployment do not. Run \`$series next --program <folder>\` for each series above and take the first action it prints, with any status note in the same message as the tool call. If a stage needs the user, for a decision or a review only they can give, run \`$series wait <reason> \"<pending action>\" --stage <id> --program <folder>\`, start the other stages' actions, then ask and end the turn. For a lost login, leave out --stage. If the user's last message was about something else, end the turn and leave the series open."
+Only series.mjs marks a stage done: a finished worker, green local checks, an open or merged pull request, and a started deployment do not. Run \`$series next --program <folder>\` for each series above and take the first action it prints, with any status note in the same message as the tool call. If a stage needs the user, for a decision or a review only they can give, run \`$series wait <reason> \"<pending action>\" --stage <id> --program <folder>\`, hand the other stages' work to background delegates, then ask and end the turn. When every action left is a wait or a question already asked, end the turn. For a lost login, leave out --stage. If the user's last message was about something else, end the turn and leave the series open."
     fi
     [ -n "$message" ] || exit 0
 
@@ -188,7 +183,7 @@ Only series.mjs marks a stage done: a finished worker, green local checks, an op
     ;;
   PermissionRequest)
     [ "$host" = claude ] && loaded || exit 0
-    if [ "$status" = running ] || [ "$delegate" = true ] || [ -n "$running" ]; then
+    if [ "$status" = running ] || [ "$delegate" = true ] || [ -n "$driving" ]; then
       printf '%s' "$input" | node "$(dirname "$0")/permission.mjs" "$(dirname "$0")/.." 2>/dev/null || true
     fi
     ;;

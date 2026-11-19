@@ -151,7 +151,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    | `accept` | Record the production check the stage run wrote, with `series.mjs amend --stage <id> --accept "<command>"`, once its log shows the check failing on production as it is. When the stage run wrote none, a fresh delegate writes it. When no read-only check can see the stage, record `--waive-accept "<reason>"` instead. |
    | `wait-checks`, `wait-merge`, `wait-deploy`, `wait-verify`, `hold` | Run `series.mjs next --wait 1800`. It returns once an action other than a wait appears. Where the host wakes the session when background work ends, run it in the background and end the turn, in T3 Code after `t3_background_wait` on its task ID where that tool exists. Where it does not, run it in the foreground as one command and wait on that command with the longest timeout the host allows. |
    | `fix-forward` | Cut the branch it names from the updated default branch and run a stage run there with `Lane. fix`, on the failure it quotes. The stage stays open until the fix passes production. |
-   | `ask` | The stage it names now waits on the user. The stages after it wait with it, and so does every merge while it holds the release. Take the other actions first, then ask the user what it names, per **Waiting**, and end the turn. |
+   | `ask` | The stage it names now waits on the user. The stages after it wait with it, and so does every merge while it holds the release. Hand the other stages' work to background delegates first, then ask the user what it names, per **Waiting**, and end the turn. A foreground `next --wait` waits until the user has answered. |
    | `asked` | The stage still waits for the answer to a question already asked. Ask it again only if the user has not seen it. |
    | `cleanup` | Run `wt.sh finish <name>` from outside that worktree, then again with `--yes`. A checkout that `delegate_task` made is T3 Code's to remove, so leave it and its branch. The authorization covers it. When something outside the series still runs from that worktree, leave it, name it in the series log's **Now**, and go on. `next --wait` does not stop on a cleanup. |
    | `complete` | Go to step 6. |
@@ -226,9 +226,10 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    **Waiting.** The series waits, with `series.mjs wait <reason> "<pending action>"`, in these
    cases and no others. Every question to the user after the gate runs `wait` first, a
    question asked through the host's question tool included. A wait about one stage takes
-   `--stage <id>`: only that stage and the stages after it wait, so run `next` again, start
-   the other stages' actions, then ask and end the turn. Their delegates and `next --wait`
-   wake the session. A wait without `--stage`, such as a lost login, holds the whole
+   `--stage <id>`: only that stage and the stages after it wait, so run `next` again, hand
+   the other stages' work to background delegates, then ask and end the turn. Their
+   delegates, and a `next --wait` where the host runs it in the background, wake the
+   session. Where `next --wait` runs in the foreground, it waits until the user has answered. A wait without `--stage`, such as a lost login, holds the whole
    program. The program reads `waiting` once no stage can act without the user:
    - A login expired, for `gh`, `git`, or a production command. `series.mjs` sets this
      itself and exits 3. When a step of your own hits it, run `wait auth` with the exact

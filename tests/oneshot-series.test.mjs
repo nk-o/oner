@@ -844,6 +844,7 @@ test('a stage being fixed forward takes a build slot, and an authorization clear
   f.openPr(b.branch, b.head);
   assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask']);
   assert.equal(f.series(['wait', 'input', 'authorize the release of the billing program']).status, 0);
+  assert.match(f.series(['resume', '--recheck', 'api', '--authorization', 'Yes, release every stage']).stderr, /--recheck api answers nothing/);
   assert.equal(f.series(['resume', '--authorization', 'Yes, release every stage']).status, 0);
   assert.equal(f.stage('schema').waiting, undefined);
   assert.deepEqual(kinds(f.series(['next']), 'schema'), ['merge']);
@@ -854,6 +855,43 @@ test('a stage being fixed forward takes a build slot, and an authorization clear
   assert.deepEqual(kinds(r, 'schema'), ['fix-forward']);
   assert.deepEqual(kinds(r, 'api'), ['hold']);
   assert.match(r.actions.find((x) => x.stage === 'api').detail, /schema are being built, and parallel is 1/);
+});
+
+test('a pull request closed while its stage waits stops holding the release', () => {
+  const f = fixture();
+  const p = f.record();
+  p.stages = [{ id: 'schema', accept: ['true'] }, { id: 'api', accept: ['true'] }, { id: 'ui', accept: ['true'] }];
+  f.writeRecord(p);
+  f.build('ui');
+  const a = f.build('schema');
+  const b = f.build('api');
+  f.openPr(a.branch, a.head);
+  f.openPr(b.branch, b.head, [{ __typename: 'CheckRun', name: 'test', status: 'IN_PROGRESS', conclusion: '' }]);
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['merge']);
+  f.gh((s) => { s.prs[a.branch].reviewDecision = 'REVIEW_REQUIRED'; });
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask']);
+  f.gh((s) => {
+    s.prs[a.branch].state = 'CLOSED';
+    s.prs[b.branch].statusCheckRollup = [{ __typename: 'CheckRun', name: 'test', status: 'COMPLETED', conclusion: 'SUCCESS' }];
+  });
+  const r = f.series(['next']);
+  assert.deepEqual(kinds(r, 'api'), ['merge']);
+  assert.equal(f.stage('schema').approvedHead, undefined);
+});
+
+test('amend keeps a kept stage\'s open question and lets a new independent stage start', () => {
+  const f = fixture();
+  assert.equal(f.series(['wait', 'decision', 'pick the column name', '--stage', 'schema']).status, 0);
+  f.series(['next']);
+  assert.equal(f.record().status, 'waiting');
+  const file = join(f.root, 'stages.json');
+  writeFileSync(file, JSON.stringify([{ id: 'schema', accept: ['true'] }, { id: 'api', after: ['schema'], accept: ['true'] }, { id: 'ui', accept: ['true'] }]));
+  assert.equal(f.series(['amend', '--stages', file, '--approval', 'Add the ui stage']).status, 0);
+  assert.equal(f.stage('schema').waiting.action, 'pick the column name');
+  const r = f.series(['next']);
+  assert.equal(f.record().status, 'running');
+  assert.deepEqual(kinds(r, 'ui'), ['start']);
+  assert.deepEqual(kinds(r, 'schema'), ['asked']);
 });
 
 function runHook(cwd, event, transcript, extra = {}) {

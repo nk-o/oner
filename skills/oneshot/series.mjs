@@ -534,11 +534,14 @@ function advance(ctx, s) {
 
 // A waiting stage is not advanced, but a merge of it outside the series still
 // takes the release, and withdraws a merge this pass printed for another stage.
+// A closed pull request merges nothing, so its approval stops holding the release.
 function holdRelease(ctx, s) {
-  if (s.state === 'pr-open' && !s.waiting.release &&
-    gh(ctx.root, ['pr', 'view', String(s.pr.number), '--json', 'state']).state === 'MERGED') {
-    s.waiting.release = true;
-    ctx.changed = true;
+  if (['building', 'pr-open'].includes(s.state) && !s.waiting.release) {
+    const [pr] = gh(ctx.root, ['pr', 'list', '--head', s.branch, '--state', 'all', '--limit', '1', '--json', 'number,url']);
+    const state = pr && gh(ctx.root, ['pr', 'view', String(pr.number), '--json', 'state']).state;
+    if (state === 'MERGED') s.waiting.release = true;
+    if (state === 'CLOSED') delete s.approvedHead;
+    ctx.changed ||= state === 'MERGED' || state === 'CLOSED';
   }
   if (!s.waiting.release) return;
   if (ctx.mergeAction && ctx.merging !== s.id) {
@@ -581,11 +584,12 @@ function pass({ p, root }, dir) {
   const starting = new Set();
   ctx.asked = [];
   ctx.full = (s) => {
-    const open = p.stages.filter((o) => o !== s && (starting.has(o.id) || ['building', 'pr-open', 'failed'].includes(o.state) ||
+    const open = p.stages.filter((o) => o !== s && (starting.has(o.id) || ['building', 'pr-open'].includes(o.state) ||
+      (o.state === 'failed' && !o.waiting) ||
       (o.state === 'pending' && git(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${o.branch}`], { ok: true }) !== null)));
     const serial = s.serial && open.find((o) => o.serial);
-    if (serial) return `${serial.id} is serial too and has not merged; serial stages build one at a time`;
-    const building = open.filter((o) => !(o.state === 'pr-open' && o.approvedHead));
+    if (serial) return `${serial.id} is serial too and is still being built or fixed; serial stages build one at a time`;
+    const building = open.filter((o) => !(o.state === 'pr-open' && (o.approvedHead || o.waiting?.release)));
     if (building.length >= parallel) return `${building.map((o) => o.id).join(', ')} are being built, and parallel is ${parallel}`;
     starting.add(s.id);
     return null;
@@ -694,8 +698,10 @@ function amendProgram({ p, root }, dir, stageId, a) {
         if (started.some((x) => x.id === s.id)) throw new Refusal(`Stage ${s.id} has started; it stays as it is.`);
       }
       const before = p.stages.filter((s) => !started.includes(s)).map((s) => s.id);
-      p.stages = [...started, ...listed.map((s) => ({ ...s }))];
-      if (p.waiting?.stages && !p.stages.some((s) => s.waiting)) {
+      // A kept stage keeps its open question, and next derives the program's wait again.
+      const asked = Object.fromEntries(p.stages.filter((s) => !started.includes(s) && s.waiting).map((s) => [s.id, s.waiting]));
+      p.stages = [...started, ...listed.map((s) => ({ ...s, ...(asked[s.id] ? { waiting: asked[s.id] } : {}) }))];
+      if (p.waiting?.stages) {
         p.status = 'running';
         delete p.waiting;
       }
@@ -759,7 +765,7 @@ function main(argv) {
       }
       const s = p.stages.find((x) => x.id === stage) ?? (() => { throw new Refusal(`No stage ${stage}.`); })();
       // Only that stage waits; next sets the program waiting once no other stage can act.
-      s.waiting = { reason, action: action.join(' '), since, ...(s.waiting?.release ? { release: true } : {}) };
+      s.waiting = { reason, action: action.join(' '), since };
       return stageWait(s);
     });
     console.log(`${summary(dir, p)}\nwaiting for ${reason}: ${pending.action}${stage ? `\nRun series.mjs next: the stages that do not depend on ${stage} go on.` : ''}`);
@@ -791,15 +797,15 @@ function main(argv) {
         answered = named ? stageWaits.filter((x) => x.id === named)
           : unauthorized.length ? unauthorized : stageWaits.length === 1 ? stageWaits : [];
       }
-      answered = [...new Set([...answered, ...unauthorized])];
-      waited = [...waited, ...answered.map(stageWait)];
-      if (!waited.length) {
+      if (!waited.length && !answered.length) {
         const ownStage = own && p.stages.find((x) => about(own, x.id));
         const on = [...(own ? [ownStage ? `stage ${ownStage.id}` : 'the whole program'] : []), ...stageWaits.map((x) => `stage ${x.id}`)].join(', ');
         throw new Refusal(named
           ? `The program waits on ${on || 'no stage'}, so --${stage ? 'stage' : 'recheck'} ${named} answers nothing. A wait about one stage is written with --stage <id>.`
           : `Several stages wait (${stageWaits.map((x) => x.id).join(', ')}); name the one the answer is about with --stage <id>.`);
       }
+      answered = [...new Set([...answered, ...unauthorized])];
+      waited = [...waited, ...answered.map(stageWait)];
       const asked = waited[0] === own ? p.stages.find((x) => about(own, x.id)) : answered[0];
       if (asked?.state === 'failed' && recheck) {
         // The user repaired it outside the series, so production is read again.
