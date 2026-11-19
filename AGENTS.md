@@ -250,6 +250,12 @@ usually one small script that imports what the app ships and calls the function 
 
 - Use the commit-message skill before every commit, mine or a run's.
 - Use the pr skill before opening a pull request.
+- Treat every repository as one that may become public. No file, commit message, or PR body
+  carries business data: sales, revenue, counts of customers, orders, keys or activations, real
+  customer records even with names removed, real store, order or license ids, real keys. A
+  fixture is synthetic, and a check run on real data reports pass or fail without those
+  numbers. Product names and public list prices are fine. The data stays in the tracker or in
+  ignored files such as `.specs/`.
 - One concern per pull request: one feature, one fix, or one cleanup, at whatever size it
   takes. A second change a user would notice, found on the way, is a follow-up.
 - Run `gh pr merge` as a command of its own, with no `cd`, pipe, `&&` or `;` around it, and
