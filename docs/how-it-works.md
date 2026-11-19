@@ -14,6 +14,7 @@
 | `bin/ui.mjs`, `ui/`, `panel/` | the panel: today's work across agents and pull requests, stats, the local skill editor, and settings. It reads no secrets of its own, and writes only to `config.json`, `local/`, and a cache of numbers. |
 | `bin/status.mjs` | what is configured, installed, and available on this machine. |
 | `bin/update-check.mjs`, `bin/session-start.mjs` | session-start hooks: the update check, and the context for agents whose hooks take JSON. |
+| `bin/devservers.mjs` | the dev server reaper. Agent hooks run it to stop dev servers in linked worktrees that sat idle, sooner under memory pressure, and agents run its `gate` before a server or a heavy check. |
 | `targets/` | for each agent, the hooks and settings keys the build owns there. |
 | `config.json` | personal settings, ignored by git. `config.schema.json` describes every key, and a missing file means the defaults. |
 | `local/` | personal additions, ignored by git, including `local/ports.md`, the machine's dev port registry. |

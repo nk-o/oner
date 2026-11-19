@@ -214,6 +214,10 @@ usually one small script that imports what the app ships and calls the function 
   `{{skills_dir}}/worktree/wt.sh adopt` before anything that needs env files or a dev
   server. When the file is missing and the task needs either, run the `worktree-setup` skill
   first.
+- A dev server runs only while a step needs the running app, to verify a change or to work on a
+  screen. Before starting one, or a full build, test run, or browser test, run
+  `{{repo_dir}}/bin/devservers.mjs gate` and defer the step while it exits 75. Stop the servers
+  you started when the step ends. **Dev servers** in the `worktree` skill has the rest.
 
 ## Whole tasks
 

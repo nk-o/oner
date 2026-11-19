@@ -28,7 +28,7 @@ on any failure, so nobody has to read the output to know whether it passed.
 identity of a started process with its checkout and start time, so `stop` cannot kill a PID
 that has since been reused. Stop its process tree and wait for its listeners to close.
 Calling `stop` twice is a no-op the second time. A reused server stays running. Apply
-[the worktree lifecycle](../../worktree/SKILL.md#dev-servers-during-verification) around checks,
+[the worktree lifecycle](../../worktree/SKILL.md#dev-servers) around checks,
 including failure paths.
 
 A page error or a failed request for the app's own assets fails the feature, whatever the proof
