@@ -76,7 +76,8 @@ with `{{agents_dir}}/oneshot-worker.md`'s body.
 When `oneshot` runs this skill, the third Deviations rule no longer stops. Silence in the plan
 is decided here, recorded as one line with its reason and its evidence under **Assumptions**
 in the run log (`.specs/NNN-slug/oneshot.md`, the file the hook names), and reported at the
-end. That log is the one place assumptions live, so plan.md gets no copy.
+end when the user might overturn it. That log is the one place assumptions live, so plan.md
+gets no copy.
 
 Two things still stop, whatever else is running: a conflict with the spec or a contradicted
 decision, as written above, and the four hard stops in `oneshot`'s contract.
@@ -99,5 +100,8 @@ log's **Checks**; the tail still counts a failure as pre-existing only when it a
 
 ## Report
 
-What changed, what you ran and what it printed, what is left. The Deviations section is up
-to date. The PR description is written with the pr skill when the user asks.
+Length follows the result, per **Talking to me** in `AGENTS.md`. The outcome and the spec
+folder's path take one line. Add one line for each deviation the user might overturn and each
+thing that waits on them, and each **Guard** line. When any of these is there, add the proof
+line too, with the check output the outcome rests on. The Deviations section is up to date.
+The PR description is written with the pr skill when the user asks.

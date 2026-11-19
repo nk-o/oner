@@ -53,8 +53,8 @@ the log's **Lane**, and names them.
 output goes where the lane step says, usually the run log, and the next step follows.
 
 **Everything after the gate is decided here, and not silently.** Each decision taken during
-the run goes into the run log's **Assumptions** as one line with its reason, and every one of
-them is in the final report.
+the run goes into the run log's **Assumptions** as one line with its reason, and every one the
+user might overturn is in the final report.
 
 **A fact is not a question.** Before the gate asks anything, settle every open fact by running
 something, as `brainstorm`'s phase 2 does, and log the result under **Assumptions**.
@@ -301,24 +301,24 @@ Set `Status. done` in the run log first, or leave `stopped: <reason>` in place f
 ends without a pull request, so the hook stops reminding.
 
 The log already holds the gate, the checks, every review round, and the evidence. The report
-is not a second copy of it. Name the log's path once, and write only what the user acts on:
+is not a second copy of it. Its length follows the result, per **Talking to me** in
+`AGENTS.md`, with no fixed count of lines:
 
-- **The outcome and the link.** One or two sentences on what now works or what is fixed, then
-  the PR link and the head it is ready on, or what it still waits on.
-- **The proof.** The one check or verification the outcome rests on, as the output it printed.
-  Not the list of everything the run executed.
-- **Assumptions**, one line each, no evidence attached, the ones the user might overturn
-  first. They approved the gate and nothing since, so this is the part that is new to them.
-- **Skipped steps** from **Lane**, **Attention** lines from the review, `LATER` findings,
-  **Guard** lines, and each workaround the change kept with the cause it could not reach, one
-  line each. None of them is one line saying so.
-- **The issue**, when the log names one: the status it is in now, or the tracker update that
-  failed.
-- **What the run could not reach.** One line, or nothing.
+- **The outcome and the link.** One sentence on what now works or what is fixed, the PR link,
+  and the run log's path. When nothing below applies, this line is the whole report.
+- **The proof.** The one check the outcome rests on, as the output it printed, only when a line
+  below is there too.
+- **Assumptions** the user might overturn, one line each, no evidence attached. They approved
+  the gate and nothing since, so this is the part that is new to them. A part of the request
+  the run left out is one of these.
+- **What waits on the user**, one line each: a pull request that is not ready and what it
+  waits on, a question, a login, a check that could not run, a tracker update that failed. A
+  skipped step, an **Attention** line, a `LATER` finding, or a kept workaround goes here only
+  when it changes what the user should do, and otherwise stays in the log.
+- **Guard** lines, one each, because `reflect` reads them from the report.
 
-Length follows the size of the change, per **Talking to me** in `AGENTS.md`. A one-file fix
-reports in a short paragraph however long the run took. No preamble, no recap of the diff, no
-walk through the steps in order.
+A result that is easier seen than read gets a page, per **Talking to me**. No preamble, no
+recap of the diff, no walk through the steps in order.
 
 A series reports per step 6 of [`lanes/series.md`](lanes/series.md).
 

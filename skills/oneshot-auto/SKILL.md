@@ -76,7 +76,7 @@ Tick **Release** once `series.mjs report` exits 0, or once the merge of step 3 i
 
 ## Report
 
-Per `oneshot`'s Report, with these changes. The `Attention.` lines come first. The link line is
-the one step 6 of `series.md` writes per stage: the pull request, its merge commit, the commit
-production ran when it was verified, and the checks that passed. A run that stopped names the
+Per `oneshot`'s Report, with these changes. The link line is the one step 6 of `series.md`
+writes per stage. The `Attention.` lines come right after it, before every other added line,
+as decisions the user might overturn or as what waits on them. A run that stopped names the
 action it waits on.

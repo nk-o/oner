@@ -30,7 +30,7 @@ A task that fits none of them gets a lane written for it in the run log.
 ## Decisions during the run
 
 Decisions taken after the gate go under **Assumptions** in the run log, each with its evidence,
-and appear in the final report. A question the run can answer by running something (behavior on
+and the ones you might overturn appear in the final report. A question the run can answer by running something (behavior on
 an input, timing, what a library returns) is answered that way, not asked. Four kinds of decision
 stop the run wherever they come up: a database schema or migration, the shape of stored data, a
 contract outside the repository, and dropping or overwriting data a user has. When you say you

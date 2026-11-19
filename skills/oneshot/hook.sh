@@ -142,7 +142,7 @@ If nothing needs the user, continue with the first open step now, and put any st
       tracked="$(cat "$(dirname "$closed")"/*.md 2>/dev/null)"
       message="The oneshot run in ${closed#"$root"/} says \`Status. done\`, but these lines are still open:
 $unfinished
-Set \`Status. running\` and run each one, or tick it as \`- [x] <title> skip: <reason>\` and name it in the report. A run is done only when every line is ticked."
+Set \`Status. running\` and run each one, or tick it as \`- [x] <title> skip: <reason>\`. Name a skipped request in the report, and a skipped step only when it changes what the user should do. A run is done only when every line is ticked."
     elif [ -n "$driving" ]; then
       first="$(printf '%s' "$driving" | head -n 1)"
       state="$first/.stop-state"
