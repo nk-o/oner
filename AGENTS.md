@@ -15,9 +15,9 @@
   output it printed; each decision I might overturn; what waits on me, a pull request that is
   not ready included; each **Guard** line, because `reflect` reads them from the report. I can
   read the diff, so do not walk me through it.
-- Where another rule here sends something to the report, such as a skipped check, a kept
-  workaround, a settled decision, or an unrelated problem, it goes to the run log when there is
-  one. It enters the report only when it changes what I should do, or when there is no log.
+- Where another rule here sends something other than a **Guard** line to the report, such as
+  a skipped check, a kept workaround, a settled decision, or an unrelated problem, it goes to
+  the run log when there is one. It enters the report only when it changes what I should do.
 - A result that is easier seen than read, such as a comparison, a flow, or a measurement, goes
   on a page. Use the host's page tool where it has one, else write `report.html` in the run
   folder and link it by absolute path. With neither, put a table in the reply.
