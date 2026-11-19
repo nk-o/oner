@@ -5,6 +5,7 @@ import { mergeTables, mergeTopKeys } from '../build/codex-config.mjs';
 import { readFileSync } from 'node:fs';
 import { listSkills, validateConfig } from '../build/config.mjs';
 import { mergeSettings } from '../build/install.mjs';
+import { renderFile, tokenValues } from '../build/render.mjs';
 
 const personal = 'model = "gpt"\n\n[mcp_servers.node_repl]\ncommand = "node_repl"\n';
 const block = '# oner: start (written by bin/build.mjs)\n["analytics"]\nenabled = false\n# oner: end\n';
@@ -60,6 +61,17 @@ test('agent settings default to browser off, no attribution, telemetry on, no au
   assert.equal(validateConfig({ autoCompact: { tokens: 900000 } }, repo).autoCompact, 900000);
   assert.throws(() => validateConfig({ autoCompact: { tokens: 99999 } }, repo), /autoCompact\.tokens/);
   assert.throws(() => validateConfig({ telemetry: { enabled: 'no' } }, repo), /telemetry\.enabled: must be true or false/);
+});
+
+test('orchestration.parallel defaults to 4, refuses anything below one stage, and reaches series.mjs', () => {
+  const repo = resolve('.');
+  assert.equal(validateConfig({}, repo).parallel, 4);
+  for (const parallel of [0, 1.5, '2']) {
+    assert.throws(() => validateConfig({ orchestration: { parallel } }, repo), /orchestration\.parallel: must be a whole number/);
+  }
+  const config = validateConfig({ orchestration: { parallel: 2 } }, repo);
+  const rendered = renderFile(resolve('skills/oneshot/series.mjs'), tokenValues(Object.fromEntries(['skills_dir', 'agents_dir', 'repo_dir', 'target_dir'].map((t) => [t, repo])), 'tilde', config)).toString();
+  assert.match(rendered, /Number\.parseInt\('2', 10\)/);
 });
 
 test('a disabled skill that was merged or renamed keeps the config valid, and an unknown one still fails', () => {

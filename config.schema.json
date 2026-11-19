@@ -208,6 +208,19 @@
         }
       }
     },
+    "orchestration": {
+      "description": "How an oneshot series runs its stages.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "parallel": {
+          "description": "How many stages a series builds at once, counting those open before their merge is approved. A program.json can set its own.",
+          "type": "integer",
+          "minimum": 1,
+          "default": 4
+        }
+      }
+    },
     "targets": {
       "description": "Which agent homes the build writes into.",
       "type": "object",

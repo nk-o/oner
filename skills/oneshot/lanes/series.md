@@ -125,7 +125,12 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    `SERIES_DEPLOYED`. `deployed` may print more than the commit: the first full sha in its
    output that names a commit wins, then the first short one. `checks` names at least one check every head must report, beyond
    whatever else reports. `base` defaults to the remote's default branch, and a stage's
-   `branch` to `<slug>-<id>`. Every other field is written by `series.mjs`. After this step
+   `branch` to `<slug>-<id>`. `parallel`, a whole number of 1 or more, caps how many stages
+   are built at once, counting those whose pull request is open but not yet approved for
+   merge; without it the cap is `{{orchestration_parallel}}`, from `orchestration.parallel` in
+   oner's config. A stage that touches the schema, migrations, a lockfile, or deploy config
+   sets `"serial": true`, and never builds beside another serial stage that has not merged.
+   Every other field is written by `series.mjs`. After this step
    `program.json` changes only through `series.mjs`, `amend` included, never by hand. Run
    `series.mjs next`. A record it refuses names the field.
 5. **Run the stages.** Run `next`, take every action it prints, from the first line down, and
@@ -146,7 +151,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    | `accept` | Record the production check the stage run wrote, with `series.mjs amend --stage <id> --accept "<command>"`, once its log shows the check failing on production as it is. When the stage run wrote none, a fresh delegate writes it. When no read-only check can see the stage, record `--waive-accept "<reason>"` instead. |
    | `wait-checks`, `wait-merge`, `wait-deploy`, `wait-verify`, `hold` | Run `series.mjs next --wait 1800`. It returns once an action other than a wait appears. Where the host wakes the session when background work ends, run it in the background and end the turn, in T3 Code after `t3_background_wait` on its task ID where that tool exists. Where it does not, run it in the foreground as one command and wait on that command with the longest timeout the host allows. |
    | `fix-forward` | Cut the branch it names from the updated default branch and run a stage run there with `Lane. fix`, on the failure it quotes. The stage stays open until the fix passes production. |
-   | `ask` | `next` has set the program to waiting. Ask the user what it names, per **Waiting**. |
+   | `ask` | The stage it names now waits on the user, and only the stages after it wait with it. Ask the user what it names, per **Waiting**, and take the other actions. |
+   | `asked` | The stage still waits for the answer to a question already asked. Ask it again only if the user has not seen it. |
    | `cleanup` | Run `wt.sh finish <name>` from outside that worktree, then again with `--yes`. A checkout that `delegate_task` made is T3 Code's to remove, so leave it and its branch. The authorization covers it. When something outside the series still runs from that worktree, leave it, name it in the series log's **Now**, and go on. `next --wait` does not stop on a cleanup. |
    | `complete` | Go to step 6. |
 
@@ -209,17 +215,21 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    creates for its checks, the rule that it writes the stage's production check, and the
    check that proves it: an open pull request whose checks are running. The coordinator puts a hard stop to the user, per
    **Waiting**, and does not settle it for the delegate. Where the host has no subagents,
-   build them one after another. Merges, deploys, and production checks go one stage at a
-   time whatever else runs, and `next` holds the rest. A stage built beside another is
+   build them one after another. `next` prints no more `start` actions than `parallel` leaves
+   room for, and holds the rest until a stage's merge is approved. Merges, deploys, and
+   production checks go one stage at a time whatever else runs, and `next` holds the rest.
+   A stage built beside another is
    brought up to date before its merge, so its checks run again on the new head. When the
    user named a model for this run, pass it as each delegate's `model`, and leave
    `config.json` and the agent definitions as they are.
 
-   **Waiting.** The series waits, with `series.mjs wait <reason> "<pending action>"` and an
-   ended turn, in these cases and no others. Every question to the user after the gate runs
-   `wait` first, a question asked through the host's question tool included, so the program
-   never reads `running` while it waits on a person. Add `--stage <id>` when the wait is
-   about one stage, so the answer can move that stage:
+   **Waiting.** The series waits, with `series.mjs wait <reason> "<pending action>"`, in these
+   cases and no others. Every question to the user after the gate runs `wait` first, a
+   question asked through the host's question tool included. A wait about one stage takes
+   `--stage <id>`: only that stage and the stages after it wait, so run `next` again and take
+   the other stages' actions while the question is open. A wait without `--stage`, such as a
+   lost login, holds the whole program. The program reads `waiting` once no stage can act
+   without the user, and that is when the turn ends:
    - A login expired, for `gh`, `git`, or a production command. `series.mjs` sets this
      itself and exits 3. When a step of your own hits it, run `wait auth` with the exact
      command that failed. Ask the user to restore access. Never skip the provider or the
@@ -234,10 +244,11 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    - A review only a person can give, or an `ask` from `next`.
 
    Before the turn ends, the stage's run log and `program.json` both hold what is done.
-   Once the user answers, run `series.mjs resume` and then `next`, before repeating any
-   action. `next` reads GitHub and production first, so a merge that went through before
-   the wait is recorded, not run twice. Time spent waiting does not count against a
-   release's timeout. An answer moves only the stage the question named:
+   Once the user answers, run `series.mjs resume --stage <id>` for the stage the answer is
+   about, or plain `resume` for a wait of the whole program or when one stage waits, and then
+   `next`, before repeating any action. `next` reads GitHub and production first, so a merge
+   that went through before the wait is recorded, not run twice. Time spent waiting does not
+   count against a release's timeout. An answer moves only the stage the question named:
    - The user repaired a failed stage outside the series, by a redeploy or a migration
      applied per the rollback policy: `resume --recheck <stage>`, and production is read
      again.

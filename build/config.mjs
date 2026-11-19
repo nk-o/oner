@@ -42,7 +42,7 @@ const RENAMED = { improve: 'improve-code' };
 
 // Returns the config with every default filled in and every dir absolute:
 // { language, disabledSkills, effort: { <stage>: <level> }, reviewers: { <provider>: { enabled, ... } },
-//   reviewBots: { <bot>: <mode> }, browser, attribution, telemetry, guard, autoCompact: <tokens> | null,
+//   reviewBots: { <bot>: <mode> }, browser, attribution, telemetry, guard, autoCompact: <tokens> | null, parallel,
 //   targets: { <name>: { enabled, dir } } }
 export function loadConfig(repoDir) {
   return validateConfig(readRawConfig(repoDir), repoDir);
@@ -53,7 +53,7 @@ export function loadConfig(repoDir) {
 export function validateConfig(raw, repoDir) {
   const at = (path, msg) => new BuildError(`config.json ${path}: ${msg}`);
   if (!isObject(raw)) throw at('', 'must be an object');
-  onlyKeys(raw, ['$schema', 'language', 'local', 'skills', 'effort', 'externalReview', 'reviewBots', 'browser', 'attribution', 'telemetry', 'guard', 'autoCompact', 'targets'], '', at);
+  onlyKeys(raw, ['$schema', 'language', 'local', 'skills', 'effort', 'externalReview', 'reviewBots', 'browser', 'attribution', 'telemetry', 'guard', 'autoCompact', 'orchestration', 'targets'], '', at);
 
   if (raw.language !== undefined && (typeof raw.language !== 'string' || !raw.language.trim())) {
     throw at('language', 'must be a language name, such as "English"');
@@ -142,6 +142,12 @@ export function validateConfig(raw, repoDir) {
     throw at('autoCompact.tokens', 'must be a whole number of tokens from 100000 to 1000000');
   }
 
+  const orchestration = objectAt(raw.orchestration, 'orchestration', at);
+  onlyKeys(orchestration, ['parallel'], 'orchestration', at);
+  if (orchestration.parallel !== undefined && !(Number.isInteger(orchestration.parallel) && orchestration.parallel >= 1)) {
+    throw at('orchestration.parallel', 'must be a whole number of stages, 1 or more');
+  }
+
   const targetsIn = objectAt(raw.targets, 'targets', at);
   onlyKeys(targetsIn, Object.keys(TARGETS), 'targets', at);
   const targets = {};
@@ -159,7 +165,7 @@ export function validateConfig(raw, repoDir) {
     targets[name] = { enabled: t.enabled ?? (spec.alwaysOn || existsSync(dir)), explicit: t.enabled !== undefined, dir };
   }
 
-  return { language: raw.language?.trim() ?? 'English', localRepository, disabledSkills: disabled, effort, reviewers, reviewBots, ...switches, autoCompact: compact.tokens ?? null, targets };
+  return { language: raw.language?.trim() ?? 'English', localRepository, disabledSkills: disabled, effort, reviewers, reviewBots, ...switches, autoCompact: compact.tokens ?? null, parallel: orchestration.parallel ?? 4, targets };
 }
 
 export function listSkills(repoDir) {
