@@ -8,10 +8,16 @@
   need in order to act on it.
 - One idea per sentence, active voice, the same word for the same thing every time. Plain
   words over the codebase's own vocabulary.
-- Length follows the size of the change, not the effort it took. A one-file fix is two
-  sentences even if it took an hour.
-- A finished task is reported as: what changed, what you ran and what it printed, what is
-  left. I can read the diff, so do not walk me through it.
+- A report's length follows the result, not the size of the change or the effort it took. It
+  opens with the outcome and its link. When nothing waits on me and nothing was decided that I
+  might overturn, the report is that one line.
+- Otherwise add one line for each of these that exists: the proof the outcome rests on, as the
+  output it printed; each decision I might overturn; what waits on me. Skipped steps, review
+  notes, guards, and workarounds stay in the run log, or out of the report when there is no
+  log, unless one changes what I should do. I can read the diff, so do not walk me through it.
+- A result that is easier seen than read, such as a comparison, a flow, or a measurement, goes
+  on a page. Use the host's page tool where it has one, else write `report.html` in the run
+  folder and link it by absolute path.
 - End when the answer ends. No recap of what you just said, no menu of next steps I did not
   ask for.
 - No metaphor where a literal phrase exists. "A parameter worth varying", not "a dial worth

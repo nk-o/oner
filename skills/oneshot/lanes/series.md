@@ -295,8 +295,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    Where the host can start a new session, hand off after every stage that `next` records as
    done, never in the middle of one, so no coordinator carries more than one stage's context.
 6. **Report.** `series.mjs report` exits 0 only when every stage is done with its evidence.
-   Then set the series log's `Status. done` and report per the skill's Report section, with
-   one line per stage in place of the single link: its pull request, its merge commit, the
-   commit production ran when it was verified, and the checks that passed. A series that
-   stops short reports the same lines, with each open stage and the action `next` printed
-   for it.
+   Paste its output into the series log's **Checks**, because it holds each stage's merge
+   commit, the commit production ran, and when it was verified. Then set the series log's
+   `Status. done` and report per the skill's Report section, with one line per stage in place
+   of the single link: what it shipped and its pull request. A series that stops short reports
+   the same lines, with each open stage and the action `next` printed for it.

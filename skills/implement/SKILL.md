@@ -99,5 +99,7 @@ log's **Checks**; the tail still counts a failure as pre-existing only when it a
 
 ## Report
 
-What changed, what you ran and what it printed, what is left. The Deviations section is up
-to date. The PR description is written with the pr skill when the user asks.
+Length follows the result, per **Talking to me** in `AGENTS.md`. The outcome and the spec
+folder's path take one line. Add one line only for each deviation the user might overturn and
+each thing left to them. The Deviations section is up to date. The PR description is written
+with the pr skill when the user asks.
