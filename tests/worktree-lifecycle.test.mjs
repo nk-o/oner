@@ -1039,3 +1039,20 @@ test('the gate passes at normal pressure and holds at critical after stopping id
   assert.match(critical.stdout, /memory pressure is critical\. Defer/);
   assert.ok(await until(() => !alive(s.child.pid)));
 });
+
+test('a Next.js telemetry flush left behind by a stopped server is stopped', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const script = join(dir, 'node_modules/next/dist/telemetry/detached-flush.js');
+  mkdirSync(join(script, '..'), { recursive: true });
+  writeFileSync(script, "require('child_process').spawn(process.execPath,['-e','setInterval(()=>{},1e9)'],{stdio:'ignore'});setInterval(()=>{},1e9);require('fs').writeFileSync(process.argv[4],String(process.pid))");
+  const pidFile = join(f.root, '_events_1.json');
+  spawnSync('sh', ['-c', `"${process.execPath}" "${script}" dev "${dir}" _events_1.json >/dev/null 2>&1 &`], { cwd: f.root });
+  assert.ok(await until(() => existsSync(pidFile) && readFileSync(pidFile, 'utf8')));
+  const pid = Number(readFileSync(pidFile, 'utf8')); strays.push(pid);
+  assert.ok(alive(pid));
+  assert.match(reaper(f, ['reap', '--idle', '1h']).stdout, /^(?!.*telemetry)/s);
+  assert.ok(alive(pid), 'a fresh flush was stopped');
+  const result = reaper(f, ['reap', '--idle', '0s']);
+  assert.match(result.stdout, /stopped  Next\.js telemetry flush .*feature pid \d+/);
+  assert.ok(await until(() => !alive(pid)));
+});
