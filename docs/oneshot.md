@@ -87,8 +87,9 @@ on evidence it saw, and prints what to do next. It never merges or deploys by it
 it again after a crash or a resume repeats nothing.
 
 Each stage runs as an ordinary `oneshot` run in its own worktree, up to its open pull request.
-Independent stages build in parallel. Merges, deploys, and production checks go one stage at a
-time. A stage is done only when all of these hold:
+Independent stages build in parallel, up to `orchestration.parallel` in the config at once (4 by
+default, or the program's own `parallel`), and a stage marked `serial` never builds beside another
+serial one. Merges, deploys, and production checks go one stage at a time. A stage is done only when all of these hold:
 
 - every check on the pull request's current head passed, and the head that merged is that head;
 - the merge commit is on the default branch;
@@ -98,11 +99,12 @@ time. A stage is done only when all of these hold:
 A missing or pending check means the stage is unfinished, and a required check that only skipped
 stops the series with a question. A deploy that still runs an older commit is unfinished, and so
 is a check that cannot decide. A failed production check gets a fix-forward pull request, at most
-twice per stage. The series sets itself to waiting and asks you when a deploy never picks up the
-merge, a migration fails, a check fails a third time, the spec leaves a decision open, a review
-needs a person, or a login expires.
+twice per stage. A stage waits and asks you when a deploy never picks up the merge, a migration
+fails, a check fails a third time, the spec leaves a decision open, or a review needs a person.
+The stages that do not depend on it go on, and the series reads waiting only once none of them
+can act. An expired login holds the whole series.
 
-After your answer, `series.mjs resume` and `next` read GitHub and production again before
+After your answer, `series.mjs resume`, with `--stage <id>` when several stages wait, and `next` read GitHub and production again before
 repeating anything. `resume --recheck <stage>` reads a stage you repaired by hand from production
 again. The hook keeps the coordinating session going while the series runs, once per change of
 state, and stays silent while it waits. The series is finished when `series.mjs report` exits 0,

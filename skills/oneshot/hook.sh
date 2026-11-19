@@ -55,12 +55,14 @@ fi
 # A series outlives every stage branch and worktree, so its program lives in the
 # primary checkout, which every worktree of the repository can find.
 primary="$(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -n 1)"
-program=""
-pstatus=""
+# Every open program, one folder per line. Several can run at once.
+programs=""
 for candidate in "${primary:-$root}"/.specs/*/program.json; do
   [ -f "$candidate" ] || continue
-  pstatus="$(jq -r '.status // "running"' "$candidate" 2>/dev/null)"
-  case "$pstatus" in running|waiting) program="$(dirname "$candidate")"; break ;; esac
+  case "$(jq -r '.status // "running"' "$candidate" 2>/dev/null)" in
+    running|waiting) programs="$programs$(dirname "$candidate")
+" ;;
+  esac
 done
 # A delegate in an isolated worktree has a detached HEAD and no run log of its
 # own; the run it works for is any running log in this repository.
@@ -72,23 +74,34 @@ if [ "$branch" = "HEAD" ]; then
     done
   done < <(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
 fi
-[ -n "$log" ] || [ -n "$closed" ] || [ -n "$program" ] || [ "$delegate" = true ] || exit 0
+[ -n "$log" ] || [ -n "$closed" ] || [ -n "$programs" ] || [ "$delegate" = true ] || exit 0
 
 rel="${log#"$root"/}"
 transcript="$(field '.transcript_path // empty')"
+pstatus() { jq -r '.status // "running"' "$1/program.json" 2>/dev/null; }
 # Only the session that ran series.mjs has this line, so a session that merely
 # saw the reminder below is not taken for the one coordinating the series.
-coordinator=false
-if [ -n "$program" ] && [ -f "$transcript" ] &&
-  grep -qF "series program: $program/program.json" "$transcript" 2>/dev/null; then
-  coordinator=true
-fi
+coordinates() {
+  [ -f "$transcript" ] && grep -qF "series program: $1/program.json" "$transcript" 2>/dev/null
+}
+# The open programs this session coordinates, and those of them running.
+coordinated=""
+driving=""
+while IFS= read -r program; do
+  [ -n "$program" ] && coordinates "$program" || continue
+  coordinated="$coordinated$program
+"
+  [ "$(pstatus "$program")" = running ] && driving="$driving$program
+"
+done <<EOF
+$programs
+EOF
 unticked() {
   awk '/^## /{on = ($0 == "## Lane" || $0 == "## Requests")} on && /^- \[ \] /' "$1" | head -n 6
 }
 progress() {
   jq -r '"\([.stages[] | select(.state == "done")] | length) of \(.stages | length) stages done"' \
-    "$program/program.json" 2>/dev/null
+    "$1/program.json" 2>/dev/null
 }
 series="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/series.mjs"
 # A stale log must not steer, or approve for, a session that never ran the skill.
@@ -130,10 +143,21 @@ If nothing needs the user, continue with the first open step now, and put any st
       message="The oneshot run in ${closed#"$root"/} says \`Status. done\`, but these lines are still open:
 $unfinished
 Set \`Status. running\` and run each one, or tick it as \`- [x] <title> skip: <reason>\`. Name a skipped request in the report, and a skipped step only when it changes what the user should do. A run is done only when every line is ticked."
-    elif [ "$pstatus" = "running" ] && [ "$coordinator" = true ]; then
-      state="$program/.stop-state"
-      tracked="$(cat "$program/program.json" 2>/dev/null)"
-      message="The oneshot series in $program is open, $(progress), and this turn ended before it finished. Only series.mjs marks a stage done: a finished worker, green local checks, an open or merged pull request, and a started deployment do not. Run \`$series next\` and take the first action it prints, with any status note in the same message as the tool call. If the series needs the user, for a login, a decision, or a review only they can give, run \`$series wait <reason> \"<pending action>\"\` and end the turn. If the user's last message was about something else, end the turn and leave the series open."
+    elif [ -n "$driving" ]; then
+      first="$(printf '%s' "$driving" | head -n 1)"
+      state="$first/.stop-state"
+      tracked=""
+      message=""
+      while IFS= read -r program; do
+        [ -n "$program" ] || continue
+        tracked="$tracked$(cat "$program/program.json" 2>/dev/null)"
+        message="${message:+$message
+}The oneshot series in $program is open, $(progress "$program"), and this turn ended before it finished."
+      done <<EOF
+$driving
+EOF
+      message="$message
+Only series.mjs marks a stage done: a finished worker, green local checks, an open or merged pull request, and a started deployment do not. Run \`$series next --program <folder>\` for each series above and take the first action it prints, with any status note in the same message as the tool call. If a stage needs the user, for a decision or a review only they can give, run \`$series wait <reason> \"<pending action>\" --stage <id> --program <folder>\`, hand the other stages' work to background delegates, then ask and end the turn. When every action left is a wait or a question already asked, end the turn. For a lost login, leave out --stage. If the user's last message was about something else, end the turn and leave the series open."
     fi
     [ -n "$message" ] || exit 0
 
@@ -159,8 +183,7 @@ Set \`Status. running\` and run each one, or tick it as \`- [x] <title> skip: <r
     ;;
   PermissionRequest)
     [ "$host" = claude ] && loaded || exit 0
-    if [ "$status" = running ] || [ "$delegate" = true ] ||
-      { [ "$pstatus" = running ] && [ "$coordinator" = true ]; }; then
+    if [ "$status" = running ] || [ "$delegate" = true ] || [ -n "$driving" ]; then
       printf '%s' "$input" | node "$(dirname "$0")/permission.mjs" "$(dirname "$0")/.." 2>/dev/null || true
     fi
     ;;
@@ -169,10 +192,14 @@ Set \`Status. running\` and run each one, or tick it as \`- [x] <title> skip: <r
     prompt="$(field '.prompt // empty')"
     case "$prompt" in
       "The oneshot run in $rel is open and this turn ended with steps still open:"*) ;;
-      "The oneshot series in $program is open"*) ;;
+      "The oneshot series in "*" is open, "*) ;;
       *)
         [ -n "$log" ] && rm -f "$(dirname "$log")/.stop-state" 2>/dev/null
-        [ "$coordinator" = true ] && rm -f "$program/.stop-state" 2>/dev/null
+        while IFS= read -r program; do
+          [ -n "$program" ] && rm -f "$program/.stop-state" 2>/dev/null
+        done <<EOF
+$coordinated
+EOF
         ;;
     esac
     if [ -n "$log" ]; then
@@ -184,9 +211,14 @@ Set \`Status. running\` and run each one, or tick it as \`- [x] <title> skip: <r
     fi
     # Every new session hears about an open series once, at its start; after
     # that only the session coordinating it does.
-    if [ -n "$program" ] && { [ "$(field '.hook_event_name // empty')" = "SessionStart" ] || [ "$coordinator" = true ]; }; then
-      printf '%s\n' "An oneshot series is open in this repository, status $pstatus, $(progress). Its folder $program holds the approved spec, the plan, and program.json, which is the state. One session coordinates it. If the task at hand is to continue that series, load the oneshot SKILL.md and follow lanes/series.md: run \`$series next\` before anything else. For its state alone, run \`$series report\`, which changes nothing. While it is waiting, ask the user for what its pending action needs, then run \`$series resume\`."
-    fi
+    while IFS= read -r program; do
+      [ -n "$program" ] || continue
+      if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] || coordinates "$program"; then
+        printf '%s\n' "An oneshot series is open in this repository, status $(pstatus "$program"), $(progress "$program"). Its folder $program holds the approved spec, the plan, and program.json, which is the state. One session coordinates it. If the task at hand is to continue that series, load the oneshot SKILL.md and follow lanes/series.md: run \`$series next --program $program\` before anything else. For its state alone, run \`$series report --program $program\`, which changes nothing. While it is waiting, ask the user for what its pending action needs, then run \`$series resume --program $program\`."
+      fi
+    done <<EOF
+$programs
+EOF
     ;;
 esac
 

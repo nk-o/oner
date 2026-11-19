@@ -20,7 +20,7 @@ const fs = require('fs');
 const state = JSON.parse(fs.readFileSync(process.env.GH_STATE, 'utf8'));
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.GH_LOG, args.join(' ') + '\\n');
-if (state.fail) { process.stderr.write(state.fail + '\\n'); process.exit(1); }
+if (state.fail && (!state.failOn || args.includes(state.failOn))) { process.stderr.write(state.fail + '\\n'); process.exit(1); }
 if (args[0] === 'pr' && args[1] === 'list') {
   const pr = state.prs[args[args.indexOf('--head') + 1]];
   process.stdout.write(JSON.stringify(pr ? [{ number: pr.number, url: pr.url }] : []));
@@ -710,6 +710,190 @@ test('an open stage\'s run folder is copied into the program folder on every pas
   assert.deepEqual(f.stage('schema').logs, ['stages/schema/001-stage']);
 });
 
+test('a series builds no more stages at once than parallel allows, and one serial stage at a time', () => {
+  const f = fixture();
+  const p = f.record();
+  p.parallel = 2;
+  p.stages = ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => ({ id, accept: ['true'] }));
+  f.writeRecord(p);
+  let r = f.series(['next']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(r.actions.filter((a) => a.kind === 'start').map((a) => a.stage), ['a', 'b']);
+  assert.deepEqual(r.actions.filter((a) => a.kind === 'hold').map((a) => a.stage), ['c', 'd', 'e', 'f']);
+  assert.match(r.actions.find((a) => a.stage === 'c').detail, /a, b are being built, and parallel is 2/);
+
+  // A pull request whose merge is approved no longer holds a build slot.
+  const a = f.build('a');
+  f.openPr(a.branch, a.head);
+  r = f.series(['next']);
+  assert.deepEqual(kinds(r, 'a'), ['merge']);
+  assert.deepEqual(r.actions.filter((x) => x.kind === 'start').map((x) => x.stage), ['b', 'c']);
+
+  const q = f.record();
+  delete q.parallel;
+  q.stages = [{ id: 'schema', serial: true, accept: ['true'] }, { id: 'lockfile', serial: true, accept: ['true'] }, { id: 'ui', accept: ['true'] }];
+  f.writeRecord(q);
+  r = f.series(['next']);
+  assert.deepEqual(r.actions.map((x) => [x.stage, x.kind]), [['schema', 'start'], ['ui', 'start'], ['lockfile', 'hold']]);
+  assert.match(r.actions.find((x) => x.stage === 'lockfile').detail, /schema is serial too/);
+
+  for (const [field, value, message] of [['parallel', 0, /parallel must be a whole number/], ['serial', 'yes', /stage schema serial must be true or false/]]) {
+    const bad = structuredClone(q);
+    if (field === 'parallel') bad.parallel = value;
+    else bad.stages[0].serial = value;
+    f.writeRecord(bad);
+    const refused = f.series(['next']);
+    assert.equal(refused.status, 2);
+    assert.match(refused.stderr, message);
+  }
+});
+
+test('a stage that waits on the user holds only the stages that depend on it', () => {
+  const f = fixture();
+  const p = f.record();
+  p.stages = [{ id: 'schema', accept: ['true'] }, { id: 'api', accept: ['true'] }, { id: 'ui', after: ['schema'], accept: ['true'] }];
+  f.writeRecord(p);
+  const b = f.build('schema');
+  f.openPr(b.branch, b.head);
+  f.gh((s) => { s.prs[b.branch].reviewDecision = 'REVIEW_REQUIRED'; });
+  let r = f.series(['next']);
+  assert.deepEqual(r.actions.map((x) => [x.stage, x.kind]), [['schema', 'ask'], ['api', 'start'], ['ui', 'hold']]);
+  assert.equal(f.record().status, 'running');
+  assert.equal(f.stage('schema').waiting.reason, 'review');
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['asked'], 'a question already asked is not asked again');
+
+  // The independent stage is built, merged, and released while schema waits.
+  f.ship('api');
+  r = f.series(['next']);
+  assert.equal(f.record().status, 'waiting', 'nothing can act until the user answers');
+  assert.match(f.record().waiting.action, /^stage schema: .*needs an approving review/);
+  assert.deepEqual(r.actions.map((x) => x.kind), ['ask']);
+  assert.match(r.actions[0].detail, /stage schema: .*Ask the user, then run series.mjs resume$/);
+
+  assert.equal(f.series(['resume']).status, 0);
+  assert.equal(f.record().status, 'running');
+  assert.equal(f.stage('schema').waiting, undefined);
+  assert.equal(f.record().waits.at(-1).reason, 'review');
+  f.gh((s) => { s.prs[b.branch].reviewDecision = 'APPROVED'; });
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['update'], 'the answer lets schema go on, behind the api merge');
+
+  // Two waits: each answer names its stage, and the other one keeps waiting.
+  assert.equal(f.series(['wait', 'decision', 'pick the column name', '--stage', 'ui']).status, 0);
+  assert.equal(f.record().status, 'running');
+  assert.equal(f.series(['wait', 'decision', 'confirm the backfill', '--stage', 'schema']).status, 0);
+  r = f.series(['next']);
+  assert.equal(f.record().status, 'waiting');
+  assert.deepEqual(r.actions.map((x) => x.stage), ['schema', 'ui']);
+  assert.deepEqual(f.series(['next']).actions.map((x) => x.detail.match(/resume.*$/)[0]), ['resume --stage schema', 'resume --stage ui']);
+  assert.match(f.series(['resume']).stderr, /Several stages wait \(schema, ui\)/);
+  assert.equal(f.series(['resume', '--stage', 'schema']).status, 0);
+  assert.equal(f.record().status, 'running');
+  assert.equal(f.stage('ui').waiting.action, 'pick the column name');
+  r = f.series(['next']);
+  assert.deepEqual(kinds(r, 'schema'), ['update']);
+  assert.deepEqual(kinds(r, 'ui'), ['asked']);
+});
+
+test('a waiting stage merged outside the series keeps the release, through a later wait --stage', () => {
+  const f = fixture();
+  const p = f.record();
+  p.stages = [{ id: 'schema', accept: ['true'] }, { id: 'api', accept: ['true'] }, { id: 'ui', accept: ['true'] }];
+  f.writeRecord(p);
+  f.build('ui');
+  const a = f.build('schema');
+  const b = f.build('api');
+  f.openPr(a.branch, a.head);
+  f.openPr(b.branch, b.head, [{ __typename: 'CheckRun', name: 'test', status: 'IN_PROGRESS', conclusion: '' }]);
+  f.gh((s) => { s.prs[a.branch].reviewDecision = 'REVIEW_REQUIRED'; });
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask']);
+  f.merge(a.branch, a.head);
+  f.gh((s) => { s.prs[b.branch].statusCheckRollup = [{ __typename: 'CheckRun', name: 'test', status: 'COMPLETED', conclusion: 'SUCCESS' }]; });
+  let r = f.series(['next']);
+  assert.deepEqual(kinds(r, 'api'), ['hold']);
+  assert.match(r.actions.find((x) => x.stage === 'api').detail, /schema is in release/);
+  assert.equal(f.series(['wait', 'decision', 'accept the hand merge?', '--stage', 'schema']).status, 0);
+  r = f.series(['next']);
+  assert.ok(!r.actions.some((x) => x.kind === 'merge'), JSON.stringify(r.actions));
+  assert.match(f.series(['resume', '--stage', 'schema', '--recheck', 'api']).stderr, /name different stages/);
+});
+
+test('a question raised in a pass that then loses the login is asked again after the login is back', () => {
+  const f = fixture();
+  const p = f.record();
+  p.stages[1].after = [];
+  f.writeRecord(p);
+  const a = f.build('schema');
+  const b = f.build('api');
+  f.openPr(a.branch, a.head);
+  const api = f.openPr(b.branch, b.head);
+  f.gh((s) => { s.prs[a.branch].reviewDecision = 'REVIEW_REQUIRED'; s.fail = 'HTTP 401: Bad credentials'; s.failOn = String(api); });
+  assert.equal(f.series(['next']).status, 3);
+  assert.equal(f.stage('schema').waiting, undefined);
+  f.gh((s) => { delete s.fail; });
+  assert.equal(f.series(['resume']).status, 0);
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask']);
+});
+
+test('a stage being fixed forward takes a build slot, and an authorization clears the stages that asked for it', () => {
+  const f = fixture({ timeoutMinutes: 0, authorization: null });
+  const p = f.record();
+  p.parallel = 1;
+  p.stages[1].after = [];
+  f.writeRecord(p);
+  const b = f.build('schema');
+  f.openPr(b.branch, b.head);
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask']);
+  assert.equal(f.series(['wait', 'input', 'authorize the release of the billing program']).status, 0);
+  assert.match(f.series(['resume', '--recheck', 'api', '--authorization', 'Yes, release every stage']).stderr, /--recheck api answers nothing/);
+  assert.equal(f.series(['resume', '--authorization', 'Yes, release every stage']).status, 0);
+  assert.equal(f.stage('schema').waiting, undefined);
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['merge']);
+  const sha = f.merge(b.branch, b.head);
+  f.production({ deployed: sha, migrated: true, healthy: false });
+  f.series(['next']);
+  const r = f.series(['next']);
+  assert.deepEqual(kinds(r, 'schema'), ['fix-forward']);
+  assert.deepEqual(kinds(r, 'api'), ['hold']);
+  assert.match(r.actions.find((x) => x.stage === 'api').detail, /schema are being built, and parallel is 1/);
+});
+
+test('a pull request closed while its stage waits stops holding the release', () => {
+  const f = fixture();
+  const p = f.record();
+  p.stages = [{ id: 'schema', accept: ['true'] }, { id: 'api', accept: ['true'] }, { id: 'ui', accept: ['true'] }];
+  f.writeRecord(p);
+  f.build('ui');
+  const a = f.build('schema');
+  const b = f.build('api');
+  f.openPr(a.branch, a.head);
+  f.openPr(b.branch, b.head, [{ __typename: 'CheckRun', name: 'test', status: 'IN_PROGRESS', conclusion: '' }]);
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['merge']);
+  f.gh((s) => { s.prs[a.branch].reviewDecision = 'REVIEW_REQUIRED'; });
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask']);
+  f.gh((s) => {
+    s.prs[a.branch].state = 'CLOSED';
+    s.prs[b.branch].statusCheckRollup = [{ __typename: 'CheckRun', name: 'test', status: 'COMPLETED', conclusion: 'SUCCESS' }];
+  });
+  const r = f.series(['next']);
+  assert.deepEqual(kinds(r, 'api'), ['merge']);
+  assert.equal(f.stage('schema').approvedHead, undefined);
+});
+
+test('amend keeps a kept stage\'s open question and lets a new independent stage start', () => {
+  const f = fixture();
+  assert.equal(f.series(['wait', 'decision', 'pick the column name', '--stage', 'schema']).status, 0);
+  f.series(['next']);
+  assert.equal(f.record().status, 'waiting');
+  const file = join(f.root, 'stages.json');
+  writeFileSync(file, JSON.stringify([{ id: 'schema', accept: ['true'] }, { id: 'api', after: ['schema'], accept: ['true'] }, { id: 'ui', accept: ['true'] }]));
+  assert.equal(f.series(['amend', '--stages', file, '--approval', 'Add the ui stage']).status, 0);
+  assert.equal(f.stage('schema').waiting.action, 'pick the column name');
+  const r = f.series(['next']);
+  assert.equal(f.record().status, 'running');
+  assert.deepEqual(kinds(r, 'ui'), ['start']);
+  assert.deepEqual(kinds(r, 'schema'), ['asked']);
+});
+
 function runHook(cwd, event, transcript, extra = {}) {
   const input = JSON.stringify({ hook_event_name: event, cwd, transcript_path: transcript, background_tasks: [], session_crons: [], ...extra });
   return spawnSync('bash', [hook], { input, encoding: 'utf8' }).stdout;
@@ -827,4 +1011,24 @@ test('the hook keeps the coordinator going until the series is done, once per st
   p.status = 'done';
   f.writeRecord(p);
   assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
+});
+
+test('the hook names every open series in the repository, not only the first', () => {
+  const f = fixture();
+  const other = join(f.repo, '.specs', '002-search');
+  mkdirSync(other);
+  writeFileSync(join(other, 'program.json'), readFileSync(join(f.program, 'program.json')));
+  const bystander = join(f.root, 'bystander.jsonl');
+  writeFileSync(bystander, '<command-name>/oneshot</command-name>\n');
+  const start = runHook(f.repo, 'SessionStart', bystander);
+  assert.match(start, /001-billing holds the approved spec/);
+  assert.match(start, /002-search holds the approved spec/);
+
+  // The session coordinating the second series is kept going on it.
+  const out = f.series(['next', '--program', other]).stdout;
+  const transcript = join(f.root, 'coordinator.jsonl');
+  writeFileSync(transcript, `<command-name>/oneshot</command-name>\n${JSON.stringify({ output: out })}\n`);
+  const stop = runHook(f.repo, 'Stop', transcript);
+  assert.match(stop, /oneshot series in [^ ]*002-search is open/);
+  assert.doesNotMatch(stop, /001-billing/);
 });
