@@ -76,7 +76,7 @@ fails the review even when the CLI exits zero.
 selection. It receives the same sanitized repository, with no custom review prompt. It differs
 in how it looks, not only in the model behind it. The script gives it `--base` when the branch is
 ahead, `--uncommitted` when the tree is dirty, and both when both are true. Its model and
-effort come from `config.json` and apply to this run only; the defaults are `gpt-6.1-sol` at
+effort come from `config.json` and apply to this run only; the defaults are `gpt-6.2-sol` at
 `medium`.
 
 **Claude** gets the same contract as Cursor through `claude -p`, with read tools and read-only

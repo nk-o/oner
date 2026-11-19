@@ -17,7 +17,7 @@ grok_effort="${GROK_EFFORT:-high}"
 # defects at medium and at high, medium in two thirds of the time, Terra reported
 # nothing at either, and Luna spent the most tokens of the three. Pinned for this
 # run rather than globally, so the account's own settings still stand elsewhere.
-codex_model="${CODEX_MODEL:-gpt-6.1-sol}"
+codex_model="${CODEX_MODEL:-gpt-6.2-sol}"
 codex_effort="${CODEX_EFFORT:-medium}"
 claude_model="${CLAUDE_MODEL:-opus}"
 claude_effort="${CLAUDE_EFFORT:-high}"
