@@ -66,7 +66,8 @@ skills also use `jq`, `lsof`, and the GitHub CLI `gh`.
 ## Give a task
 
 Write the task in plain words, without a skill name. The agent picks a route from the table in
-`AGENTS.md` **Whole tasks** and names it in the first line of its reply, so you can stop it:
+`AGENTS.md` **Whole tasks**. When the route starts a flow, the first line of the reply names it, so
+you can stop it. An answer or a one-line edit comes with no route line:
 
 | You write | The agent starts |
 | --- | --- |
