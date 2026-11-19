@@ -127,12 +127,13 @@ the run log for a review.
   `running` when an event or a wake arrives. In a series stage, skip this step:
   the series takes the PR from here, per [`series.md`](series.md).
 - **Release.** This install's release setting is `{{oneshot_release}}`. The step runs in an
-  `oneshot-auto` run, and in any other run only when all of these hold, read from the run log:
-  the setting is `production`; the lane is fix, feature, refactor, or perf, so the pull request
-  is this run's own; and the **Gate** `Outcome.` line reads `answered` or `approved <path>`, or
-  `nothing to settle` in any lane but feature, because a feature reaches production only once
-  the user approved its gate. `away` and `pull request only` never release. Otherwise tick it
-  as `skip: <the condition that failed>`. A series stage ticks it `skip:`, because the series
+  `oneshot-auto` run whatever the conditions below say. In any other run it runs only when all
+  of these hold, read from the run log: the setting is `production`; the lane is fix, feature,
+  refactor, or perf, so the pull request is this run's own; and the **Gate** `Outcome.` line
+  reads `answered` or `approved <path>`, or `nothing to settle` in any lane but feature,
+  because a feature reaches production only once the user approved its gate. Outside
+  `oneshot-auto`, `away` and `pull request only` never release. Otherwise tick it as
+  `skip: <the condition that failed>`. A series stage ticks it `skip:`, because the series
   releases every stage itself, and so does the plan lane.
 
   When **Watch** reports the pull request ready:
@@ -153,11 +154,13 @@ the run log for a review.
      `cleanup` action for the worktree this session runs in. Before any turn that waits, set
      this log's `Status. waiting` as well as running `series.mjs wait`.
   3. When nothing tells which commit production runs, merge per **Merge** in `pr-wait` with the
-     repository's merge method, check the result, and run **After a merge** in `pr-wait` to
-     watch the deploy. Log `Attention. Production not verified: <why>` under **Assumptions**,
-     with the deploy's result beside it.
+     repository's merge method, check the result, and run only the **Deploy** paragraph of
+     **After a merge** in `pr-wait`, because its production check cannot tell this deploy from
+     the last one and its clean up would delete this run log. Log `Attention. Production not
+     verified: <why>` under **Assumptions**, with the deploy's result beside it.
 
   Tick **Release** once `series.mjs report --program <path>` exits 0, or once step 3's deploy
-  watch has reported.
+  watch exits 0. A deploy still pending leaves **Release** open, and a failed one goes to
+  **A broken release** in `pr-wait`.
   The four hard stops still stop here.
 - **Report** per the skill's Report section.

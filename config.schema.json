@@ -213,7 +213,7 @@
       "additionalProperties": false,
       "properties": {
         "release": {
-          "description": "Where an oneshot run ends. pr stops at a ready pull request. production also merges it and checks production, once the gate had nothing to settle or you answered it; a feature needs your approval of its gate.",
+          "description": "Where an oneshot run ends. pr stops at a ready pull request. production also merges it and checks production, once the gate had nothing to settle or you answered it; a feature needs your answer at its gate, and a review of an existing pull request never merges.",
           "enum": ["pr", "production"],
           "default": "pr"
         }

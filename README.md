@@ -74,7 +74,7 @@ Write the task in plain words, without a skill name. The agent picks a route fro
 | Work that takes several pull requests, or a tracker project | `oneshot`, as a series |
 | How something looks, feels, or moves | `prototype` or `refine`, and the build after you pick |
 | A bug, or a small change | `oneshot` |
-| A new or changed behavior | `oneshot`, which asks you to approve the build first |
+| A new or changed behavior | `oneshot`, which stops at its gate for your decisions |
 
 A one-line edit, a question, and work already under way in the chat go the ordinary way. A skill
 you name, such as `/oneshot <the feature, the ticket, or the bug>`, wins over the table.
@@ -84,8 +84,9 @@ after that runs without asking: the spec, the implementation, the project's chec
 in the running product, review by several models, fixes for what the review proves, the pull
 request, and a watch on it until checks and review bots are through. By default it does not
 merge. Set `oneshot.release` to `production` in `config.json` and a run also merges the pull
-request once it is ready and checks production after the deploy: a fix or another change whose
-gate had nothing to ask or got your answers, and a feature once you approved its gate.
+request once it is ready and checks production after the deploy: a fix, refactor, or performance
+run whose gate had nothing to ask or got your answers, and a feature once you answered its gate.
+A review of an existing pull request never merges.
 
 Work whose parts must reach production one after another becomes a series. With your authorization, each stage is
 merged, deployed, and checked in production before the next one lands.

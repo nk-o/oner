@@ -243,7 +243,8 @@ usually one small script that imports what the app ships and calls the function 
   | A defect, or a small change | `oneshot`, whose lane table picks fix or feature |
   | New or changed behavior | `oneshot`, feature lane. Its gate is where I approve the build. |
 
-- When I say I am away, take the route the table gives and run it as `oneshot`'s **Away**.
+- When I say I am away, a route that runs `oneshot` runs as its **Away**. `prototype` and
+  `refine` still stop for my pick.
 
 - The first line names the route by its skill, such as "`oneshot`, fix lane", or says that I
   get an answer or a direct edit. It comes before any tool call, a search included.

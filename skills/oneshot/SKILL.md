@@ -34,9 +34,10 @@ it is asked even when nothing else is.
 
 The first line of the run log's **Gate** records how the gate ended, because the tail's
 **Release** reads it after a resume: `Outcome. nothing to settle`, `Outcome. answered`,
-`Outcome. away` when **Away** took the recommendations, `Outcome. pull request only` when the
-user's answer chose to stop at the pull request, or `Outcome. approved <path>` when the lane
-took its decisions from a plan the user approved earlier.
+`Outcome. away` when **Away** took any of the recommendations, even beside answers,
+`Outcome. pull request only` when the user's answer chose to stop at the pull request, or
+`Outcome. approved <path>` when the lane took its decisions from a plan the user approved
+earlier.
 
 **A turn ends only where the run waits.** A message with no tool call ends the turn, and the
 run stands still until someone types, who may be asleep. After the gate, none of these ends a
@@ -206,7 +207,8 @@ The investigation lane writes nothing, so it skips this step.
 
 **Resume before you open.** When this branch already carries `.specs/*/oneshot.md` with
 `Status. running` or `Status. waiting`, that run is the task: read the log, take the first open
-line in its **Lane**, and re-read that step in the lane file the `Lane.` line names. Never open
+line in its **Lane**, and re-read that step in the lane file the `Lane.` line names. A log with
+a `Program.` line is in its **Release** step: continue that program with `--program`. Never open
 a second folder for the same task. When the task the user typed is not that run, set the old
 log's `Status. stopped: superseded`, say so in one line, and open a new folder. A log with an `Auto.` line was opened by `oneshot-auto`:
 read `{{skills_dir}}/oneshot-auto/SKILL.md` too, because its rules hold for the whole run. When
@@ -250,6 +252,7 @@ Status. running | waiting | done | stopped: <reason> | series
 - [ ] <each step's bold title, the lane's then the tail's, in order>
 
 ## Gate
+Outcome. nothing to settle | answered | away | pull request only | approved <path>
 <each decision the user settled, one line with its rationale>
 
 ## Assumptions

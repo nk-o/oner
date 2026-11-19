@@ -142,8 +142,8 @@ your authorization to merge and deploy this task, and it differs from `oneshot` 
   stop the run.
 - After the pull request is ready, the **Release** step runs whatever the release setting says.
   It releases the run as a one-stage series: merge, wait for the repository's own pipeline to
-  deploy, then the production checks. When nothing tells which commit production runs, it merges
-  and reports production as not verified.
+  deploy, then the production checks. When nothing tells which commit production runs, it merges,
+  watches the deploy, and reports production as not verified.
 
 It still stops for a login only you can supply, a review only a person can give, and the
 failures a series asks about.
