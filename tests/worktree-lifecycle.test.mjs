@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { afterEach, test } from 'node:test';
@@ -954,4 +954,88 @@ test('standalone discovery and Chrome modes reject cleanup mode combinations', (
     assert.match(result.stderr, /standalone/);
     assert.equal(readFileSync(join(f.repo, 'content'), 'utf8'), 'initial\n');
   }
+});
+
+const devservers = resolve('bin/devservers.mjs');
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const strays = [];
+afterEach(() => { for (const pid of strays.splice(0)) if (alive(pid)) process.kill(pid, 'SIGKILL'); });
+const until = async (check, ms = 15000) => { const end = Date.now() + ms; while (!check() && Date.now() < end) await new Promise(r => setTimeout(r, 100)); return check(); };
+
+function devServer(cwd, { spin = false } = {}) {
+  const code = `const c=require('child_process').spawn(process.execPath,['-e','setInterval(()=>{},1e9)'],{stdio:'ignore'});
+${spin ? "setInterval(()=>{const e=Date.now()+90;while(Date.now()<e);},100);" : ''}
+require('http').createServer((q,s)=>s.end('ok')).listen(0,'127.0.0.1',function(){console.log(this.address().port+' '+c.pid)})`;
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(process.execPath, ['-e', code], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    children.push(child);
+    child.once('error', reject);
+    child.stdout.once('data', data => {
+      const [port, grandchild] = String(data).trim().split(' ').map(Number);
+      strays.push(grandchild);
+      resolvePromise({ child, port, grandchild });
+    });
+  });
+}
+
+function reaper(f, args, pressure = 'normal') {
+  return spawnSync(process.execPath, [devservers, ...args, '--root', f.root], {
+    encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers'), DEVSERVERS_PRESSURE: pressure } });
+}
+
+test('an idle worktree dev server stops with its children, and other listeners stay', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const idle = await devServer(dir); f.launch(dir, idle.port);
+  const primary = await devServer(f.repo); f.launch(f.repo, primary.port);
+  const unlisted = await server(dir);
+  const result = reaper(f, ['reap', '--idle', '0s']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, new RegExp(`stopped  .*feature port ${idle.port} `));
+  assert.ok(await until(() => !alive(idle.child.pid) && !alive(idle.grandchild)), 'server tree still running');
+  assert.ok(alive(primary.child.pid), 'a server in the primary checkout was stopped');
+  assert.ok(alive(unlisted.child.pid), 'a listener that is no dev server was stopped');
+  assert.match(readFileSync(join(f.root, 'devservers/reaped.log'), 'utf8'), new RegExp(`stopped .*feature port ${idle.port} .* at normal memory pressure`));
+});
+
+test('a dev server keeps running while a client is connected or before its idle limit', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const s = await devServer(dir); f.launch(dir, s.port);
+  assert.match(reaper(f, ['reap', '--idle', '1m']).stdout, /kept .* idle 0m/);
+  const socket = (await import('node:net')).connect(s.port, '127.0.0.1');
+  await new Promise(r => socket.once('connect', r));
+  try {
+    const result = reaper(f, ['reap', '--idle', '0s']);
+    assert.match(result.stdout, /kept .* 1 client\(s\)/);
+    assert.ok(alive(s.child.pid));
+  } finally { socket.destroy(); }
+});
+
+test('a dev server busy on CPU counts as active, an idle one past its limit stops', async () => {
+  const f = fixture();
+  const busy = await devServer(f.worktree('busy'), { spin: true }); f.launch(join(f.repo, '.claude/worktrees/busy'), busy.port);
+  const idle = await devServer(f.worktree('idle')); f.launch(join(f.repo, '.claude/worktrees/idle'), idle.port);
+  assert.equal(reaper(f, ['reap', '--idle', '1h']).status, 0);
+  const states = join(f.root, 'devservers/servers');
+  for (const name of readdirSync(states)) {
+    const file = join(states, name); const state = JSON.parse(readFileSync(file, 'utf8'));
+    writeFileSync(file, JSON.stringify({ ...state, sampledAt: state.sampledAt - 2, activeAt: state.activeAt - 7200 }));
+  }
+  await new Promise(r => setTimeout(r, 2000));
+  const result = reaper(f, ['reap', '--idle', '1h']);
+  assert.match(result.stdout, /kept .*busy port/);
+  assert.match(result.stdout, /stopped .*idle port/);
+  assert.ok(alive(busy.child.pid));
+  assert.ok(await until(() => !alive(idle.child.pid)));
+});
+
+test('the gate passes at normal pressure and holds at critical after stopping idle servers', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const s = await devServer(dir); f.launch(dir, s.port);
+  const normal = reaper(f, ['gate']);
+  assert.equal(normal.status, 0); assert.match(normal.stdout, /ok memory pressure normal/);
+  assert.ok(alive(s.child.pid));
+  const critical = reaper(f, ['gate', '--wait', '0s', '--idle', '0s'], 'critical');
+  assert.equal(critical.status, 75, critical.stderr);
+  assert.match(critical.stdout, /memory pressure is critical\. Defer/);
+  assert.ok(await until(() => !alive(s.child.pid)));
 });

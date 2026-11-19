@@ -25,7 +25,7 @@ If it cannot do something, say so and fix the script.
 | Session began in a worktree the app made | `wt.sh adopt`, which copies env files, assigns the port, installs |
 | Start a feature from the primary checkout | `wt.sh new <name>` |
 | Repair copied launch settings without bootstrap | `wt.sh ports [<name>]` |
-| Develop and verify | project's own dev server, started from `.claude/launch.json` |
+| Verify, or work on a screen | the project's dev server from `.claude/launch.json`, stopped after, per **Dev servers** |
 | Open the PR | run the repo's checks, then the `pr` skill, then `gh pr create` |
 | Wait for CI and review | the `pr-wait` skill |
 | Merge | the `pr-wait` skill |
@@ -64,25 +64,29 @@ stack, or generated-types file is shared by every checkout on the machine. Only 
 worktree may own schema changes at a time. Check the project's `AGENTS.md` before
 running migrations or a database reset from a feature worktree.
 
-## Dev servers during verification
+## Dev servers
 
-Start only the apps the next verification step needs. Reuse a server only after confirming
-that its listener belongs to this checkout. Record which processes the step started and
-which it reused. Use the project's `verify-<app>` start and stop commands when available.
+A dev server runs only while a step needs the running app, to verify a change or to work on a
+screen or a design edit after edit. Start only the apps that step needs, with the project's
+`verify-<app>` start command when it has one. Reuse a server only after confirming that its
+listener belongs to this checkout, and record which processes you started and which you reused.
 
-Stop the processes the step started when verification ends, including on failure, before
-returning to editing, review, or waiting for CI. Confirm their listeners have gone. Keep a
-server running when the user requested a live preview or another active check has explicitly
-taken ownership, and report that handoff. Leave servers the step reused and shared databases
-running. An open task or an unmerged PR alone does not require a running dev server.
+When that step ends, including on failure, stop the servers you started before you move on to
+review, a pull request, or waiting for CI, and confirm their listeners are gone. Keep one
+running when the user asked for a live preview, and say so in the report. Leave reused servers
+and shared databases running. An open task or an unmerged PR alone does not need a server.
+Stopping keeps the worktree, its port, and its compiler caches, so the next start is warm.
 
-Keep the worktree, its port assignment, and persistent compiler caches when stopping a
-server. Each checkout retains its own build output and mutable dependencies. A stopped
-server can restart without giving another branch its files or rebuilding a discarded cache.
+Agent hooks run `{{repo_dir}}/bin/devservers.mjs`, which stops a dev server in a linked
+worktree once no client has connected and its processes have used no CPU for 30 minutes, 5
+under warning memory pressure, 1 under critical. Its `status` lists what runs, and its log
+what it stopped.
 
-Before adding a dev server or a heavy check alongside other work, check current memory
-pressure using [the memory investigation](../dev-tidy/references/storage.md#parallel-development).
-Proceed while pressure is normal. Reduce this task's resource use only while pressure stays elevated.
+Before you start a dev server, a full build, a full test run, or a browser test, run
+`{{repo_dir}}/bin/devservers.mjs gate`. Exit 0 means go. Exit 75 means memory pressure stayed
+elevated after it stopped the idle servers. Then stop the servers this task started, do the work
+that needs neither, and run the gate again before the heavy step. The report says which check
+waited and for how long.
 
 ## When a repository is not set up
 

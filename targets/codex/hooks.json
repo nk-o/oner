@@ -32,6 +32,16 @@
             "statusMessage": "oner: check for updates"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{repo_dir}}/bin/devservers.mjs\" hook",
+            "timeout": 5,
+            "statusMessage": "oner: stop idle dev servers"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -44,6 +54,16 @@
             "statusMessage": "oner: oneshot run state"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{repo_dir}}/bin/devservers.mjs\" hook",
+            "timeout": 5,
+            "statusMessage": "oner: stop idle dev servers"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -54,6 +74,16 @@
             "command": "\"{{skills_dir}}/oneshot/hook.sh\" --host codex",
             "timeout": 10,
             "statusMessage": "oner: oneshot run state"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{repo_dir}}/bin/devservers.mjs\" hook",
+            "timeout": 5,
+            "statusMessage": "oner: stop idle dev servers"
           }
         ]
       }

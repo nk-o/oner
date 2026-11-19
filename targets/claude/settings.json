@@ -37,6 +37,15 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{repo_dir}}/bin/devservers.mjs\" hook",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -45,6 +54,15 @@
           {
             "type": "command",
             "command": "\"{{skills_dir}}/oneshot/hook.sh\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{repo_dir}}/bin/devservers.mjs\" hook",
             "timeout": 5
           }
         ]
@@ -68,6 +86,15 @@
             "type": "command",
             "command": "\"{{skills_dir}}/oneshot/hook.sh\"",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{repo_dir}}/bin/devservers.mjs\" hook",
+            "timeout": 5
           }
         ]
       }

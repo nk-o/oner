@@ -35,6 +35,7 @@ try {
 const notes = [
   run(process.execPath, [join(here, 'build.mjs'), '--auto']),
   run(process.execPath, [join(here, 'update-check.mjs')]),
+  run(process.execPath, [join(here, 'devservers.mjs'), 'hook']),
 ];
 const root = input.cwd ?? input.workspace_roots?.[0];
 if (root) {
