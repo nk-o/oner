@@ -71,10 +71,10 @@ Write the task in plain words, without a skill name. The agent picks a route fro
 | You write | The agent starts |
 | --- | --- |
 | A question, or "brainstorm X" | an answer, or `brainstorm`, with nothing written |
+| Work that takes several pull requests, or a tracker project | `oneshot`, as a series |
+| How something looks, feels, or moves | `prototype` or `refine`, and the build after you pick |
 | A bug, or a small change | `oneshot` |
 | A new or changed behavior | `oneshot`, which asks you to approve the build first |
-| How something looks, feels, or moves | `prototype` or `refine`, and the build after you pick |
-| Work that takes several pull requests, or a tracker project | `oneshot`, as a series |
 
 A one-line edit, a question, and work already under way in the chat go the ordinary way. A skill
 you name, such as `/oneshot <the feature, the ticket, or the bug>`, wins over the table.
