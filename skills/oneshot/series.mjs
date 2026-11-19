@@ -348,6 +348,7 @@ function advance(ctx, s) {
   // release while it waits, so no other stage merges past it.
   const ask = (reason, detail) => {
     s.waiting = { reason, action: detail, since: ctx.now, ...(ctx.merging === s.id ? { release: true } : {}) };
+    ctx.asked.push(s);
     ctx.changed = true;
     return [act('ask', s, detail)];
   };
@@ -402,6 +403,8 @@ function advance(ctx, s) {
             ctx.changed = true;
             continue;
           }
+          // A closed pull request merges nothing, so its approval no longer holds the release.
+          delete s.approvedHead;
           return ask('decision', `${s.pr.url} was closed without merging`);
         }
         if (v.state === 'MERGED') {
@@ -529,6 +532,22 @@ function advance(ctx, s) {
   }
 }
 
+// A waiting stage is not advanced, but a merge of it outside the series still
+// takes the release, and withdraws a merge this pass printed for another stage.
+function holdRelease(ctx, s) {
+  if (s.state === 'pr-open' && !s.waiting.release &&
+    gh(ctx.root, ['pr', 'view', String(s.pr.number), '--json', 'state']).state === 'MERGED') {
+    s.waiting.release = true;
+    ctx.changed = true;
+  }
+  if (!s.waiting.release) return;
+  if (ctx.mergeAction && ctx.merging !== s.id) {
+    Object.assign(ctx.mergeAction, { kind: 'hold', detail: `${s.id} merged outside the series; merges go one at a time` });
+    ctx.mergeAction = null;
+  }
+  ctx.merging ??= s.id;
+}
+
 const stageWait = (s) => ({ reason: s.waiting.reason, action: `stage ${s.id}: ${s.waiting.action}`, since: s.waiting.since });
 
 function pass({ p, root }, dir) {
@@ -560,8 +579,9 @@ function pass({ p, root }, dir) {
   // serial stage that has not merged.
   const parallel = p.parallel ?? DEFAULT_PARALLEL;
   const starting = new Set();
+  ctx.asked = [];
   ctx.full = (s) => {
-    const open = p.stages.filter((o) => o !== s && (starting.has(o.id) || ['building', 'pr-open'].includes(o.state) ||
+    const open = p.stages.filter((o) => o !== s && (starting.has(o.id) || ['building', 'pr-open', 'failed'].includes(o.state) ||
       (o.state === 'pending' && git(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${o.branch}`], { ok: true }) !== null)));
     const serial = s.serial && open.find((o) => o.serial);
     if (serial) return `${serial.id} is serial too and has not merged; serial stages build one at a time`;
@@ -574,6 +594,7 @@ function pass({ p, root }, dir) {
     git(root, ['fetch', '--quiet', 'origin', p.base]);
     ctx.baseSha = git(root, ['rev-parse', `refs/remotes/origin/${p.base}`]);
     for (const s of p.stages) {
+      if (s.waiting) holdRelease(ctx, s);
       const found = s.waiting
         ? [act('asked', s, `the user has been asked (${s.waiting.reason}): ${s.waiting.action}. Run series.mjs resume --stage ${s.id} with the answer`)]
         : advance(ctx, s);
@@ -582,6 +603,8 @@ function pass({ p, root }, dir) {
     }
   } catch (error) {
     if (!(error instanceof AuthLost)) throw error;
+    // A question this pass raised was never printed, so the next pass asks it again.
+    for (const s of ctx.asked) delete s.waiting;
     p.status = 'waiting';
     p.waiting = { reason: 'auth', action: `run series.mjs next again once the login is back; it stopped at ${error.message}`, since: ctx.now };
     return { actions: [], changed: true, error };
@@ -672,6 +695,10 @@ function amendProgram({ p, root }, dir, stageId, a) {
       }
       const before = p.stages.filter((s) => !started.includes(s)).map((s) => s.id);
       p.stages = [...started, ...listed.map((s) => ({ ...s }))];
+      if (p.waiting?.stages && !p.stages.some((s) => s.waiting)) {
+        p.status = 'running';
+        delete p.waiting;
+      }
       Object.assign(record, { removed: before.filter((id) => !listed.some((s) => s.id === id)), stages: listed.map((s) => s.id) });
     }
     if (a.release) {
@@ -732,7 +759,7 @@ function main(argv) {
       }
       const s = p.stages.find((x) => x.id === stage) ?? (() => { throw new Refusal(`No stage ${stage}.`); })();
       // Only that stage waits; next sets the program waiting once no other stage can act.
-      s.waiting = { reason, action: action.join(' '), since };
+      s.waiting = { reason, action: action.join(' '), since, ...(s.waiting?.release ? { release: true } : {}) };
       return stageWait(s);
     });
     console.log(`${summary(dir, p)}\nwaiting for ${reason}: ${pending.action}${stage ? `\nRun series.mjs next: the stages that do not depend on ${stage} go on.` : ''}`);
@@ -742,6 +769,7 @@ function main(argv) {
     const { p, result: pending } = update(dir, ({ p }) => {
       const stageWaits = p.stages.filter((x) => x.waiting);
       if (p.status !== 'waiting' && !(p.status === 'running' && stageWaits.length)) throw new Refusal(`The program is ${p.status}, not waiting.`);
+      if (stage && recheck && stage !== recheck) throw new Refusal(`--stage ${stage} and --recheck ${recheck} name different stages.`);
       if (authorization !== undefined) {
         if (!authorization.trim()) throw new Refusal('--authorization quotes the user\'s approval of merging and deploying.');
         p.authorization = authorization.trim();
@@ -754,16 +782,17 @@ function main(argv) {
       // waits on its own. A program wait written before stages had their own
       // names its stage in the prefix. An authorization answers every stage
       // that waited for one.
+      const unauthorized = authorization !== undefined ? stageWaits.filter((x) => x.waiting.action === UNAUTHORIZED) : [];
       let answered = [];
       let waited = [];
       if (own && (!named || (about(own, named) && !stageWaits.some((x) => x.id === named)))) {
         waited = [own];
       } else {
-        const unauthorized = stageWaits.filter((x) => x.waiting.action === UNAUTHORIZED);
         answered = named ? stageWaits.filter((x) => x.id === named)
-          : authorization !== undefined && unauthorized.length ? unauthorized : stageWaits.length === 1 ? stageWaits : [];
-        waited = answered.map(stageWait);
+          : unauthorized.length ? unauthorized : stageWaits.length === 1 ? stageWaits : [];
       }
+      answered = [...new Set([...answered, ...unauthorized])];
+      waited = [...waited, ...answered.map(stageWait)];
       if (!waited.length) {
         const ownStage = own && p.stages.find((x) => about(own, x.id));
         const on = [...(own ? [ownStage ? `stage ${ownStage.id}` : 'the whole program'] : []), ...stageWaits.map((x) => `stage ${x.id}`)].join(', ');
@@ -771,7 +800,7 @@ function main(argv) {
           ? `The program waits on ${on || 'no stage'}, so --${stage ? 'stage' : 'recheck'} ${named} answers nothing. A wait about one stage is written with --stage <id>.`
           : `Several stages wait (${stageWaits.map((x) => x.id).join(', ')}); name the one the answer is about with --stage <id>.`);
       }
-      const asked = answered[0] ?? p.stages.find((x) => about(own, x.id));
+      const asked = waited[0] === own ? p.stages.find((x) => about(own, x.id)) : answered[0];
       if (asked?.state === 'failed' && recheck) {
         // The user repaired it outside the series, so production is read again.
         delete asked.failure;
@@ -784,7 +813,7 @@ function main(argv) {
       }
       // Time spent waiting on the user does not count against a release's
       // timeout: every stage's for a wait of the whole program, else the answered ones'.
-      for (const s of own && waited[0] === own ? p.stages : answered) {
+      for (const s of waited[0] === own ? p.stages : answered) {
         if (s.state === 'merged') s.mergedAt = now;
         if (s.state === 'deployed') s.deployedAt = now;
       }

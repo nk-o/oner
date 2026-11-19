@@ -20,7 +20,7 @@ const fs = require('fs');
 const state = JSON.parse(fs.readFileSync(process.env.GH_STATE, 'utf8'));
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.GH_LOG, args.join(' ') + '\\n');
-if (state.fail) { process.stderr.write(state.fail + '\\n'); process.exit(1); }
+if (state.fail && (!state.failOn || args.includes(state.failOn))) { process.stderr.write(state.fail + '\\n'); process.exit(1); }
 if (args[0] === 'pr' && args[1] === 'list') {
   const pr = state.prs[args[args.indexOf('--head') + 1]];
   process.stdout.write(JSON.stringify(pr ? [{ number: pr.number, url: pr.url }] : []));
@@ -792,6 +792,68 @@ test('a stage that waits on the user holds only the stages that depend on it', (
   r = f.series(['next']);
   assert.deepEqual(kinds(r, 'schema'), ['update']);
   assert.deepEqual(kinds(r, 'ui'), ['asked']);
+});
+
+test('a waiting stage merged outside the series keeps the release, through a later wait --stage', () => {
+  const f = fixture();
+  const p = f.record();
+  p.stages = [{ id: 'schema', accept: ['true'] }, { id: 'api', accept: ['true'] }, { id: 'ui', accept: ['true'] }];
+  f.writeRecord(p);
+  f.build('ui');
+  const a = f.build('schema');
+  const b = f.build('api');
+  f.openPr(a.branch, a.head);
+  f.openPr(b.branch, b.head, [{ __typename: 'CheckRun', name: 'test', status: 'IN_PROGRESS', conclusion: '' }]);
+  f.gh((s) => { s.prs[a.branch].reviewDecision = 'REVIEW_REQUIRED'; });
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask']);
+  f.merge(a.branch, a.head);
+  f.gh((s) => { s.prs[b.branch].statusCheckRollup = [{ __typename: 'CheckRun', name: 'test', status: 'COMPLETED', conclusion: 'SUCCESS' }]; });
+  let r = f.series(['next']);
+  assert.deepEqual(kinds(r, 'api'), ['hold']);
+  assert.match(r.actions.find((x) => x.stage === 'api').detail, /schema is in release/);
+  assert.equal(f.series(['wait', 'decision', 'accept the hand merge?', '--stage', 'schema']).status, 0);
+  r = f.series(['next']);
+  assert.ok(!r.actions.some((x) => x.kind === 'merge'), JSON.stringify(r.actions));
+  assert.match(f.series(['resume', '--stage', 'schema', '--recheck', 'api']).stderr, /name different stages/);
+});
+
+test('a question raised in a pass that then loses the login is asked again after the login is back', () => {
+  const f = fixture();
+  const p = f.record();
+  p.stages[1].after = [];
+  f.writeRecord(p);
+  const a = f.build('schema');
+  const b = f.build('api');
+  f.openPr(a.branch, a.head);
+  const api = f.openPr(b.branch, b.head);
+  f.gh((s) => { s.prs[a.branch].reviewDecision = 'REVIEW_REQUIRED'; s.fail = 'HTTP 401: Bad credentials'; s.failOn = String(api); });
+  assert.equal(f.series(['next']).status, 3);
+  assert.equal(f.stage('schema').waiting, undefined);
+  f.gh((s) => { delete s.fail; });
+  assert.equal(f.series(['resume']).status, 0);
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask']);
+});
+
+test('a stage being fixed forward takes a build slot, and an authorization clears the stages that asked for it', () => {
+  const f = fixture({ timeoutMinutes: 0, authorization: null });
+  const p = f.record();
+  p.parallel = 1;
+  p.stages[1].after = [];
+  f.writeRecord(p);
+  const b = f.build('schema');
+  f.openPr(b.branch, b.head);
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['ask']);
+  assert.equal(f.series(['wait', 'input', 'authorize the release of the billing program']).status, 0);
+  assert.equal(f.series(['resume', '--authorization', 'Yes, release every stage']).status, 0);
+  assert.equal(f.stage('schema').waiting, undefined);
+  assert.deepEqual(kinds(f.series(['next']), 'schema'), ['merge']);
+  const sha = f.merge(b.branch, b.head);
+  f.production({ deployed: sha, migrated: true, healthy: false });
+  f.series(['next']);
+  const r = f.series(['next']);
+  assert.deepEqual(kinds(r, 'schema'), ['fix-forward']);
+  assert.deepEqual(kinds(r, 'api'), ['hold']);
+  assert.match(r.actions.find((x) => x.stage === 'api').detail, /schema are being built, and parallel is 1/);
 });
 
 function runHook(cwd, event, transcript, extra = {}) {

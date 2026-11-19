@@ -42,6 +42,11 @@ function world() {
   g('remote', 'set-head', 'origin', 'main');
   const head = g('rev-parse', 'HEAD');
   for (const id of ['a', 'b']) g('branch', `model-${id}`);
+  // The commit a hand merge of a puts on main, there from the start so every
+  // state shares one git history.
+  g('commit', '-q', '--allow-empty', '-m', 'Hand merge of a');
+  const handMerge = g('rev-parse', 'HEAD');
+  g('push', '-q', 'origin', 'main');
   writeFileSync(join(root, 'bin', 'gh'), FAKE_GH, { mode: 0o755 });
   const env = { ...process.env, PATH: `${join(root, 'bin')}:${process.env.PATH}`, GH_DIR: ghDir };
   const program = join(repo, '.specs', '001-model');
@@ -83,6 +88,7 @@ function world() {
     'a: checks pass': () => checks('a', false),
     'a: review required': () => view('a', (v) => { v.reviewDecision = 'REVIEW_REQUIRED'; }),
     'a: review approved': () => view('a', (v) => { v.reviewDecision = 'APPROVED'; }),
+    'a: merged by hand': () => view('a', (v) => { Object.assign(v, { state: 'MERGED', mergeCommit: { oid: handMerge } }); }),
     'b: checks pass': () => checks('b', false),
     'b: coordinator asks the user': () => series('wait', 'decision', 'pick a name', '--stage', 'b'),
     'user answers a': () => series('resume', '--stage', 'a'),
@@ -100,7 +106,7 @@ function world() {
     const p = JSON.parse(readFileSync(record, 'utf8'));
     return JSON.stringify([p, read().gh], (k, v) => (['since', 'at', 'startedAt', 'waits', 'logs'].includes(k) ? undefined : v));
   };
-  return { root, initial, restore, read, step, events, fingerprint, record, actions: () => actions };
+  return { root, initial, restore, read, step, events, fingerprint, record, actions: () => actions, gh: () => read().gh };
 }
 
 // Stage ids a stage waits for, directly or through the stages it comes after.
@@ -111,6 +117,12 @@ const upstream = (p, id) => {
 const inRelease = (s) => s.waiting?.release || ['merged', 'deployed', 'failed'].includes(s.state) || (s.state === 'pr-open' && s.approvedHead);
 
 const properties = {
+  // Merges go one stage at a time, whatever waits.
+  'merges go one at a time': (p, actions, gh) => {
+    const merges = actions.filter(([kind]) => kind === 'merge');
+    return merges.length <= 1 && merges.every(([, id]) => !p.stages.some((t) => t.id !== id && t.state !== 'done' &&
+      (inRelease(t) && t.state !== 'pr-open' || t.waiting?.release || gh[t.id]?.state === 'MERGED')));
+  },
   // A waiting stage never blocks a stage that does not depend on it.
   'a waiting stage blocks only its dependents': (p, actions) => {
     const waiting = p.stages.filter((s) => s.waiting);
@@ -140,7 +152,7 @@ test('per-stage waits: a waiting stage blocks only its dependents, and running m
           transitions += 1;
           const p = JSON.parse(readFileSync(w.record, 'utf8'));
           for (const [name, holds] of Object.entries(properties)) {
-            assert.ok(holds(p, w.actions()), `${name} broke after: ${[...path, event].join(' -> ')}\n${JSON.stringify(w.actions())}\n${JSON.stringify(p.stages.map((s) => [s.id, s.state, s.waiting]))} status ${p.status}`);
+            assert.ok(holds(p, w.actions(), w.gh()), `${name} broke after: ${[...path, event].join(' -> ')}\n${JSON.stringify(w.actions())}\n${JSON.stringify(p.stages.map((s) => [s.id, s.state, s.waiting]))} status ${p.status}`);
           }
           const key = w.fingerprint();
           if (seen.has(key)) continue;
