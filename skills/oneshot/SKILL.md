@@ -53,8 +53,8 @@ the log's **Lane**, and names them.
 output goes where the lane step says, usually the run log, and the next step follows.
 
 **Everything after the gate is decided here, and not silently.** Each decision taken during
-the run goes into the run log's **Assumptions** as one line with its reason, and every one of
-them is in the final report.
+the run goes into the run log's **Assumptions** as one line with its reason, and every one the
+user might overturn is in the final report.
 
 **A fact is not a question.** Before the gate asks anything, settle every open fact by running
 something, as `brainstorm`'s phase 2 does, and log the result under **Assumptions**.
@@ -311,10 +311,11 @@ is not a second copy of it. Its length follows the result, per **Talking to me**
 - **Assumptions** the user might overturn, one line each, no evidence attached. They approved
   the gate and nothing since, so this is the part that is new to them. A part of the request
   the run left out is one of these.
-- **What waits on the user**, one line each: a question, a login, a check that could not run,
-  a tracker update that failed. A skipped step, an **Attention** line, a `LATER` finding, a
-  **Guard** line, or a kept workaround goes here only when it changes what the user should do,
-  and otherwise stays in the log.
+- **What waits on the user**, one line each: a pull request that is not ready and what it
+  waits on, a question, a login, a check that could not run, a tracker update that failed. A
+  skipped step, an **Attention** line, a `LATER` finding, or a kept workaround goes here only
+  when it changes what the user should do, and otherwise stays in the log.
+- **Guard** lines, one each, because `reflect` reads them from the report.
 
 A result that is easier seen than read gets a page, per **Talking to me**. No preamble, no
 recap of the diff, no walk through the steps in order.

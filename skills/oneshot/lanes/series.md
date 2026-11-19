@@ -298,5 +298,6 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    Paste its output into the series log's **Checks**, because it holds each stage's merge
    commit, the commit production ran, and when it was verified. Then set the series log's
    `Status. done` and report per the skill's Report section, with one line per stage in place
-   of the single link: what it shipped and its pull request. A series that stops short reports
-   the same lines, with each open stage and the action `next` printed for it.
+   of the single link: what it shipped, its pull request, and whether production verified it.
+   A series that stops short reports the same lines, with each open stage and the action `next`
+   printed for it.
