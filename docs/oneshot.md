@@ -22,12 +22,14 @@ and a skill you name wins over the table.
 `oneshot.release` in `config.json` sets where a run ends:
 
 - `pr`, the default. The run ends at a pull request that is ready to merge.
-- `production`. A run whose gate was settled, because it had nothing to ask or you answered it,
-  goes on to a **Release** step after the watch. It merges the pull request once it is ready,
+- `production`. A fix, refactor, or performance run whose gate had nothing to ask or got your
+  answers, and a feature run whose gate you approved, go on to a **Release** step after the
+  watch. It merges the pull request once it is ready,
   waits for the repository's own pipeline to deploy, and runs the read-only production checks it
   finds. When nothing tells which commit production runs, it merges and reports production as
-  not verified. A gate that took its own recommendations while you were away is not settled, so
-  that run still ends at the pull request. The four hard stops still stop, and a series still
+  not verified, after watching the deploy. A gate that took its own recommendations while you
+  were away, or an answer that chose to stop at the pull request, ends the run at the pull
+  request. A review run on an existing pull request never merges it. The four hard stops still stop, and a series still
   asks for its own release authorization.
 
 ## Lanes

@@ -239,10 +239,11 @@ usually one small script that imports what the app ships and calls the function 
   | --- | --- |
   | A question, an analysis, how something works, "brainstorm X" | an answer, or `brainstorm`. Nothing is written. |
   | Work that needs several pull requests, or names a tracker project or initiative | `oneshot`, whose feature lane makes it a series |
-  | How something that exists looks, feels, or moves, even when it is called broken | `prototype` or `refine` first. The build starts after I pick. |
+  | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open, `refine` when the request names it. Both stop before a pull request, and `oneshot` ships only what I pick. |
   | A defect, or a small change | `oneshot`, whose lane table picks fix or feature |
   | New or changed behavior | `oneshot`, feature lane. Its gate is where I approve the build. |
-  | I say I am away | the same route, run as `oneshot`'s **Away** |
+
+- When I say I am away, take the route the table gives and run it as `oneshot`'s **Away**.
 
 - The first line names the route by its skill, such as "`oneshot`, fix lane", or says that I
   get an answer or a direct edit. It comes before any tool call, a search included.

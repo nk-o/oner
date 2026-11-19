@@ -59,8 +59,8 @@ managed policy or grant filesystem or network permissions.
 ## Release
 
 `oneshot.release` sets where an `oneshot` run ends: `pr` (the default) at a ready pull request,
-or `production`, where a run whose gate was settled also merges the pull request and checks
-production. It takes effect in the next session.
+or `production`, where a run whose gate the user settled also merges the pull request and
+checks production, per **Release** in `{{skills_dir}}/oneshot/lanes/tail.md`. It takes effect in the next session.
 
 ## Review bots
 

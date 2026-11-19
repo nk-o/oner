@@ -32,6 +32,12 @@ in the same turn. Otherwise ask the open decisions with the question routing in 
 recommended option first. A series' release authorization is consent, not a decision, so
 it is asked even when nothing else is.
 
+The first line of the run log's **Gate** records how the gate ended, because the tail's
+**Release** reads it after a resume: `Outcome. nothing to settle`, `Outcome. answered`,
+`Outcome. away` when **Away** took the recommendations, `Outcome. pull request only` when the
+user's answer chose to stop at the pull request, or `Outcome. approved <path>` when the lane
+took its decisions from a plan the user approved earlier.
+
 **A turn ends only where the run waits.** A message with no tool call ends the turn, and the
 run stands still until someone types, who may be asleep. After the gate, none of these ends a
 turn: a summary that names the next step instead of taking it, an offer to go on unless the
@@ -82,7 +88,8 @@ cannot reproduce, the refactor or every perf change is reverted), skip the tail,
 
 **A run ends at a ready pull request, or in production.** This install's release setting is
 `{{oneshot_release}}`. With `production`, a run whose gate was settled goes on past **Watch**
-to the tail's **Release** step, which merges and checks production.
+to the tail's **Release** step, which merges and checks production. That step names which
+gate outcomes count.
 
 **The code's author is not its only reader.** Delegate and review the returned diff, or write it
 yourself and let the review stage read it. Which one is your call. See **Delegating the work**.

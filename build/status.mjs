@@ -81,6 +81,7 @@ export function status(repo) {
     telemetry: config.telemetry,
     guard: config.guard,
     autoCompact: config.autoCompact,
+    oneshotRelease: config.oneshotRelease,
     skills,
   };
 }
