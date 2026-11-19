@@ -18,7 +18,8 @@ Commands:
   hook              for agent hooks: start a background reap, at most once a minute
 
 Idle limits: 30m at normal memory pressure, 5m at warning, 1m at critical. A server is active
-while a client holds a connection to its port or its processes use CPU. --idle overrides the
+while a client holds a connection to its port or its processes use CPU. reap also stops a
+Next.js telemetry flush left running for 2m. --idle overrides the
 limit, as in 10m or 0s. --root keeps to checkouts under that directory.`;
 
 const LIMITS = { normal: 1800, warning: 300, critical: 60 };
@@ -282,6 +283,28 @@ function log(line) {
   appendFileSync(join(STATE, 'reaped.log'), `${new Date().toISOString()} ${line}\n`);
 }
 
+// Next.js 16.4 starts detached-flush.js when a dev server stops. It loads next.config through
+// esbuild, whose service child keeps the event loop open, and it never calls process.exit, so
+// it stays for days. Remove this once Next.js exits the flush on its own.
+const FLUSH_RE = /next\/dist\/telemetry\/detached-flush\.js dev (.*?)(?: \S+\.json)?$/;
+const FLUSH_LIMIT = 120;
+
+function real(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+function hungFlushes(table, roots, limit) {
+  const t = now();
+  return [...table.values()]
+    .filter((p) => p.ppid === 1 && FLUSH_RE.test(p.command) && t - Date.parse(p.started) / 1000 >= limit)
+    .map((p) => ({ dir: FLUSH_RE.exec(p.command)[1], root: p.pid, pids: descendants(table, p.pid), rss: descendants(table, p.pid).reduce((sum, c) => sum + table.get(c).rss, 0) }))
+    .filter((f) => !roots.length || roots.some((r) => inside(real(f.dir), r)));
+}
+
 function reap({ idle, dryRun, quiet, roots }, level = pressure()) {
   const limit = idle ?? LIMITS[level] ?? LIMITS.normal;
   const { servers, table } = discover(roots);
@@ -303,6 +326,20 @@ function reap({ idle, dryRun, quiet, roots }, level = pressure()) {
       log(`failed ${what}`);
     } else {
       stopped++;
+      console.log(`stopped  ${what}`);
+      log(`stopped ${what}`);
+    }
+  }
+  for (const f of hungFlushes(table, roots, idle ?? FLUSH_LIMIT)) {
+    const what = `Next.js telemetry flush ${f.dir} pid ${f.root} ${mb(f.rss)} resident`;
+    if (dryRun) {
+      console.log(`would stop ${what}`);
+      continue;
+    }
+    if (stop(f, table).length) {
+      console.error(`could not stop ${what}`);
+      log(`failed ${what}`);
+    } else {
       console.log(`stopped  ${what}`);
       log(`stopped ${what}`);
     }
