@@ -2,17 +2,18 @@
 name: oneshot
 description: >-
   Carries one task from idea to an open pull request in one run, stopping at most once, early,
-  for decisions the user could answer differently. Work whose parts must reach production in
-  order becomes a series of pull requests. The user starts it by name. Start it yourself only
-  when the user hands over a whole feature or bug and asks for it carried to a pull request. A
-  question, a one-line edit, a review of shipped code, or work already under way in the chat
-  goes the ordinary way.
+  for decisions the user could answer differently, and on into production when the release
+  setting says so. Work whose parts must reach production in order becomes a series of pull
+  requests. Use when the user hands over a defect, a small change, a new behavior, or work that
+  needs several pull requests, by name or in plain words. A question, a one-line edit, a review
+  of shipped code, or work already under way in the chat goes the ordinary way.
 argument-hint: "[feature idea, ticket, bug report, or question]"
 ---
 
 # Oneshot
 
-The task is whatever the user typed after the skill name, or the task under discussion.
+The task is whatever the user typed after the skill name, the request the route table in
+**Whole tasks** of `AGENTS.md` sent here, or the task under discussion.
 
 This skill implements nothing itself. It picks a lane, writes that lane's steps into the run
 log as a checklist, and runs the skills already in this set. What it adds is the contract below.
@@ -78,6 +79,10 @@ lane, then writing a bespoke plan that loses half of it.
 **A run can end without a pull request.** When the lane itself ends the work (the fix lane
 cannot reproduce, the refactor or every perf change is reverted), skip the tail, set
 `Status. stopped: <reason>`, and report without a link.
+
+**A run ends at a ready pull request, or in production.** This install's release setting is
+`{{oneshot_release}}`. With `production`, a run whose gate was settled goes on past **Watch**
+to the tail's **Release** step, which merges and checks production.
 
 **The code's author is not its only reader.** Delegate and review the returned diff, or write it
 yourself and let the review stage read it. Which one is your call. See **Delegating the work**.

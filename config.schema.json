@@ -208,6 +208,17 @@
         }
       }
     },
+    "oneshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "release": {
+          "description": "Where an oneshot run ends. pr stops at a ready pull request. production also merges it and checks production, once the gate had nothing to settle or you answered it.",
+          "enum": ["pr", "production"],
+          "default": "pr"
+        }
+      }
+    },
     "targets": {
       "description": "Which agent homes the build writes into.",
       "type": "object",

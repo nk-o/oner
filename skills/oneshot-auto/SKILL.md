@@ -50,29 +50,9 @@ request link, what blocks, and the options with the recommended one first.
 
 ## Release
 
-Write `- [ ] Release` into the log's **Lane** after the tail's **Watch**. The plan lane, and a
-run that becomes a series, tick it as `skip:`, the series because it releases every stage
-itself.
-
-When **Watch** reports the pull request ready:
-
-1. Find the release facts per **The release** in step 3 of
-   `{{skills_dir}}/oneshot/lanes/series.md`. They are found, never asked. Run each command once
-   against production and paste what it printed into **Checks**.
-2. When a command prints the commit production runs, release as a one-stage series. Take the
-   next free `NNN` in the primary checkout's `.specs/` (the first entry of `git worktree
-   list`), and write there a `program.json` per step 4 of `series.md`: `authorization` is the
-   `Auto.` line, `release` holds the facts, and the one stage has this run's branch as its
-   `branch` and `migrations` set when the change carries one. Add a series log `oneshot.md`
-   beside it with a `## Now` section. This run's log is the stage run, which `series.mjs` finds
-   by its `Branch.` line. Then follow `series.md` from step 5. Leave the `cleanup` action for
-   the worktree this session runs in. Before any turn that waits, set this log's `Status.
-   waiting` as well as running `series.mjs wait`.
-3. When nothing tells which commit production runs, merge per **Merge** in `pr-wait` with the
-   repository's merge method, check the result, and log `Attention. Production not verified:
-   <why>` under **Assumptions**.
-
-Tick **Release** once `series.mjs report` exits 0, or once the merge of step 3 is confirmed.
+**Release** in `{{skills_dir}}/oneshot/lanes/tail.md` runs in this run whatever the release
+setting says, with the `Auto.` line as its authorization. The plan lane, and a run that becomes
+a series, tick it as `skip:`, the series because it releases every stage itself.
 
 ## Report
 

@@ -230,9 +230,23 @@ usually one small script that imports what the app ships and calls the function 
 
 ## Whole tasks
 
-- I start `oneshot` by name. When a request looks like a whole task but does not ask for a
-  pull request, do it the ordinary way and say in one line that `/oneshot` would carry it to a
-  PR.
+- I give a task in plain words, without naming a skill. Pick its route from this table, name
+  the route in the reply's first line, and start it in the same turn. The first line is how I
+  stop a route I did not mean.
+
+  | The request | Route |
+  | --- | --- |
+  | A question, an analysis, how something works, "brainstorm X" | an answer, or `brainstorm`. Nothing is written. |
+  | A defect, or a small change | `oneshot`, whose lane table picks fix or feature |
+  | New or changed behavior | `oneshot`, feature lane. Its gate is where I approve the build. |
+  | How something that exists looks, feels, or moves | `prototype` or `refine` first. The build starts after I pick. |
+  | Work that needs several pull requests, or names a tracker project or initiative | `oneshot`, whose feature lane makes it a series |
+  | I say I am away | the same route, run as `oneshot`'s **Away** |
+
+- The first line names the route by its skill, such as "`oneshot`, fix lane", or says that I
+  get an answer or a direct edit. Nothing comes before it.
+- A skill I name wins over the table. A one-line edit, a question, and work already under way in
+  the chat go the ordinary way, and the first line says so.
 - An ask of mine that this turn will not finish ("after that, look at X", the rest of a list)
   goes into `.specs/requests.md` at the repository root, one short line in my words, because a
   compaction can drop it from the chat. Nothing else goes in the file. Delete a line once it is

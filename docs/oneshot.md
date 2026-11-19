@@ -9,10 +9,26 @@ after the analysis, to settle the decisions that are yours. Everything after the
 asking: the spec, the implementation, the checks, verification against the running product, review
 by several models from different vendors, the fixes the review proves, `gh pr create`, and
 `pr-wait` on the pull request until its checks and review bots are through. It does not merge,
-unless the work becomes a series and you authorize its release.
+unless the work becomes a series and you authorize its release, or the release setting below is
+`production`.
 
-You start it by name. An agent starts it on its own only when you hand over a whole task and ask
-for it carried through to a pull request.
+You do not have to name it. Write a bug, a change, or a feature in plain words, and the route
+table in `AGENTS.md` **Whole tasks** starts `oneshot`, naming the route in the first line of the
+reply. A question, a one-line edit, and work already under way in the chat go the ordinary way,
+and a skill you name wins over the table.
+
+## Release setting
+
+`oneshot.release` in `config.json` sets where a run ends:
+
+- `pr`, the default. The run ends at a pull request that is ready to merge.
+- `production`. A run whose gate was settled, because it had nothing to ask or you answered it,
+  goes on to a **Release** step after the watch. It merges the pull request once it is ready,
+  waits for the repository's own pipeline to deploy, and runs the read-only production checks it
+  finds. When nothing tells which commit production runs, it merges and reports production as
+  not verified. A gate that took its own recommendations while you were away is not settled, so
+  that run still ends at the pull request. The four hard stops still stop, and a series still
+  asks for its own release authorization.
 
 ## Lanes
 
@@ -122,9 +138,10 @@ your authorization to merge and deploy this task, and it differs from `oneshot` 
   survives, are decided and flagged with `Attention.` in the report. Dropping or overwriting
   data, a migration the running code cannot work with, and a breaking contract change still
   stop the run.
-- After the pull request is ready, a **Release** step runs it as a one-stage series: merge,
-  wait for the repository's own pipeline to deploy, then the production checks. When nothing
-  tells which commit production runs, it merges and reports production as not verified.
+- After the pull request is ready, the **Release** step runs whatever the release setting says.
+  It releases the run as a one-stage series: merge, wait for the repository's own pipeline to
+  deploy, then the production checks. When nothing tells which commit production runs, it merges
+  and reports production as not verified.
 
 It still stops for a login only you can supply, a review only a person can give, and the
 failures a series asks about.
