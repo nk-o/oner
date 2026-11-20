@@ -261,32 +261,42 @@ run_grok() (
     --rules 'Perform a static, read-only review with read_file, list_dir and grep. You have no shell. Report execution-dependent claims as unproven and complete the review from the available evidence.' \
     --allow Read --allow Grep --allow Glob >"$outdir/grok.jsonl" || rc=$?
   if [ "$rc" = 0 ]; then grok_text "$outdir/grok.jsonl" || rc=$?
-  else grok_text "$outdir/grok.jsonl" || true; fi
+  else grok_text "$outdir/grok.jsonl" --errors || true; fi
   rm -f -- "$outdir/grok.jsonl"
   rm -rf -- "$GROK_HOME" "$input"
   printf '\n'
   return "$rc"
 )
 
-# Grok streams its answer as JSON lines, so a voice stopped at its deadline still
-# has the text it wrote. Prints that text and any line that is not JSON, such as a
-# CLI error, and exits 1 unless the stream ended with end_turn.
+# Grok streams JSON lines, so a voice stopped at its deadline keeps the text it wrote.
+# Prints that text, broken into a new paragraph after each tool call as Grok's plain
+# output does, then its errors; `--errors` prints the errors alone, so a failed run's
+# prose cannot read as a usage limit. Exits 1 unless the stream ended with end_turn.
 grok_text() {
   node -e '
-    let text = "", stop = "no end event";
-    for (const line of require("node:fs").readFileSync(process.argv[1], "utf8").split("\n")) {
+    const [file, mode] = process.argv.slice(1);
+    let text = "", errors = "", stop = "no end event", resumed = false;
+    for (const line of require("node:fs").readFileSync(file, "utf8").split("\n")) {
       if (!line.trim()) continue;
       let event;
-      try { event = JSON.parse(line); } catch { text += line + "\n"; continue; }
-      if (event.type === "text") text += event.data;
-      if (event.type === "end") stop = event.stopReason;
+      try { event = JSON.parse(line); } catch { errors += line + "\n"; continue; }
+      if (event.type === "text") {
+        if (resumed && text) text = text.replace(/\n*$/, "\n\n");
+        resumed = false;
+        text += event.data;
+      } else if (event.type === "tool_call") resumed = true;
+      else if (event.type === "error") errors += "Error: " + event.message + "\n";
+      else if (event.type === "end") {
+        stop = event.stopReason;
+        if (event.error) errors += "Error: " + (event.error.message ?? JSON.stringify(event.error)) + "\n";
+      }
     }
-    console.log(text);
+    console.log(mode === "--errors" ? errors : text + (errors && "\n" + errors));
     if (stop !== "end_turn") {
       console.error("ext-review: Grok stopped before completing review: " + stop);
       process.exitCode = 1;
     }
-  ' "$1"
+  ' "$1" "${2:-}"
 }
 
 # ---------------------------------------------------------------- claude voice
@@ -311,29 +321,38 @@ run_claude() {
 
 # `codex review` exits 0 even when it reports findings, so a non-zero status here
 # is a real failure and must not be swallowed.
-# It prints the review on stdout and its whole transcript on stderr, which made
-# codex.md 75 KB to 1.7 MB. The transcript goes to codex.log, deleted once the
-# review succeeds; on a failure its tail is copied into codex.md.
+# Its stdout is the review and its stderr the whole transcript, 75 KB to 1.7 MB, so
+# the transcript goes to codex.log, dropped on success. A failed review copies the
+# end of its own transcript, where the CLI's error is, into codex.md.
 run_codex() {
   local rc=0 one log="$outdir/codex.log"
 
   if [ -n "$has_committed" ]; then
     printf '===== codex: built-in review, %s..HEAD =====\n\n' "$base"
     one=0
-    codex review -c model="$codex_model" -c model_reasoning_effort="$codex_effort" --base "$base" 2>>"$log" || one=$?
-    printf '\n'
+    codex_review --base "$base" || one=$?
     if [ "$one" != "0" ]; then rc="$one"; fi
   fi
   if [ -n "$has_local" ]; then
     printf '===== codex: built-in review, uncommitted and untracked =====\n\n'
     one=0
-    codex review -c model="$codex_model" -c model_reasoning_effort="$codex_effort" --uncommitted 2>>"$log" || one=$?
-    printf '\n'
+    codex_review --uncommitted || one=$?
     if [ "$one" != "0" ] && [ "$rc" = "0" ]; then rc="$one"; fi
   fi
-  if [ "$rc" = 0 ]; then rm -f -- "$log"
-  else printf '===== codex: last lines of its transcript, %s =====\n\n' "$log"; tail -n 40 "$log" 2>/dev/null || true; fi
+  if [ "$rc" = 0 ]; then rm -f -- "$log"; fi
   return "$rc"
+}
+
+codex_review() {
+  local one=0 mark=0 log="$outdir/codex.log"
+  if [ -f "$log" ]; then mark="$(wc -l <"$log" | tr -d ' ')"; fi
+  codex review -c model="$codex_model" -c model_reasoning_effort="$codex_effort" "$@" 2>>"$log" || one=$?
+  printf '\n'
+  if [ "$one" != 0 ]; then
+    printf '===== codex: last lines of its transcript, %s =====\n\n' "$log"
+    tail -n +"$((mark + 1))" "$log" | tail -n 40
+  fi
+  return "$one"
 }
 
 # ------------------------------------------------------------------ dispatcher
@@ -358,7 +377,7 @@ tally() {
     echo "ext-review: the $2 voice ran past its deadline and was stopped, its partial output is in $3" >&2
   elif [ "$1" = 0 ]; then
     ran=$((ran + 1)); status="ok"
-  elif grep -qsiE "usage limit|hit your limit|rate limit|quota|resource.?exhausted" "$3" "${3%.md}.log"; then
+  elif grep -qiE "usage limit|hit your limit|rate limit|quota|resource.?exhausted" "$3"; then
     limited=$((limited + 1)); status="limit"
     echo "ext-review: the $2 voice is out of its usage limit and was skipped, its output is in $3" >&2
   else
@@ -369,11 +388,40 @@ tally() {
 $(printf '%-8s %-9s %s' "$2" "$status" "$3")"
 }
 
-# The voices are read-only and share nothing, so they run at once. The wall clock
-# is then the slowest of them rather than their sum. Job control is on while they
-# start, so each voice gets a process group of its own, and off afterwards, because
-# bash 3.2 left on it hands Ctrl-C to the poll's `sleep` and exits without the trap.
-# A voice publishes its exit status as <voice>.rc, renamed into place, as its last act.
+# Codex starts shell tools in sessions of their own, so descendants outside the group are collected too.
+descendants() {
+  ps -A -o pid= -o ppid= -o pgid= | awk -v root="$1" '
+    { kids[$2] = kids[$2] " " $1; group[$1] = $3 }
+    END { q[1] = root; h = 1; t = 1
+      while (h <= t) { n = split(kids[q[h++]], k, " "); for (j = 1; j <= n; j++) { q[++t] = k[j]; if (group[k[j]] != root) print k[j] } } }'
+}
+# TERM to each voice's group and outside descendants, then KILL what is left after five seconds.
+stop_groups() {
+  local pid procs="" i alive
+  for pid in "$@"; do procs="$procs $(descendants "$pid" | tr '\n' ' ' || true)"; done
+  for pid in "$@"; do kill -TERM -- "-$pid" 2>/dev/null || true; done
+  for pid in $procs; do kill -TERM "$pid" 2>/dev/null || true; done
+  for i in 1 2 3 4 5; do
+    alive=""
+    for pid in "$@"; do if kill -0 -- "-$pid" 2>/dev/null; then alive=1; fi; done
+    for pid in $procs; do if kill -0 "$pid" 2>/dev/null; then alive=1; fi; done
+    if [ -z "$alive" ]; then return 0; fi
+    sleep 1
+  done
+  for pid in "$@"; do kill -KILL -- "-$pid" 2>/dev/null || true; done
+  for pid in $procs; do kill -KILL "$pid" 2>/dev/null || true; done
+}
+# Voices in their own groups do not die with the script's, so an interrupt stops them here.
+stop_voices() {
+  local voice pid leaders=""
+  for voice in $pending; do pid="${voice}_pid"; leaders="$leaders ${!pid}"; done
+  if [ -n "${leaders// /}" ]; then stop_groups $leaders; fi
+}
+
+# The voices run at once, so the wall clock is the slowest of them. Job control gives
+# each its own process group, and goes off after the launches, because bash 3.2 with it
+# on hands Ctrl-C to the poll's `sleep` and skips the trap. A voice's last act renames
+# its exit status into <voice>.rc.
 set -m
 pending=""
 trap 'stop_voices; exit 130' INT TERM HUP
@@ -413,38 +461,6 @@ ext-review: no claude voice, the \`claude\` CLI is not on PATH.
   fi
 fi
 set +m
-
-# Codex starts its shell tools in sessions of their own, outside the voice's group,
-# so every descendant is collected before anything is signaled.
-descendants() {
-  ps -A -o pid= -o ppid= | awk -v root="$1" '
-    { kids[$2] = kids[$2] " " $1 }
-    END { q[1] = root; h = 1; t = 1
-      while (h <= t) { n = split(kids[q[h++]], k, " "); for (j = 1; j <= n; j++) { q[++t] = k[j]; print k[j] } } }'
-}
-# TERM to each voice's group and descendants, then KILL what is left after five seconds.
-stop_groups() {
-  local pid procs="" i alive
-  for pid in "$@"; do procs="$procs $(descendants "$pid" | tr '\n' ' ')"; done
-  for pid in "$@"; do kill -TERM -- "-$pid" 2>/dev/null || true; done
-  for pid in $procs; do kill -TERM "$pid" 2>/dev/null || true; done
-  for i in 1 2 3 4 5; do
-    alive=""
-    for pid in "$@"; do if kill -0 -- "-$pid" 2>/dev/null; then alive=1; fi; done
-    for pid in $procs; do if kill -0 "$pid" 2>/dev/null; then alive=1; fi; done
-    if [ -z "$alive" ]; then return 0; fi
-    sleep 1
-  done
-  for pid in "$@"; do kill -KILL -- "-$pid" 2>/dev/null || true; done
-  for pid in $procs; do kill -KILL "$pid" 2>/dev/null || true; done
-}
-# A voice in its own group no longer dies with the script's group, so an
-# interrupted run stops the ones still running itself.
-stop_voices() {
-  local voice pid leaders=""
-  for voice in $pending; do pid="${voice}_pid"; leaders="$leaders ${!pid}"; done
-  if [ -n "${leaders// /}" ]; then stop_groups $leaders; fi
-}
 
 clock=$SECONDS
 while [ -n "${pending// /}" ]; do

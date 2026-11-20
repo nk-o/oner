@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -48,8 +48,10 @@ appendFileSync(process.env.CALL_LOG, JSON.stringify({
   compat: process.env.GROK_CLAUDE_HOOKS_ENABLED,
   overlay: process.env.GROK_CONFIG ?? null,
 }) + '\\n');
-if (process.env.CLI_FAILURE) { console.log('Provider failure detail'); process.exit(7); }
 console.log(JSON.stringify({ type: 'thought', data: 'thinking' }));
+console.log(JSON.stringify({ type: 'text', data: process.env.CLI_FAILURE ? 'I will check the quota code.' : 'I will read the diff.' }));
+console.log(JSON.stringify({ type: 'tool_call', toolName: 'read_file' }));
+if (process.env.CLI_FAILURE) { console.log(JSON.stringify({ type: 'error', message: 'Provider failure detail' })); process.exit(7); }
 console.log(JSON.stringify({ type: 'text', data: 'Reviewed answer.txt: ' }));
 console.log(JSON.stringify({ type: 'text', data: 'after' }));
 console.log(JSON.stringify({ type: 'end', stopReason: process.env.CANCELLED ? 'cancelled' : 'end_turn' }));
@@ -87,7 +89,7 @@ test('Grok reviews the sanitized change with the configured effort and isolated 
   assert.match(call.diffs['working.diff'], /^-before\n\+after$/m);
   const report = result.stdout.match(/grok\s+ok\s+(.+grok\.md)/)?.[1];
   assert.ok(report, result.stdout);
-  assert.match(readFileSync(report, 'utf8'), /Reviewed answer\.txt: after/);
+  assert.match(readFileSync(report, 'utf8'), /I will read the diff\.\n\nReviewed answer\.txt: after/);
   assert.equal(existsSync(call.cwd), false);
   assert.equal(existsSync(call.home), false);
 });
@@ -109,13 +111,13 @@ test('a cancelled Grok response fails review even when the CLI exits zero', (t) 
   assert.match(readFileSync(report, 'utf8'), /Grok stopped before completing review: cancelled/);
 });
 
-test('a failing Grok CLI preserves its error output in the report', (t) => {
+test('a failing Grok CLI keeps its error, and its prose about quotas does not read as a usage limit', (t) => {
   const f = fixture(t);
   const result = f.run([], { CLI_FAILURE: '1' });
   assert.equal(result.status, 1, result.stderr);
   const report = result.stdout.match(/grok\s+exit 7\s+(.+grok\.md)/)?.[1];
   assert.ok(report, result.stdout);
-  assert.match(readFileSync(report, 'utf8'), /Provider failure detail/);
+  assert.match(readFileSync(report, 'utf8'), /Error: Provider failure detail/);
 });
 
 test('the shared Claude skills omit the Grok voice inside a Grok session', (t) => {
@@ -149,6 +151,16 @@ test('the build installs Grok review settings and excludes each target own voice
   assert.match(providers('grok'), /^ENABLED="codex claude"$/m);
 });
 
+const grokSleeper = `
+import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+if (process.argv[2] === 'models') { console.log('You are logged in with grok.com.'); process.exit(0); }
+const pid = spawn('sleep', ['60'], { stdio: 'ignore', detached: true }).pid;
+console.log(JSON.stringify({ type: 'text', data: 'Grok partial finding' }));
+writeFileSync(process.env.CHILD_PID, String(pid));
+setTimeout(() => {}, 60000);
+`;
+
 function writeMock(bin, name, body) {
   writeFileSync(join(bin, name), `#!${process.execPath}\n${body}`, { mode: 0o755 });
 }
@@ -156,8 +168,10 @@ function writeMock(bin, name, body) {
 const codexMock = `
 const args = process.argv.slice(2);
 if (args[0] === 'login') { console.log('Logged in using ChatGPT'); process.exit(0); }
+if (process.env.CODEX_CRASH) process.stderr.write('codex read: "Every new route needs per-user rate limiting"\\n');
 process.stderr.write('codex transcript: exec git diff, thinking, tokens used\\n'.repeat(50));
-if (process.env.CODEX_LIMIT) { process.stderr.write("You've hit your usage limit.\\n" + 'codex transcript after the limit\\n'.repeat(60)); process.exit(1); }
+if (process.env.CODEX_CRASH) { process.stderr.write('ERROR: stream disconnected\\n'); process.exit(1); }
+if (process.env.CODEX_LIMIT && args.includes('--base')) { process.stderr.write("You've hit your usage limit.\\n"); process.exit(1); }
 console.log('Codex review body: answer.txt changed');
 `;
 
@@ -165,14 +179,7 @@ test('a voice past its deadline is stopped with its detached children, keeps its
   const f = fixture(t);
   const bin = join(f.dir, 'bin');
   const child = join(f.dir, 'child.pid');
-  writeMock(bin, 'grok', `
-import { spawn } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-if (process.argv[2] === 'models') { console.log('You are logged in with grok.com.'); process.exit(0); }
-writeFileSync(process.env.CHILD_PID, String(spawn('sleep', ['60'], { stdio: 'ignore', detached: true }).pid));
-console.log(JSON.stringify({ type: 'text', data: 'Grok partial finding' }));
-setTimeout(() => {}, 60000);
-`);
+  writeMock(bin, 'grok', grokSleeper);
   writeMock(bin, 'codex', codexMock);
   writeFileSync(join(f.scripts, 'providers.env'), 'ENABLED="grok codex"\nGROK_TIMEOUT="2"\n');
   const start = Date.now();
@@ -203,13 +210,48 @@ test('codex.md holds the review alone and the transcript is dropped after a clea
   assert.equal(existsSync(join(report, '..', 'codex.log')), false);
 });
 
-test('a Codex usage limit early in a long transcript still reads as limit', (t) => {
+test('a Codex usage limit in the committed review reads as limit after the uncommitted review runs', (t) => {
   const f = fixture(t);
+  const git = (...args) => execFileSync('git', ['-C', f.repo, ...args], { stdio: 'pipe' });
+  git('switch', '-qc', 'feature');
+  writeFileSync(join(f.repo, 'extra.txt'), 'committed\n');
+  git('add', 'extra.txt');
+  git('commit', '-qm', 'extra');
   writeMock(join(f.dir, 'bin'), 'codex', codexMock);
   writeFileSync(join(f.scripts, 'providers.env'), 'ENABLED="codex"\n');
   const result = f.run([], { CODEX_LIMIT: '1' });
   assert.equal(result.status, 127, result.stderr);
   assert.match(result.stdout, /codex\s+limit\s+/);
+});
+
+test('a Codex crash whose transcript mentions rate limiting is a failure, not a limit', (t) => {
+  const f = fixture(t);
+  writeMock(join(f.dir, 'bin'), 'codex', codexMock);
+  writeFileSync(join(f.scripts, 'providers.env'), 'ENABLED="codex"\n');
+  const result = f.run([], { CODEX_CRASH: '1' });
+  assert.equal(result.status, 1, result.stderr);
+  const report = result.stdout.match(/codex\s+exit 1\s+(.+codex\.md)/)?.[1];
+  assert.ok(report, result.stdout);
+  assert.match(readFileSync(report, 'utf8'), /ERROR: stream disconnected/);
+});
+
+test('SIGTERM to the script stops a running voice and its detached children', async (t) => {
+  const f = fixture(t);
+  const child = join(f.dir, 'child.pid');
+  writeMock(join(f.dir, 'bin'), 'grok', grokSleeper);
+  const run = spawn('bash', [join(f.scripts, 'ext-review.sh'), '--base', 'main'], {
+    cwd: f.repo, stdio: 'ignore',
+    env: { ...process.env, PATH: `${join(f.dir, 'bin')}:${process.env.PATH}`, TMPDIR: f.dir, CHILD_PID: child, GROK_SESSION_ID: '' },
+  });
+  const exited = new Promise((r) => run.on('exit', (c) => r(c)));
+  for (let i = 0; !existsSync(child); i++) {
+    assert.ok(i < 100 && run.exitCode === null, 'the voice never started');
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  run.kill('SIGTERM');
+  const code = await exited;
+  assert.equal(code, 130);
+  assert.throws(() => process.kill(Number(readFileSync(child, 'utf8')), 0), { code: 'ESRCH' });
 });
 
 test('timeoutMinutes must be a whole number of minutes', () => {
