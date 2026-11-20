@@ -928,7 +928,25 @@ test('a skill session that ends its turn with asks left in .specs/requests.md go
   writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Move plugin downloads to Ownkey\n');
   assert.match(runHook(f.repo, 'Stop', transcript), /still open in \.specs\/requests\.md:\\n- Move plugin downloads to Ownkey/);
   assert.equal(runHook(f.repo, 'Stop', transcript), '');
-  writeFileSync(join(f.repo, '.specs', 'requests.md'), '');
+  runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' });
+  assert.match(runHook(f.repo, 'Stop', transcript), /Move plugin downloads to Ownkey/);
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '\n');
+  runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' });
+  assert.equal(runHook(f.repo, 'Stop', transcript), '');
+
+  const lead = join(f.root, 'lead.jsonl');
+  writeFileSync(lead, '<command-name>/lead</command-name>\n');
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Retire EDD\n');
+  assert.match(runHook(f.repo, 'Stop', lead), /Retire EDD/);
+});
+
+test('the open-asks reminder stays quiet while the series this session coordinates waits', () => {
+  const f = fixture();
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, `<command-name>/oneshot</command-name>\nseries program: ${join(f.program, 'program.json')}\n`);
+  const record = JSON.parse(readFileSync(join(f.program, 'program.json'), 'utf8'));
+  writeFileSync(join(f.program, 'program.json'), JSON.stringify({ ...record, status: 'waiting' }));
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Retire EDD\n');
   assert.equal(runHook(f.repo, 'Stop', transcript), '');
 });
 

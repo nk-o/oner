@@ -35,6 +35,7 @@ root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || exit 0
 
 requests="$root/.specs/requests.md"
+has_asks() { [ -f "$requests" ] && grep -q '[^[:space:]]' "$requests" 2>/dev/null; }
 if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] && [ -s "$requests" ]; then
   printf '%s\n%s\n' "Asks still open from earlier work, kept in .specs/requests.md. Delete a line once it is done or dropped:" "$(head -n 20 "$requests")"
 fi
@@ -75,7 +76,7 @@ if [ "$branch" = "HEAD" ]; then
   done < <(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
 fi
 [ -n "$log" ] || [ -n "$closed" ] || [ -n "$programs" ] || [ "$delegate" = true ] ||
-  { [ "$(field '.hook_event_name // empty')" = Stop ] && [ -s "$requests" ]; } || exit 0
+  { [ "$(field '.hook_event_name // empty')" != PermissionRequest ] && has_asks; } || exit 0
 
 rel="${log#"$root"/}"
 transcript="$(field '.transcript_path // empty')"
@@ -115,13 +116,23 @@ loaded() {
       "$transcript" 2>/dev/null
   fi
 }
-leads() {
-  [ -n "$driving" ] && [ -f "$transcript" ] || return 1
+lead_loaded() {
+  [ -f "$transcript" ] || return 1
   if [ "$host" = codex ]; then
     grep -qE '<name>lead</name>|/skills/lead/SKILL\.md' "$transcript" 2>/dev/null
   else
     grep -qE '<command-name>/lead<|Base directory for this skill: [^"\\]*/skills/lead(\\|")' "$transcript" 2>/dev/null
   fi
+}
+leads() { [ -n "$driving" ] && lead_loaded; }
+# A series this session coordinates that waits on the user holds every reminder.
+held() {
+  while IFS= read -r program; do
+    [ -n "$program" ] && [ "$(pstatus "$program")" = waiting ] && return 0
+  done <<EOF
+$coordinated
+EOF
+  return 1
 }
 
 case "$(field '.hook_event_name // empty')" in
@@ -130,7 +141,7 @@ case "$(field '.hook_event_name // empty')" in
     [ "$(field '(.background_tasks // []) | length')" = "0" ] || exit 0
     [ "$(field '(.session_crons // []) | length')" = "0" ] || exit 0
     if ! loaded; then
-      leads || exit 0
+      leads || { lead_loaded && has_asks; } || exit 0
       log=""
       closed=""
       status=""
@@ -172,12 +183,12 @@ $driving
 EOF
       message="$message
 Only series.mjs marks a stage done: a finished worker, green local checks, an open or merged pull request, and a started deployment do not. Run \`$series next --program <folder>\` for each series above and take the first action it prints, with any status note in the same message as the tool call. If a stage needs the user, for a decision or a review only they can give, run \`$series wait <reason> \"<pending action>\" --stage <id> --program <folder>\`, hand the other stages' work to background delegates, then ask and end the turn. When every action left is a wait or a question already asked, end the turn. For a lost login, leave out --stage. If the user's last message was about something else, end the turn and leave the series open."
-    elif [ -s "$requests" ]; then
+    elif has_asks && ! held; then
       state="$root/.specs/.requests-stop-state"
       tracked="$(cat "$requests" 2>/dev/null)"
-      message="Asks from this task are still open in .specs/requests.md:
-$(head -n 6 "$requests")
-A report on one of them is a status note, not the end of the task. Take the next one now, with any status note in the same message as the next tool call, and delete each line once it is done. If the next one needs the user, ask and end the turn. If the user's last message was about something else, end the turn."
+      message="Asks are still open in .specs/requests.md:
+$(grep '[^[:space:]]' "$requests" | head -n 6)
+When they belong to the task the user gave this session, a report on one of them is a status note, not the end of the task: take the next one now, with any status note in the same message as the next tool call, and delete each line once it is done. If the next one needs the user, ask and end the turn. If they are not this session's task, or the user's last message was about something else, end the turn."
     fi
     [ -n "$message" ] || exit 0
 
@@ -213,7 +224,9 @@ A report on one of them is a status note, not the end of the task. Take the next
     case "$prompt" in
       "The oneshot run in $rel is open and this turn ended with steps still open:"*) ;;
       "The oneshot series in "*" is open, "*) ;;
+      "Asks are still open in .specs/requests.md:"*) ;;
       *)
+        rm -f "$root/.specs/.requests-stop-state" 2>/dev/null
         [ -n "$log" ] && rm -f "$(dirname "$log")/.stop-state" 2>/dev/null
         while IFS= read -r program; do
           [ -n "$program" ] && rm -f "$program/.stop-state" 2>/dev/null
