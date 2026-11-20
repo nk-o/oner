@@ -55,6 +55,15 @@ providers are read-only and share nothing, so they run at once and the wall cloc
 of them rather than their sum. It is still longer than a foreground command may take, so start
 this in the background and do the next thing while it works.
 
+Each voice has a deadline, 20 minutes for Grok and 15 for the others, unless
+`externalReview.<voice>.timeoutMinutes` in `config.json` sets another. At the deadline the
+script stops the voice and every process it started, keeps whatever the voice wrote, ends its
+file with a line saying the review is incomplete, and lists it as `timeout`. Grok streams its
+text, so its file keeps the part it had written. Codex keeps its transcript in `codex.log`.
+Cursor and Claude print only when they
+finish, so a stopped one leaves its header alone. The other voices run on, and the script exits
+once every voice has finished or been stopped.
+
 ## The voices are not the same reviewer twice
 
 **Cursor** gets this repository's own contract from [`PROMPT.md`](PROMPT.md), plus the base ref
@@ -64,7 +73,8 @@ method. Its model defaults to `cursor-grok-4.6-low`. The CLI starts in `--mode a
 runs read commands and refuses to write.
 
 **Grok** gets the same contract through Grok Build with the configured model and effort,
-defaulting to `grok-4.7` at `high`. Enable it under `externalReview.grok` in `config.json`.
+defaulting to `grok-4.7-build-fast` at `high`. On two recorded oner diffs it took about 40%
+less time than `grok-4.7` and still found the main defect. Enable it under `externalReview.grok` in `config.json`.
 It uses a temporary Grok home with the existing login, no vendor compatibility imports,
 read tools only, and the `read-only` sandbox. It gets no shell, because Grok headless cancels
 the whole run on the first command no allow rule covers. The script writes the committed,
@@ -77,7 +87,9 @@ selection. It receives the same sanitized repository, with no custom review prom
 in how it looks, not only in the model behind it. The script gives it `--base` when the branch is
 ahead, `--uncommitted` when the tree is dirty, and both when both are true. Its model and
 effort come from `config.json` and apply to this run only; the defaults are `gpt-6.2-sol` at
-`medium`.
+`medium`. `codex.md` holds the review alone. Codex prints its transcript on stderr, which goes to
+`codex.log` beside it and is deleted once the review succeeds. On a failure its last lines are
+copied into `codex.md`, and on a timeout the log stays and `codex.md` names it.
 
 **Claude** gets the same contract as Cursor through `claude -p`, with read tools and read-only
 `git` commands allowed, every writing tool refused, and no settings file or hook loaded. Its model
@@ -105,9 +117,11 @@ pass nothing. Voices and models change through `config.json`, which the `configu
 
 ## Exit codes
 
-`0` every voice that started finished. `1` a provider or the snapshot failed. When stdout still
-lists a voice as `ok`, read its file, name the failed voice in the report, and do not run the
-finished ones again. `2` a bad argument or base
+`0` every voice that started finished. `1` a provider or the snapshot failed, or a voice ran
+past its deadline. When stdout still lists a voice as `ok`, read its file, name the failed or
+`timeout` voice in the report, and do not run the finished ones again. A `timeout` voice is an
+incomplete review, never a clean one: read what its file holds like any other findings, and
+report that the voice did not finish. `2` a bad argument or base
 ref. `3` nothing in scope, including a change made only of excluded files, and no provider was
 called. `4` a requested voice's CLI is not logged in, and no voice was started. `127` no voice
 could run: none installed, `config.json` turns every voice off for this agent, or every voice was

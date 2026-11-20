@@ -70,6 +70,13 @@
               "type": "boolean",
               "default": true
             },
+            "timeoutMinutes": {
+              "description": "Minutes this voice may review before it is stopped and reported as timeout.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440,
+              "default": 15
+            },
             "model": {
               "type": "string",
               "default": "cursor-grok-4.6-low"
@@ -84,9 +91,16 @@
               "type": "boolean",
               "default": false
             },
+            "timeoutMinutes": {
+              "description": "Minutes this voice may review before it is stopped and reported as timeout.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440,
+              "default": 20
+            },
             "model": {
               "type": "string",
-              "default": "grok-4.7"
+              "default": "grok-4.7-build-fast"
             },
             "effort": {
               "enum": ["low", "medium", "high", "xhigh"],
@@ -101,6 +115,13 @@
             "enabled": {
               "type": "boolean",
               "default": true
+            },
+            "timeoutMinutes": {
+              "description": "Minutes this voice may review before it is stopped and reported as timeout.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440,
+              "default": 15
             },
             "model": {
               "type": "string",
@@ -119,6 +140,13 @@
             "enabled": {
               "type": "boolean",
               "default": true
+            },
+            "timeoutMinutes": {
+              "description": "Minutes this voice may review before it is stopped and reported as timeout.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440,
+              "default": 15
             },
             "model": {
               "type": "string",

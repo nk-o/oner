@@ -354,6 +354,7 @@ function providersEnv(reviewers, vendor) {
     `CODEX_EFFORT="${reviewers.codex.effort}"`,
     `CLAUDE_MODEL="${reviewers.claude.model}"`,
     `CLAUDE_EFFORT="${reviewers.claude.effort}"`,
+    ...Object.keys(PROVIDERS).map((p) => `${p.toUpperCase()}_TIMEOUT="${reviewers[p].timeoutMinutes * 60}"`),
   ];
   return lines.join('\n') + '\n';
 }
