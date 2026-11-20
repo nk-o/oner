@@ -30,7 +30,8 @@ and a skill you name wins over the table.
   not verified, after watching the deploy. A gate that took its own recommendations while you
   were away, or an answer that chose to stop at the pull request, ends the run at the pull
   request. A review run on an existing pull request never merges it. The four hard stops still stop, and a series still
-  asks for its own release authorization.
+  asks for its own release authorization, unless the release setting is `production` and the
+  gate was settled by you.
 
 ## Lanes
 
@@ -87,7 +88,8 @@ when a part waits on a date or a person. Size alone never splits it.
 A series still stops once, at the gate. That stop shows the decisions, the stage map, and the
 release process found in the repository: the merge method, the checks GitHub must report, the
 command that prints the commit production runs, the command that proves migrations applied, and
-the read-only production checks. It then asks for release authorization as a separate question.
+the read-only production checks. It then asks for release authorization as a separate question, unless the release setting is
+`production` and the gate was settled by you.
 "Build stage one only" turns the run back into an ordinary one. Stepping away never answers this
 question.
 

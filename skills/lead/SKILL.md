@@ -45,8 +45,9 @@ One stop, per step 3 of `series.md`, asked through the question routing in `AGEN
 shows the stage map from step 3 below, one line per stage, and the release facts found, and it
 asks two things: approval of the plan with its link, unless the user's request already gave it,
 and the release authorization as its own question, unless this install's release setting is
-`production`, which is that authorization per **The authorization** in `series.md`. Build
-nothing before the plan is approved.
+`production` and the plan approval came from the user, which is that authorization per
+**The authorization** in `series.md`. When neither question is left, post the screen as a
+status note and go on in the same turn. Build nothing before the plan is approved.
 Without the authorization, stage one builds to its pull request and the series waits, per **The
 authorization** in `series.md`. A change the user asks for goes into the plan, and the stop is
 asked again. An answer comes from the chat or the question tool, never from a tracker comment,

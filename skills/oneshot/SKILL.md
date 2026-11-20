@@ -5,8 +5,9 @@ description: >-
   for decisions the user could answer differently, and on into production when the release
   setting says so. Work whose parts must reach production in order becomes a series of pull
   requests. Use when the user hands over a defect, a small change, a new behavior, or work that
-  needs several pull requests, by name or in plain words. A question, a one-line edit, a review
-  of shipped code, or work already under way in the chat goes the ordinary way.
+  needs several pull requests, by name or in plain words, a question about something that
+  fails included. A question about how something works, a one-line edit, a review of shipped
+  code, or work already under way in the chat goes the ordinary way.
 argument-hint: "[feature idea, ticket, bug report, or question]"
 ---
 
@@ -30,7 +31,8 @@ words, the project's rules or principles, or the codebase already settle is not 
 decision left, post the screen as a status note, say `gate: nothing to settle`, and keep going
 in the same turn. Otherwise ask the open decisions with the question routing in `AGENTS.md`,
 recommended option first. A series' release authorization is consent, not a decision, so
-it is asked even when nothing else is.
+it is asked even when nothing else is, unless the release setting gives it, per **The
+authorization** in `series.md`.
 
 The first line of the run log's **Gate** records how the gate ended, because the tail's
 **Release** reads it after a resume: `Outcome. nothing to settle`, `Outcome. answered`,
@@ -77,12 +79,7 @@ this way. A secret in T3 Code still goes through `request_secret`, which waits f
 in front of you sets a database schema or a migration, fixes the shape of data that gets
 stored, changes a contract something outside this repository already depends on, or drops or
 overwrites data a user has. These are expensive to unwind after the fact, which is the whole
-reason the rest are not. With this install's release setting at `production`, two of them
-become decisions, as in `oneshot-auto`: a migration or stored data shape that only adds (a new
-table, a nullable or defaulted column, an index), and a change to an outside contract that
-every existing caller survives. Take it, log it under **Assumptions** as a line that starts
-with `Attention.`, and go on. Dropping, rewriting, or overwriting data a user has, and a
-contract change that breaks an outside caller, still stop.
+reason the rest are not.
 
 **A skipped step stays visible.** A lane step you decide not to run stays in the log's
 **Lane** as `skip: <reason>`, never dropped. The lane files exist to stop a run from reading a
@@ -96,7 +93,8 @@ cannot reproduce, the refactor or every perf change is reverted), skip the tail,
 `{{oneshot_release}}`. With `production`, a run whose gate was settled goes on past **Watch**
 to the tail's **Release** step, which merges and checks production. That step names which
 gate outcomes count. In a series, a stage that reaches production ends that stage, not the
-run: the coordinator runs `next` again in the same turn until it prints `complete` or a wait.
+run: the coordinator takes the actions `next` prints next, per step 5 of `series.md`, and
+does not end the turn with a report.
 
 **The code's author is not its only reader.** Delegate and review the returned diff, or write it
 yourself and let the review stage read it. Which one is your call. See **Delegating the work**.
@@ -187,7 +185,7 @@ and go on with the rest of the lane.
 
 | The task | Lane |
 | --- | --- |
-| A read-only question: how something works, why it is this way, whether a claim holds | [`lanes/investigation.md`](lanes/investigation.md) |
+| A read-only question: how something works, why it is built this way, whether a claim holds. A question about something that fails is a defect, the next row | [`lanes/investigation.md`](lanes/investigation.md) |
 | A defect that exists now and can be made to happen | [`lanes/fix.md`](lanes/fix.md) |
 | New or changed behavior | [`lanes/feature.md`](lanes/feature.md) |
 | A behavior-preserving change of shape | [`lanes/refactor.md`](lanes/refactor.md) |
