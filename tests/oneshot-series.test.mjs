@@ -934,10 +934,12 @@ test('a skill session that ends its turn with asks left in .specs/requests.md go
   runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' });
   assert.equal(runHook(f.repo, 'Stop', transcript), '');
 
-  const lead = join(f.root, 'lead.jsonl');
-  writeFileSync(lead, '<command-name>/lead</command-name>\n');
   writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Retire EDD\n');
-  assert.match(runHook(f.repo, 'Stop', lead), /Retire EDD/);
+  assert.match(runHook(f.repo, 'Stop', transcript), /Retire EDD/);
+  const other = join(f.root, 'other.jsonl');
+  writeFileSync(other, '');
+  runHook(f.repo, 'UserPromptSubmit', other, { prompt: 'hello' });
+  assert.equal(runHook(f.repo, 'Stop', transcript), '');
 });
 
 test('the open-asks reminder stays quiet while the series this session coordinates waits', () => {

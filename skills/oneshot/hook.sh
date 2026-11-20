@@ -36,8 +36,8 @@ branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || exit 0
 
 requests="$root/.specs/requests.md"
 has_asks() { [ -f "$requests" ] && grep -q '[^[:space:]]' "$requests" 2>/dev/null; }
-if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] && [ -s "$requests" ]; then
-  printf '%s\n%s\n' "Asks still open from earlier work, kept in .specs/requests.md. Delete a line once it is done or dropped:" "$(head -n 20 "$requests")"
+if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] && has_asks; then
+  printf '%s\n%s\n' "Asks still open from earlier work, kept in .specs/requests.md. Delete a line once it is done or dropped:" "$(grep '[^[:space:]]' "$requests" | head -n 20)"
 fi
 
 log=""
@@ -80,6 +80,8 @@ fi
 
 rel="${log#"$root"/}"
 transcript="$(field '.transcript_path // empty')"
+# The open-asks reminder is let go once per session, so its latch is the session's own.
+asks_state="$root/.specs/.requests-stop-state-$(printf '%s' "$transcript" | { shasum 2>/dev/null || sha1sum; } | cut -c1-12)"
 pstatus() { jq -r '.status // "running"' "$1/program.json" 2>/dev/null; }
 # Only the session that ran series.mjs has this line, so a session that merely
 # saw the reminder below is not taken for the one coordinating the series.
@@ -125,7 +127,7 @@ lead_loaded() {
   fi
 }
 leads() { [ -n "$driving" ] && lead_loaded; }
-# A series this session coordinates that waits on the user holds every reminder.
+# A series this session coordinates that waits on the user holds the open-asks reminder.
 held() {
   while IFS= read -r program; do
     [ -n "$program" ] && [ "$(pstatus "$program")" = waiting ] && return 0
@@ -141,7 +143,7 @@ case "$(field '.hook_event_name // empty')" in
     [ "$(field '(.background_tasks // []) | length')" = "0" ] || exit 0
     [ "$(field '(.session_crons // []) | length')" = "0" ] || exit 0
     if ! loaded; then
-      leads || { lead_loaded && has_asks; } || exit 0
+      leads || exit 0
       log=""
       closed=""
       status=""
@@ -184,7 +186,7 @@ EOF
       message="$message
 Only series.mjs marks a stage done: a finished worker, green local checks, an open or merged pull request, and a started deployment do not. Run \`$series next --program <folder>\` for each series above and take the first action it prints, with any status note in the same message as the tool call. If a stage needs the user, for a decision or a review only they can give, run \`$series wait <reason> \"<pending action>\" --stage <id> --program <folder>\`, hand the other stages' work to background delegates, then ask and end the turn. When every action left is a wait or a question already asked, end the turn. For a lost login, leave out --stage. If the user's last message was about something else, end the turn and leave the series open."
     elif has_asks && ! held; then
-      state="$root/.specs/.requests-stop-state"
+      state="$asks_state"
       tracked="$(cat "$requests" 2>/dev/null)"
       message="Asks are still open in .specs/requests.md:
 $(grep '[^[:space:]]' "$requests" | head -n 6)
@@ -226,7 +228,7 @@ When they belong to the task the user gave this session, a report on one of them
       "The oneshot series in "*" is open, "*) ;;
       "Asks are still open in .specs/requests.md:"*) ;;
       *)
-        rm -f "$root/.specs/.requests-stop-state" 2>/dev/null
+        rm -f "$asks_state" 2>/dev/null
         [ -n "$log" ] && rm -f "$(dirname "$log")/.stop-state" 2>/dev/null
         while IFS= read -r program; do
           [ -n "$program" ] && rm -f "$program/.stop-state" 2>/dev/null
