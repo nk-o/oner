@@ -3,7 +3,8 @@
 A series carries one approved program through several pull requests. Each stage gets its own
 branch and pull request and runs the feature lane and the shared tail like any run. Then it is
 merged, deployed, and verified in production before the stages that depend on it start. The
-user approves the program and its release once, at the gate. After that the series runs to its
+user approves the program and its release once, at the gate, or the release setting
+approves the release, per **The authorization** below. After that the series runs to its
 last stage and stops only where **Waiting** below says.
 
 `series.mjs`, in the skill's folder, owns the program's state. Call it by absolute path:
@@ -61,7 +62,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
      host's permission mode before the gate, as a dry run where the step has one. List each
      refusal with the allow rule or the credential it needs, so the user grants them all at
      this stop instead of one per stage.
-   - **The authorization**, asked as its own question. The options are: authorize the
+   - **The authorization**, asked as its own question unless the release setting gives it,
+     per the paragraph below. The options are: authorize the
      series' release; build stage one only and end at its pull request, which is the
      ordinary run; or change the split.
 
@@ -76,7 +78,13 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
 
    **Away** does not reach this question. An authorization is consent, never a recommended
    default. A run `oneshot-auto` opened already has one: the user started it by name, and
-   `authorization` quotes the log's `Auto.` line. Without one, leave `authorization` out of
+   `authorization` quotes the log's `Auto.` line. So does an install whose release setting is
+   `production` (this one's is `{{oneshot_release}}`) when the gate ended `Outcome. answered`, or
+   `approved <path>` for a plan the user approved, such as the tracker plan `lead` runs: the user
+   chose to ship settled work, so `authorization` quotes `oneshot.release: production` and the
+   question is not asked. A gate with nothing else to settle still asks it, so the user sees the
+   stage map once. `away` and `pull request only` get no authorization from the setting. Without
+   one, leave `authorization` out of
    `program.json`, build stage one to its pull request, and run `series.mjs wait input
    "authorize the release of <program folder>"`. When the user answers, run `series.mjs resume
    --authorization "<their words>"`, which is the only way the field is written later.

@@ -73,13 +73,13 @@ so you can stop it:
 
 | You write | The agent starts |
 | --- | --- |
-| A question, or "brainstorm X" | an answer, or `brainstorm`, with nothing written |
+| A question about how something works, or "brainstorm X" | an answer, or `brainstorm`, with nothing written |
 | Work that takes several pull requests, or a tracker project | `lead`, which plans it with you or runs the plan you approved |
 | How something looks, feels, or moves | `prototype` or `refine`, and the build after you pick |
-| A bug, or a small change | `oneshot` |
+| A bug, a question or ticket about one, or a small change | `oneshot`, on to the fix |
 | A new or changed behavior | `oneshot`, which stops at its gate for your decisions |
 
-A one-line edit, a question, and work already under way in the chat go the ordinary way, with no
+A one-line edit, a question about how something works, and work already under way in the chat go the ordinary way, with no
 route line. A skill you name, such as `/oneshot <the feature, the ticket, or the bug>`, wins over
 the table.
 

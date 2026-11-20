@@ -5,8 +5,9 @@ description: >-
   for decisions the user could answer differently, and on into production when the release
   setting says so. Work whose parts must reach production in order becomes a series of pull
   requests. Use when the user hands over a defect, a small change, a new behavior, or work that
-  needs several pull requests, by name or in plain words. A question, a one-line edit, a review
-  of shipped code, or work already under way in the chat goes the ordinary way.
+  needs several pull requests, by name or in plain words, a question about something that
+  fails included. A question about how something works, a one-line edit, a review of shipped
+  code, or work already under way in the chat goes the ordinary way.
 argument-hint: "[feature idea, ticket, bug report, or question]"
 ---
 
@@ -30,7 +31,8 @@ words, the project's rules or principles, or the codebase already settle is not 
 decision left, post the screen as a status note, say `gate: nothing to settle`, and keep going
 in the same turn. Otherwise ask the open decisions with the question routing in `AGENTS.md`,
 recommended option first. A series' release authorization is consent, not a decision, so
-it is asked even when nothing else is.
+it is asked even when nothing else is, unless the release setting gives it, per **The
+authorization** in `series.md`.
 
 The first line of the run log's **Gate** records how the gate ended, because the tail's
 **Release** reads it after a resume: `Outcome. nothing to settle`, `Outcome. answered`,
@@ -90,7 +92,9 @@ cannot reproduce, the refactor or every perf change is reverted), skip the tail,
 **A run ends at a ready pull request, or in production.** This install's release setting is
 `{{oneshot_release}}`. With `production`, a run whose gate was settled goes on past **Watch**
 to the tail's **Release** step, which merges and checks production. That step names which
-gate outcomes count.
+gate outcomes count. In a series, a stage that reaches production ends that stage, not the
+run: the coordinator takes the actions `next` prints next, per step 5 of `series.md`, and
+does not end the turn with a report.
 
 **The code's author is not its only reader.** Delegate and review the returned diff, or write it
 yourself and let the review stage read it. Which one is your call. See **Delegating the work**.
@@ -181,7 +185,7 @@ and go on with the rest of the lane.
 
 | The task | Lane |
 | --- | --- |
-| A read-only question: how something works, why it is this way, whether a claim holds | [`lanes/investigation.md`](lanes/investigation.md) |
+| A read-only question: how something works, why it is built this way, whether a claim holds. A question about something that fails is a defect, the next row | [`lanes/investigation.md`](lanes/investigation.md) |
 | A defect that exists now and can be made to happen | [`lanes/fix.md`](lanes/fix.md) |
 | New or changed behavior | [`lanes/feature.md`](lanes/feature.md) |
 | A behavior-preserving change of shape | [`lanes/refactor.md`](lanes/refactor.md) |

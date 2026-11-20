@@ -920,6 +920,38 @@ test('an ordinary run still ends at its open pull request', () => {
   assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript), '');
 });
 
+test('a skill session that ends its turn with asks left in .specs/requests.md goes on to the next one', () => {
+  const f = fixture();
+  rmSync(f.program, { recursive: true });
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, '<command-name>/oneshot</command-name>\n');
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Move plugin downloads to Ownkey\n');
+  assert.match(runHook(f.repo, 'Stop', transcript), /still open in \.specs\/requests\.md:\\n- Move plugin downloads to Ownkey/);
+  assert.equal(runHook(f.repo, 'Stop', transcript), '');
+  runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' });
+  assert.match(runHook(f.repo, 'Stop', transcript), /Move plugin downloads to Ownkey/);
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '\n');
+  runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' });
+  assert.equal(runHook(f.repo, 'Stop', transcript), '');
+
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Retire EDD\n');
+  assert.match(runHook(f.repo, 'Stop', transcript), /Retire EDD/);
+  const other = join(f.root, 'other.jsonl');
+  writeFileSync(other, '');
+  runHook(f.repo, 'UserPromptSubmit', other, { prompt: 'hello' });
+  assert.equal(runHook(f.repo, 'Stop', transcript), '');
+});
+
+test('the open-asks reminder stays quiet while the series this session coordinates waits', () => {
+  const f = fixture();
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, `<command-name>/oneshot</command-name>\nseries program: ${join(f.program, 'program.json')}\n`);
+  const record = JSON.parse(readFileSync(join(f.program, 'program.json'), 'utf8'));
+  writeFileSync(join(f.program, 'program.json'), JSON.stringify({ ...record, status: 'waiting' }));
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Retire EDD\n');
+  assert.equal(runHook(f.repo, 'Stop', transcript), '');
+});
+
 test('the reminder names a run log past 16 KB and stays quiet below it', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });

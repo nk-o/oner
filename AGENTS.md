@@ -67,8 +67,10 @@
   settle by reading the code, running it, or measuring it.
 - A decision is anything a user could notice or an outside caller must honor: product
   behavior, wording on screen, a public API or schema, what data is stored or dropped, a new
-  dependency, a visual direction, scope, which repository ships the code when more than one
-  could. When work runs into one of these unmade, stop that thread and bring two or three
+  dependency, a visual direction, scope (which features or behaviors a change includes), which
+  repository ships the code when more than one could. A technical limit that a measurement
+  settles, such as a batch size or a timeout, is a fact. A limit the user sees, such as an upload
+  cap, is scope. When work runs into one of these unmade, stop that thread and bring two or three
   options with a recommendation and the reason for it.
 - A decision is already made when my words, the project's documented rules or principles, or
   a pattern the codebase follows settle it, or when every option but one is worse on every
@@ -241,10 +243,10 @@ usually one small script that imports what the app ships and calls the function 
 
   | The request | Route |
   | --- | --- |
-  | A question, an analysis, how something works, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. |
+  | A question about how something works or why it is built this way, an analysis, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. A question about something that fails, such as "why does X break?", and a report or ticket of a failure to look into, go on down the table to the first row their subject fits: the look-and-feel row, else the defect row. |
   | Work that needs several pull requests, or names a tracker project or initiative | `lead`, which plans it with me in the tracker or runs the plan I approved |
   | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open, `refine` when the request names it. Both stop before a pull request, and `oneshot` ships only what I pick. |
-  | A defect, or a small change | `oneshot`, whose lane table picks fix or feature |
+  | A defect, a question about one, a report or ticket of one to look into, or a small change | `oneshot`, whose lane table picks fix or feature. The run finds the cause and goes on to the fix. |
   | New or changed behavior | `oneshot`, feature lane. Its gate asks the decisions that are mine. |
 
 - When I say I am away, a route that runs `oneshot` runs as its **Away**. `prototype` and
@@ -253,11 +255,13 @@ usually one small script that imports what the app ships and calls the function 
 - The route line names the skill, such as "`oneshot`, fix lane", and comes before any tool
   call, a search included. An answer and a one-line edit start no flow and get no route line.
   The reply starts with the answer, or with the edit.
-- A skill I name wins over the table. A one-line edit, a question, and work already under way in
-  the chat go the ordinary way.
+- A skill I name wins over the table. A one-line edit, a question about how something works, and
+  work already under way in the chat go the ordinary way.
 - An ask of mine that this turn will not finish ("after that, look at X", the rest of a list)
   goes into `.specs/requests.md` at the repository root, one short line in my words, because a
-  compaction can drop it from the chat. Nothing else goes in the file. Delete a line once it is
+  compaction can drop it from the chat. A report on one of those asks is a status note: the turn
+  goes on to the next line, and ends only at a question that needs me or when the file is empty.
+  Nothing else goes in the file. Delete a line once it is
   done or I drop it, and the file once it is empty. `.specs/` stays in `.gitignore`. Once work
   you ran in this checkout has merged, delete its folder under `.specs/`, except an oneshot
   series' folder, which stays until the series is done.
