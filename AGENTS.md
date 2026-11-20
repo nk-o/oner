@@ -248,8 +248,8 @@ usually one small script that imports what the app ships and calls the function 
   `refine` still stop for my pick.
 
 - The route line names the skill, such as "`oneshot`, fix lane", and comes before any tool
-  call, a search included. An answer and a one-line edit start no flow and get no route line:
-  the reply starts with the answer, or with the edit.
+  call, a search included. An answer and a one-line edit start no flow and get no route line.
+  The reply starts with the answer, or with the edit.
 - A skill I name wins over the table. A one-line edit, a question, and work already under way in
   the chat go the ordinary way.
 - An ask of mine that this turn will not finish ("after that, look at X", the rest of a list)

@@ -66,8 +66,8 @@ skills also use `jq`, `lsof`, and the GitHub CLI `gh`.
 ## Give a task
 
 Write the task in plain words, without a skill name. The agent picks a route from the table in
-`AGENTS.md` **Whole tasks**. When the route starts a flow, the first line of the reply names it, so
-you can stop it. An answer or a one-line edit comes with no route line:
+`AGENTS.md` **Whole tasks**. When the route starts a flow, the first line of the reply names it,
+so you can stop it:
 
 | You write | The agent starts |
 | --- | --- |
@@ -77,8 +77,9 @@ you can stop it. An answer or a one-line edit comes with no route line:
 | A bug, or a small change | `oneshot` |
 | A new or changed behavior | `oneshot`, which stops at its gate for your decisions |
 
-A one-line edit, a question, and work already under way in the chat go the ordinary way. A skill
-you name, such as `/oneshot <the feature, the ticket, or the bug>`, wins over the table.
+A one-line edit, a question, and work already under way in the chat go the ordinary way, with no
+route line. A skill you name, such as `/oneshot <the feature, the ticket, or the bug>`, wins over
+the table.
 
 `oneshot` reads the code, then stops once to ask the decisions that are yours to make. Everything
 after that runs without asking: the spec, the implementation, the project's checks, verification
