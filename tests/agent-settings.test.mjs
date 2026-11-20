@@ -96,7 +96,7 @@ test('Grok review needs explicit consent and accepts its model and effort', () =
   const repo = resolve('.');
   assert.equal(validateConfig({}, repo).reviewers.grok.enabled, false);
   const config = validateConfig({ externalReview: { grok: { enabled: true, model: 'grok-4.7', effort: 'high' } } }, repo);
-  assert.deepEqual(config.reviewers.grok, { enabled: true, model: 'grok-4.7', effort: 'high' });
+  assert.deepEqual(config.reviewers.grok, { enabled: true, model: 'grok-4.7', effort: 'high', timeoutMinutes: 15 });
 });
 
 test('the settings page puts every skill under a stage, so none falls into Other', () => {

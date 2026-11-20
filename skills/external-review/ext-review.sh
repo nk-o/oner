@@ -11,7 +11,7 @@ ENABLED="cursor codex claude"
 if [ -f "$here/providers.env" ]; then . "$here/providers.env"; fi
 provider="all"
 model="${CURSOR_MODEL:-cursor-grok-4.6-low}"
-grok_model="${GROK_MODEL:-grok-4.7}"
+grok_model="${GROK_MODEL:-grok-4.7-build-fast}"
 grok_effort="${GROK_EFFORT:-high}"
 # Measured on one commit across six GPT-5.6 model and effort pairs: Sol reported real
 # defects at medium and at high, medium in two thirds of the time, Terra reported
@@ -21,6 +21,12 @@ codex_model="${CODEX_MODEL:-gpt-6.2-sol}"
 codex_effort="${CODEX_EFFORT:-medium}"
 claude_model="${CLAUDE_MODEL:-opus}"
 claude_effort="${CLAUDE_EFFORT:-high}"
+# Seconds each voice may run before it is stopped. Grok reviews took a median of 16
+# minutes and up to 37 on this machine, and 16% of them never wrote more than a header.
+cursor_timeout="${CURSOR_TIMEOUT:-900}"
+grok_timeout="${GROK_TIMEOUT:-900}"
+codex_timeout="${CODEX_TIMEOUT:-900}"
+claude_timeout="${CLAUDE_TIMEOUT:-900}"
 base=""
 intent=""
 
@@ -45,10 +51,14 @@ find different defects. That is the whole reason to run more than one.
 The voices run at the same time, and each one writes its own file. stdout carries
 the paths and nothing else, so a truncated stream can no longer eat a report.
 
-Exit 0 when at least one voice ran, 1 when a provider or snapshot failed,
-2 on a bad argument or base ref, 3 when there is nothing to review, 4 when a
-requested voice's CLI is not logged in, 127 when no voice could run: none
-installed, or every one out of its usage limit.
+Each voice has a deadline, 15 minutes unless config.json sets
+externalReview.<voice>.timeoutMinutes. A voice past it is stopped with everything it
+started, its partial output stays in its file, and it is listed as `timeout`.
+
+Exit 0 when every voice that started finished, 1 when a provider or snapshot failed
+or a voice ran past its deadline, 2 on a bad argument or base ref, 3 when there is
+nothing to review, 4 when a requested voice's CLI is not logged in, 127 when no
+voice could run: none installed, or every one out of its usage limit.
 USAGE
 }
 
@@ -150,7 +160,8 @@ fi
 tmp="${TMPDIR:-/tmp}"
 outdir="$(mktemp -d "${tmp%/}/ext-review.XXXXXX")"
 snapshot="$outdir/repository"
-cleanup() { rm -rf -- "$snapshot"; rmdir "$outdir" 2>/dev/null || true; }
+# A Grok voice stopped at its deadline or from outside never ran its own cleanup.
+cleanup() { rm -rf -- "$snapshot" "$outdir/grok-home" "$outdir/grok-input" "$outdir/grok.json"; rmdir "$outdir" 2>/dev/null || true; }
 trap cleanup EXIT
 rc=0
 node "$here/snapshot.mjs" "$root" "$base" "$snapshot" || rc=$?
@@ -289,23 +300,28 @@ run_claude() {
 
 # `codex review` exits 0 even when it reports findings, so a non-zero status here
 # is a real failure and must not be swallowed.
+# It prints the review on stdout and its whole transcript on stderr, which made
+# codex.md 75 KB to 1.7 MB. The transcript goes to codex.log, deleted once the
+# review succeeds; on a failure its tail is copied into codex.md.
 run_codex() {
-  local rc=0 one
+  local rc=0 one log="$outdir/codex.log"
 
   if [ -n "$has_committed" ]; then
     printf '===== codex: built-in review, %s..HEAD =====\n\n' "$base"
     one=0
-    codex review -c model="$codex_model" -c model_reasoning_effort="$codex_effort" --base "$base" || one=$?
+    codex review -c model="$codex_model" -c model_reasoning_effort="$codex_effort" --base "$base" 2>>"$log" || one=$?
     printf '\n'
     if [ "$one" != "0" ]; then rc="$one"; fi
   fi
   if [ -n "$has_local" ]; then
     printf '===== codex: built-in review, uncommitted and untracked =====\n\n'
     one=0
-    codex review -c model="$codex_model" -c model_reasoning_effort="$codex_effort" --uncommitted || one=$?
+    codex review -c model="$codex_model" -c model_reasoning_effort="$codex_effort" --uncommitted 2>>"$log" || one=$?
     printf '\n'
     if [ "$one" != "0" ] && [ "$rc" = "0" ]; then rc="$one"; fi
   fi
+  if [ "$rc" = 0 ]; then rm -f -- "$log"
+  else printf '===== codex: last lines of its transcript, %s =====\n\n' "$log"; tail -n 40 "$log" 2>/dev/null || true; fi
   return "$rc"
 }
 
@@ -314,6 +330,7 @@ run_codex() {
 ran=0
 failed=0
 limited=0
+timedout=0
 missing=""
 lines=""
 
@@ -325,7 +342,10 @@ lines=""
 # server, so the pattern is broader than any one message.
 tally() {
   local status
-  if [ "$1" = 0 ]; then
+  if [ "$1" = timeout ]; then
+    timedout=$((timedout + 1)); status="timeout"
+    echo "ext-review: the $2 voice ran past its deadline and was stopped, its partial output is in $3" >&2
+  elif [ "$1" = 0 ]; then
     ran=$((ran + 1)); status="ok"
   elif grep -qiE "usage limit|hit your limit|rate limit|quota|resource.?exhausted" "$3"; then
     limited=$((limited + 1)); status="limit"
@@ -339,16 +359,30 @@ $(printf '%-8s %-9s %s' "$2" "$status" "$3")"
 }
 
 # The voices are read-only and share nothing, so they run at once. The wall clock
-# is then the slowest of them rather than their sum.
-cursor_pid=""
-grok_pid=""
-codex_pid=""
-claude_pid=""
+# is then the slowest of them rather than their sum. Job control puts each voice in
+# a process group of its own, so its deadline stops every process it started. A
+# voice writes its exit status to <voice>.rc as its last act.
+set -m
+started=""
+launch() {
+  { rc=0; "run_$1" || rc=$?; printf '%s' "$rc" >"$outdir/$1.rc"; } >"$outdir/$1.md" 2>&1 </dev/null &
+  printf -v "$1_pid" '%s' "$!"
+  disown "$!"
+  started="$started $1"
+}
+# A voice in its own group no longer dies with the script's group, so an
+# interrupted run stops them itself.
+stop_voices() {
+  local voice pid
+  for voice in $started; do
+    pid="${voice}_pid"
+    kill -TERM -- "-${!pid}" 2>/dev/null || true
+  done
+}
+trap 'stop_voices; exit 130' INT TERM HUP
 
 if wants cursor; then
-  if command -v agent >/dev/null 2>&1; then
-    run_cursor >"$outdir/cursor.md" 2>&1 &
-    cursor_pid=$!
+  if command -v agent >/dev/null 2>&1; then launch cursor
   else
     missing="$missing
 ext-review: no cursor voice, the \`agent\` CLI is not on PATH.
@@ -356,15 +390,10 @@ ext-review: no cursor voice, the \`agent\` CLI is not on PATH.
   fi
 fi
 
-if wants grok; then
-  run_grok >"$outdir/grok.md" 2>&1 &
-  grok_pid=$!
-fi
+if wants grok; then launch grok; fi
 
 if wants codex; then
-  if command -v codex >/dev/null 2>&1; then
-    run_codex >"$outdir/codex.md" 2>&1 &
-    codex_pid=$!
+  if command -v codex >/dev/null 2>&1; then launch codex
   else
     missing="$missing
 ext-review: no codex voice, the \`codex\` CLI is not on PATH.
@@ -373,9 +402,7 @@ ext-review: no codex voice, the \`codex\` CLI is not on PATH.
 fi
 
 if wants claude; then
-  if command -v claude >/dev/null 2>&1; then
-    run_claude >"$outdir/claude.md" 2>&1 &
-    claude_pid=$!
+  if command -v claude >/dev/null 2>&1; then launch claude
   else
     missing="$missing
 ext-review: no claude voice, the \`claude\` CLI is not on PATH.
@@ -383,10 +410,44 @@ ext-review: no claude voice, the \`claude\` CLI is not on PATH.
   fi
 fi
 
-if [ -n "$cursor_pid" ]; then rc=0; wait "$cursor_pid" || rc=$?; tally "$rc" cursor "$outdir/cursor.md"; fi
-if [ -n "$grok_pid" ]; then rc=0; wait "$grok_pid" || rc=$?; tally "$rc" grok "$outdir/grok.md"; fi
-if [ -n "$codex_pid" ]; then rc=0; wait "$codex_pid" || rc=$?; tally "$rc" codex "$outdir/codex.md"; fi
-if [ -n "$claude_pid" ]; then rc=0; wait "$claude_pid" || rc=$?; tally "$rc" claude "$outdir/claude.md"; fi
+# TERM to the voice's group, then KILL after five seconds.
+expire() {
+  local i
+  kill -TERM -- "-$1" 2>/dev/null || true
+  for i in 1 2 3 4 5; do
+    kill -0 -- "-$1" 2>/dev/null || return 0
+    sleep 1
+  done
+  kill -KILL -- "-$1" 2>/dev/null || true
+}
+
+clock=$SECONDS
+pending="$started"
+while [ -n "${pending// /}" ]; do
+  still=""
+  for voice in $pending; do
+    pid="${voice}_pid"; pid="${!pid}"
+    limit="${voice}_timeout"; limit="${!limit}"
+    file="$outdir/$voice.md"
+    # The second look at .rc closes the race with a voice that wrote it and exited
+    # between the first look and kill -0. A voice gone with no .rc was killed from outside.
+    if [ -f "$outdir/$voice.rc" ] || ! kill -0 "$pid" 2>/dev/null; then
+      rc=137
+      if [ -f "$outdir/$voice.rc" ]; then rc="$(cat "$outdir/$voice.rc")"; rm -f -- "$outdir/$voice.rc"; fi
+      tally "$rc" "$voice" "$file"
+    elif [ $((SECONDS - clock)) -ge "$limit" ]; then
+      expire "$pid"
+      printf '\n===== %s: stopped at its %s-second deadline, this review is incomplete =====\n' "$voice" "$limit" >>"$file"
+      if [ "$voice" = codex ] && [ -f "$outdir/codex.log" ]; then printf 'Its transcript so far is in %s.\n' "$outdir/codex.log" >>"$file"; fi
+      tally timeout "$voice" "$file"
+    else
+      still="$still $voice"
+    fi
+  done
+  pending="$still"
+  if [ -n "${pending// /}" ]; then sleep 1; fi
+done
+trap - INT TERM HUP
 
 # Only ever empty when no voice was spawned, which is exactly when it is litter.
 rmdir "$outdir" 2>/dev/null || true
@@ -402,7 +463,7 @@ if [ -n "$lines" ]; then
   printf 'ext-review: each voice wrote its own file. Read every one of them in full.\n%s\n' "$lines"
 fi
 
-if [ "$failed" -gt 0 ]; then exit 1; fi
+if [ "$failed" -gt 0 ] || [ "$timedout" -gt 0 ]; then exit 1; fi
 if [ "$ran" -gt 0 ]; then exit 0; fi
 if [ "$limited" -gt 0 ]; then echo "ext-review: no voice could run, every one is out of its usage limit." >&2
 else echo "ext-review: no voice could run. Install at least one provider CLI." >&2; fi

@@ -109,7 +109,7 @@ export function validateConfig(raw, repoDir) {
   for (const [name, spec] of Object.entries(PROVIDERS)) {
     const path = `externalReview.${name}`;
     const r = objectAt(reviewIn[name], path, at);
-    onlyKeys(r, ['enabled', ...Object.keys(spec.defaults)], path, at);
+    onlyKeys(r, ['enabled', 'timeoutMinutes', ...Object.keys(spec.defaults)], path, at);
     boolAt(r.enabled, `${path}.enabled`, at);
     const out = { enabled: r.enabled ?? spec.defaultEnabled ?? true };
     for (const [key, value] of Object.entries(spec.defaults)) {
@@ -118,6 +118,10 @@ export function validateConfig(raw, repoDir) {
       }
       out[key] = r[key] ?? value;
     }
+    if (r.timeoutMinutes !== undefined && !(Number.isInteger(r.timeoutMinutes) && r.timeoutMinutes >= 1)) {
+      throw at(`${path}.timeoutMinutes`, 'must be a whole number of minutes, 1 or more');
+    }
+    out.timeoutMinutes = r.timeoutMinutes ?? 15;
     reviewers[name] = out;
   }
 

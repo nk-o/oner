@@ -135,11 +135,81 @@ test('the build installs Grok review settings and excludes each target own voice
   build(f.repo, config, { auto: false });
   const providers = (name) => readFileSync(join(f.dir, name, 'skills/external-review/providers.env'), 'utf8');
   assert.match(providers('codex'), /^ENABLED="grok claude"$/m);
-  assert.match(providers('codex'), /^GROK_MODEL="grok-4.7"\nGROK_EFFORT="high"$/m);
+  assert.match(providers('codex'), /^GROK_MODEL="grok-4.7-build-fast"\nGROK_EFFORT="high"$/m);
+  assert.match(providers('codex'), /^GROK_TIMEOUT="900"$/m);
   assert.match(providers('claude'), /^ENABLED="grok codex claude"$/m);
   assert.match(providers('claude'), /^CHECK_GROK_SESSION=1$/m);
   assert.match(readFileSync(join(f.dir, 'grok/AGENTS.md'), 'utf8'), /recipients: grok, codex, claude/);
   targets.claude.enabled = false;
   build(f.repo, validateConfig({ targets, externalReview: { cursor: { enabled: false }, grok: { enabled: true } } }, f.repo), { auto: false });
   assert.match(providers('grok'), /^ENABLED="codex claude"$/m);
+});
+
+function writeMock(bin, name, body) {
+  writeFileSync(join(bin, name), `#!${process.execPath}\n${body}`, { mode: 0o755 });
+}
+
+const codexMock = `
+const args = process.argv.slice(2);
+if (args[0] === 'login') { console.log('Logged in using ChatGPT'); process.exit(0); }
+process.stderr.write('codex transcript: exec git diff, thinking, tokens used\\n'.repeat(50));
+if (process.env.CODEX_LIMIT) { process.stderr.write("You've hit your usage limit.\\n"); process.exit(1); }
+console.log('Codex review body: answer.txt changed');
+`;
+
+test('a voice past its deadline is stopped with its children and reported as timeout, the others stand', (t) => {
+  const f = fixture(t);
+  const bin = join(f.dir, 'bin');
+  const child = join(f.dir, 'child.pid');
+  writeMock(bin, 'grok', `
+import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+if (process.argv[2] === 'models') { console.log('You are logged in with grok.com.'); process.exit(0); }
+writeFileSync(process.env.CHILD_PID, String(spawn('sleep', ['60'], { stdio: 'ignore' }).pid));
+process.stderr.write('Grok partial progress\\n');
+setTimeout(() => {}, 60000);
+`);
+  writeMock(bin, 'codex', codexMock);
+  writeFileSync(join(f.scripts, 'providers.env'), 'ENABLED="grok codex"\nGROK_TIMEOUT="2"\n');
+  const start = Date.now();
+  const result = f.run([], { CHILD_PID: child });
+  const seconds = (Date.now() - start) / 1000;
+  assert.equal(result.status, 1, result.stderr);
+  assert.ok(seconds < 12, `took ${seconds}s`);
+  const grok = result.stdout.match(/grok\s+timeout\s+(.+grok\.md)/)?.[1];
+  assert.ok(grok, result.stdout);
+  assert.match(readFileSync(grok, 'utf8'), /Grok partial progress[\s\S]*stopped at its 2-second deadline, this review is incomplete/);
+  assert.match(result.stdout, /codex\s+ok\s+/);
+  const pid = Number(readFileSync(child, 'utf8'));
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+  assert.equal(existsSync(join(grok, '..', 'grok-home')), false);
+});
+
+test('codex.md holds the review alone and the transcript is dropped after a clean run', (t) => {
+  const f = fixture(t);
+  writeMock(join(f.dir, 'bin'), 'codex', codexMock);
+  writeFileSync(join(f.scripts, 'providers.env'), 'ENABLED="codex"\n');
+  const result = f.run();
+  assert.equal(result.status, 0, result.stderr);
+  const report = result.stdout.match(/codex\s+ok\s+(.+codex\.md)/)?.[1];
+  assert.ok(report, result.stdout);
+  const text = readFileSync(report, 'utf8');
+  assert.match(text, /Codex review body/);
+  assert.doesNotMatch(text, /codex transcript/);
+  assert.equal(existsSync(join(report, '..', 'codex.log')), false);
+});
+
+test('a Codex usage limit on stderr still reads as limit', (t) => {
+  const f = fixture(t);
+  writeMock(join(f.dir, 'bin'), 'codex', codexMock);
+  writeFileSync(join(f.scripts, 'providers.env'), 'ENABLED="codex"\n');
+  const result = f.run([], { CODEX_LIMIT: '1' });
+  assert.equal(result.status, 127, result.stderr);
+  assert.match(result.stdout, /codex\s+limit\s+/);
+});
+
+test('timeoutMinutes must be a whole number of minutes', () => {
+  assert.throws(() => validateConfig({ externalReview: { grok: { timeoutMinutes: 0 } } }, resolve('.')), /externalReview\.grok\.timeoutMinutes/);
+  assert.throws(() => validateConfig({ externalReview: { codex: { timeoutMinutes: 2.5 } } }, resolve('.')), /whole number/);
+  assert.equal(validateConfig({ externalReview: { grok: { timeoutMinutes: 30 } } }, resolve('.')).reviewers.grok.timeoutMinutes, 30);
 });

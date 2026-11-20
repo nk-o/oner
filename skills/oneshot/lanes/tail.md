@@ -92,6 +92,12 @@ the run log for a review.
   has already changed, so its list arrives carrying findings that are gone and its agreement
   with the first is no longer independent. Wait for it. When it arrives late anyway, scope it
   with `--base` on the fix commits and count it as round two.
+
+  The wait ends when the script exits, because the script stops each external voice at its
+  deadline. A voice listed as `timeout` is an incomplete review, never a clean one: its
+  partial file joins the merged list like any other, the run log's **Review** names the voice
+  as timed out, and the run goes on with the voices that finished. It is not run again in this
+  round.
 - **Resolve.** Run `resolve-review` on the merged list. Its `DECIDE` verdict is not available
   here: the spec, the plan, or the gate pins the behavior, or the decision is taken and logged
   under **Assumptions**, or it is one of the four hard stops and the run pauses. Its own
