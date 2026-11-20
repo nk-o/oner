@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { listSkills, loadConfig, readRawConfig } from './config.mjs';
-import { BOT_MODES, EFFORT_STAGES, PROVIDERS, REVIEW_BOTS, TARGETS } from './targets.mjs';
+import { BOT_MODES, EFFORT_STAGES, EXECUTORS, PROVIDERS, REVIEW_BOTS, TARGETS } from './targets.mjs';
 
 const MANIFEST = '.agent-config-manifest.json';
 
@@ -41,6 +41,14 @@ export function status(repo) {
     cliFound: onPath(spec.cli),
     efforts: spec.efforts,
     ...config.reviewers[name],
+  }));
+
+  const executors = Object.entries(EXECUTORS).map(([name, spec]) => ({
+    name,
+    label: spec.label,
+    cli: spec.cli,
+    cliFound: onPath(spec.cli),
+    ...config.executors[name],
   }));
 
   const effort = Object.entries(EFFORT_STAGES).map(([stage, spec]) => ({
@@ -82,6 +90,8 @@ export function status(repo) {
     guard: config.guard,
     autoCompact: config.autoCompact,
     oneshotRelease: config.oneshotRelease,
+    parallel: config.parallel,
+    executors,
     skills,
   };
 }

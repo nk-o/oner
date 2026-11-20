@@ -232,6 +232,216 @@
         }
       }
     },
+    "executors": {
+      "description": "Which providers lead hands stages to, and the model and effort of each tier. Only enabled ones reach skills/lead/executors.md. The defaults come from one measurement on three solved tasks.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "claude": {
+          "description": "Claude, started through the host's delegate tool.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "lead": {
+              "description": "Coordinates a program and takes its decisions. Default opus, high.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "effort": {
+                  "enum": ["low", "medium", "high", "xhigh", "max"]
+                }
+              }
+            },
+            "build": {
+              "description": "Writes the code of a stage. Default opus, medium (sonnet with high effort is a cheaper choice that was correct on all three tasks but slower).",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "effort": {
+                  "enum": ["low", "medium", "high", "xhigh", "max"]
+                }
+              }
+            },
+            "light": {
+              "description": "Read-only work such as search and summaries, never code. Default haiku, high.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "effort": {
+                  "enum": ["low", "medium", "high", "xhigh", "max"]
+                }
+              }
+            }
+          }
+        },
+        "codex": {
+          "description": "Codex.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "lead": {
+              "description": "Coordinates a program and takes its decisions. Default gpt-6.2-sol, high.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "effort": {
+                  "enum": ["low", "medium", "high"]
+                }
+              }
+            },
+            "build": {
+              "description": "Writes the code of a stage. Default gpt-6.2-sol, medium.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "effort": {
+                  "enum": ["low", "medium", "high"]
+                }
+              }
+            },
+            "light": {
+              "description": "Read-only work such as search and summaries, never code. Default gpt-6-luna, high.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "effort": {
+                  "enum": ["low", "medium", "high"]
+                }
+              }
+            }
+          }
+        },
+        "grok": {
+          "description": "Grok. Off by default: in the measurement it edited and read outside its task.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "lead": {
+              "description": "Coordinates a program and takes its decisions. Default grok-4.7, high.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "effort": {
+                  "enum": ["low", "medium", "high", "xhigh"]
+                }
+              }
+            },
+            "build": {
+              "description": "Writes the code of a stage. Default grok-4.7, high.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "effort": {
+                  "enum": ["low", "medium", "high", "xhigh"]
+                }
+              }
+            },
+            "light": {
+              "description": "Read-only work such as search and summaries, never code. Default grok-4.7, high.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                },
+                "effort": {
+                  "enum": ["low", "medium", "high", "xhigh"]
+                }
+              }
+            }
+          }
+        },
+        "cursor": {
+          "description": "Cursor. Off by default and never measured, so it has no default models.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "lead": {
+              "description": "Coordinates a program and takes its decisions. No default, so the tier is unused until a model is set.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              }
+            },
+            "build": {
+              "description": "Writes the code of a stage. No default, so the tier is unused until a model is set.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              }
+            },
+            "light": {
+              "description": "Read-only work such as search and summaries, never code. No default, so the tier is unused until a model is set.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]+$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "targets": {
       "description": "Which agent homes the build writes into.",
       "type": "object",

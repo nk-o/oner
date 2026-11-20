@@ -25,6 +25,8 @@ something that worked the day before. Read it and take what helps. There is no s
   checks its work, and treats review comments.
 - **`/oneshot`.** It takes a feature or a bug from idea to an open pull request and stops once,
   early, for your decisions.
+- **`/lead`.** It runs an initiative of several pull requests from a plan in your tracker, which
+  it writes with you first when there is none.
 - **Review by other vendors' models.** Codex, Cursor, Claude, and Grok review a change through
   your own subscriptions, each on a sanitized copy of the code.
 - **Skills** for planning, interface design, debugging, review, and shipping, listed below.
@@ -72,7 +74,7 @@ so you can stop it:
 | You write | The agent starts |
 | --- | --- |
 | A question, or "brainstorm X" | an answer, or `brainstorm`, with nothing written |
-| Work that takes several pull requests, or a tracker project | `oneshot`, as a series |
+| Work that takes several pull requests, or a tracker project | `lead`, which plans it with you or runs the plan you approved |
 | How something looks, feels, or moves | `prototype` or `refine`, and the build after you pick |
 | A bug, or a small change | `oneshot` |
 | A new or changed behavior | `oneshot`, which stops at its gate for your decisions |
@@ -92,6 +94,14 @@ A review of an existing pull request never merges.
 
 Work whose parts must reach production one after another becomes a series. With your authorization, each stage is
 merged, deployed, and checked in production before the next one lands.
+
+`lead` runs a larger initiative the same way, from your tracker. Without a plan there, it
+brainstorms with you, writes one (a project, a milestone per outcome, one issue per outcome,
+and a decisions document), and builds nothing until you approve it. Each pull request then
+becomes a stage, with its own sub-issue labeled `agent` that holds every technical update. Your
+issues get three short comments: started, waits on you, and shipped. `executors` in
+`config.json` sets which providers build the stages and on which models, and only the ones you
+turn on are used.
 
 `/oneshot-auto` is the same run for when you are not watching. The gate takes its own
 recommended answers, and the pull request is merged once it is ready and checked in production
@@ -150,6 +160,7 @@ a new project.
 | | `/external-review` | the same change reviewed by every provider turned on in `config.json` |
 | Ship | `/oneshot` | one task from idea to open pull request |
 | | `/oneshot-auto` | one task from idea to production, with nobody watching |
+| | `/lead` | an initiative of several pull requests, from a plan in the tracker to production |
 | | `/commit-message` | a Conventional Commits message for the staged change |
 | | `/pr` | a pull request title and body written for a person |
 | | `/pr-feedback` | works through a PR's unresolved threads and failing checks once |
