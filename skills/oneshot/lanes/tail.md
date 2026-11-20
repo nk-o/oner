@@ -62,7 +62,7 @@ the run log for a review.
      #<number>`, not a stop: whichever merges second meets it in its own checks at merge time.
 
   A migration of this change that does not apply, or a version number the default branch
-  already took, is fixed and checked again. Old code that breaks on it, a default-branch
+  already took or passed, is renumbered or fixed and checked again. Old code that breaks on it, a default-branch
   change that cannot be reconciled with it, and a check that cannot run are hard stops. The
   checks hold for one head: run them again on the exact head right before it merges, wherever
   the merge happens (**Release**, a series `merge` action, or `pr-wait`'s merge), whenever
