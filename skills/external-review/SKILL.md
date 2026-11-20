@@ -73,8 +73,7 @@ method. Its model defaults to `cursor-grok-4.6-low`. The CLI starts in `--mode a
 runs read commands and refuses to write.
 
 **Grok** gets the same contract through Grok Build with the configured model and effort,
-defaulting to `grok-4.7-build-fast` at `high`. On two recorded oner diffs it took about 40%
-less time than `grok-4.7` and still found the main defect. Enable it under `externalReview.grok` in `config.json`.
+defaulting to `grok-4.7` at `high`. Enable it under `externalReview.grok` in `config.json`.
 It uses a temporary Grok home with the existing login, no vendor compatibility imports,
 read tools only, and the `read-only` sandbox. It gets no shell, because Grok headless cancels
 the whole run on the first command no allow rule covers. The script writes the committed,

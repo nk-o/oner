@@ -11,7 +11,7 @@ ENABLED="cursor codex claude"
 if [ -f "$here/providers.env" ]; then . "$here/providers.env"; fi
 provider="all"
 model="${CURSOR_MODEL:-cursor-grok-4.6-low}"
-grok_model="${GROK_MODEL:-grok-4.7-build-fast}"
+grok_model="${GROK_MODEL:-grok-4.7}"
 grok_effort="${GROK_EFFORT:-high}"
 # Measured on one commit across six GPT-5.6 model and effort pairs: Sol reported real
 # defects at medium and at high, medium in two thirds of the time, Terra reported

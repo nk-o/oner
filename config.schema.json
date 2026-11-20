@@ -100,7 +100,7 @@
             },
             "model": {
               "type": "string",
-              "default": "grok-4.7-build-fast"
+              "default": "grok-4.7"
             },
             "effort": {
               "enum": ["low", "medium", "high", "xhigh"],
