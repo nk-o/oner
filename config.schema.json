@@ -241,7 +241,7 @@
       "additionalProperties": false,
       "properties": {
         "release": {
-          "description": "Where an oneshot run ends. pr stops at a ready pull request. production also merges it and checks production, once the gate had nothing to settle, you answered it, or the run follows a plan you approved, in a feature as in a fix. A series whose gate you settled then releases without its own authorization question. A gate that took its own recommendations while you were away never releases, and a review of an existing pull request never merges.",
+          "description": "Where an oneshot run ends. pr stops at a ready pull request. production also merges it and checks production, once the gate had nothing to settle, you answered it, or the run follows a plan you approved, in a feature as in a fix. A series whose gate you answered, or whose plan you approved, then releases without its own authorization question. A gate that took its own recommendations while you were away never releases, and a review of an existing pull request never merges.",
           "enum": ["pr", "production"],
           "default": "pr"
         }

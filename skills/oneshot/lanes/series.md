@@ -79,10 +79,13 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    **Away** does not reach this question. An authorization is consent, never a recommended
    default. A run `oneshot-auto` opened already has one: the user started it by name, and
    `authorization` quotes the log's `Auto.` line. So does an install whose release setting is
-   `production` (this one's is `{{oneshot_release}}`) when the gate ended `Outcome. nothing to
-   settle`, `answered`, or `approved <path>`: the user chose to ship settled work, so
-   `authorization` quotes `oneshot.release: production` and the question is not asked. An
-   `away` or `pull request only` outcome gets no authorization from the setting. Without one, leave `authorization` out of
+   `production` (this one's is `{{oneshot_release}}`) when the user saw the stage map at the gate,
+   which ended `Outcome. answered` or `approved <path>`: the user chose to ship settled work, so
+   `authorization` quotes `oneshot.release: production` and the question is not asked. A gate
+   with nothing else to settle still asks it, so the user sees the stage map once. `away` gets
+   no authorization from the setting. `pull request only` is the user's answer to this question:
+   build stage one to its pull request, set the log's `Status. done`, and report, with no wait.
+   Without an authorization otherwise, leave `authorization` out of
    `program.json`, build stage one to its pull request, and run `series.mjs wait input
    "authorize the release of <program folder>"`. When the user answers, run `series.mjs resume
    --authorization "<their words>"`, which is the only way the field is written later.

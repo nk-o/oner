@@ -14,7 +14,8 @@ unless the work becomes a series and you authorize its release, or the release s
 
 You do not have to name it. Write a bug, a change, or a feature in plain words, and the route
 table in `AGENTS.md` **Whole tasks** starts `oneshot`, naming the route in the first line of the
-reply. A question, a one-line edit, and work already under way in the chat go the ordinary way,
+reply. A question about something that fails starts it too. A question about how something
+works, a one-line edit, and work already under way in the chat go the ordinary way,
 and a skill you name wins over the table.
 
 ## Release setting
@@ -30,8 +31,8 @@ and a skill you name wins over the table.
   not verified, after watching the deploy. A gate that took its own recommendations while you
   were away, or an answer that chose to stop at the pull request, ends the run at the pull
   request. A review run on an existing pull request never merges it. The four hard stops still stop, and a series still
-  asks for its own release authorization, unless the release setting is `production` and the
-  gate was settled by you.
+  asks for its own release authorization, unless the release setting is `production` and you
+  answered the gate or approved the plan it runs.
 
 ## Lanes
 
@@ -89,7 +90,7 @@ A series still stops once, at the gate. That stop shows the decisions, the stage
 release process found in the repository: the merge method, the checks GitHub must report, the
 command that prints the commit production runs, the command that proves migrations applied, and
 the read-only production checks. It then asks for release authorization as a separate question, unless the release setting is
-`production` and the gate was settled by you.
+`production` and you answered the gate or approved the plan it runs.
 "Build stage one only" turns the run back into an ordinary one. Stepping away never answers this
 question.
 
@@ -137,8 +138,9 @@ it for work that needs several pull requests or names a tracker project. Given a
 milestone, or issue to run, it takes the plan written there as approved. Otherwise it
 brainstorms with you and writes the plan into the tracker: a project, a milestone per outcome a
 user gets, one owner issue per outcome with blocked-by relations for the order, and the
-decisions as a document. It builds nothing until you approve the plan in the chat, and it asks
-for the series' release authorization at the same stop.
+decisions as a document. It builds nothing until you approve the plan in the chat. With the release setting at
+`production` that approval also authorizes the release, unless you ask it to stop at a pull
+request; otherwise it asks for the release authorization at the same stop.
 
 It then writes `program.json` with one stage per pull request. A stage comes after the stages
 of the issues that block its own, and a stage that touches a schema, a migration, a lockfile,

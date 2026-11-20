@@ -243,7 +243,7 @@ usually one small script that imports what the app ships and calls the function 
 
   | The request | Route |
   | --- | --- |
-  | A question about how something works or why it is built this way, an analysis, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. A question about something that fails, such as "why does X break?", and a report or ticket of a failure to look into, go to the defect row. |
+  | A question about how something works or why it is built this way, an analysis, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. A question about something that fails, such as "why does X break?", and a report or ticket of a failure to look into, go on down the table to the first row their subject fits: the look-and-feel row, else the defect row. |
   | Work that needs several pull requests, or names a tracker project or initiative | `lead`, which plans it with me in the tracker or runs the plan I approved |
   | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open, `refine` when the request names it. Both stop before a pull request, and `oneshot` ships only what I pick. |
   | A defect, a question about one, a report or ticket of one to look into, or a small change | `oneshot`, whose lane table picks fix or feature. The run finds the cause and goes on to the fix. |
