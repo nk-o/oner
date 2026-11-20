@@ -220,7 +220,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    delegate at once. Its brief opens with the instruction to load `oneshot` and read **A stage
    run** in `lanes/series.md`, then holds the program folder's absolute path, the stage id, its
    branch and checkout, the rule that it runs the stage run above through Ship and never
-   touches `program.json`, merges, or deploys, the rule that a question at one of the the
+   touches `program.json`, merges, or deploys, the rule that a question at one of the
    hard stops comes back unanswered in its summary, the rule that it removes what it
    creates for its checks, the rule that it writes the stage's production check, and the
    check that proves it: an open pull request whose checks are running. The coordinator puts a hard stop to the user, per
