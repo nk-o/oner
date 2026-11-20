@@ -14,7 +14,8 @@ unless the work becomes a series and you authorize its release, or the release s
 
 You do not have to name it. Write a bug, a change, or a feature in plain words, and the route
 table in `AGENTS.md` **Whole tasks** starts `oneshot`, naming the route in the first line of the
-reply. A question about something that fails starts it too. A question about how something
+reply. A question about something that fails starts it too, unless it is about how
+something looks, feels, or moves, which starts `prototype` or `refine`. A question about how something
 works, a one-line edit, and work already under way in the chat go the ordinary way,
 and a skill you name wins over the table.
 
