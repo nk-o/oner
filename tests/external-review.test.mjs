@@ -141,7 +141,7 @@ test('the build installs Grok review settings and excludes each target own voice
   build(f.repo, config, { auto: false });
   const providers = (name) => readFileSync(join(f.dir, name, 'skills/external-review/providers.env'), 'utf8');
   assert.match(providers('codex'), /^ENABLED="grok claude"$/m);
-  assert.match(providers('codex'), /^GROK_MODEL="grok-4.7-build-fast"\nGROK_EFFORT="high"$/m);
+  assert.match(providers('codex'), /^GROK_MODEL="grok-4\.7"\nGROK_EFFORT="high"$/m);
   assert.match(providers('codex'), /^GROK_TIMEOUT="1200"$/m);
   assert.match(providers('codex'), /^CLAUDE_TIMEOUT="900"$/m);
   assert.match(providers('claude'), /^ENABLED="grok codex claude"$/m);
