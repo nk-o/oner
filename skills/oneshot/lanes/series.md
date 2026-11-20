@@ -76,7 +76,9 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
 
    **Away** does not reach this question. An authorization is consent, never a recommended
    default. A run `oneshot-auto` opened already has one: the user started it by name, and
-   `authorization` quotes the log's `Auto.` line. Without one, leave `authorization` out of
+   `authorization` quotes the log's `Auto.` line. So does an install whose release setting is
+   `production` (this one's is `{{oneshot_release}}`): the user chose to ship settled work, so
+   `authorization` quotes `oneshot.release: production` and the question is not asked. Without one, leave `authorization` out of
    `program.json`, build stage one to its pull request, and run `series.mjs wait input
    "authorize the release of <program folder>"`. When the user answers, run `series.mjs resume
    --authorization "<their words>"`, which is the only way the field is written later.

@@ -77,7 +77,12 @@ this way. A secret in T3 Code still goes through `request_secret`, which waits f
 in front of you sets a database schema or a migration, fixes the shape of data that gets
 stored, changes a contract something outside this repository already depends on, or drops or
 overwrites data a user has. These are expensive to unwind after the fact, which is the whole
-reason the rest are not.
+reason the rest are not. With this install's release setting at `production`, two of them
+become decisions, as in `oneshot-auto`: a migration or stored data shape that only adds (a new
+table, a nullable or defaulted column, an index), and a change to an outside contract that
+every existing caller survives. Take it, log it under **Assumptions** as a line that starts
+with `Attention.`, and go on. Dropping, rewriting, or overwriting data a user has, and a
+contract change that breaks an outside caller, still stop.
 
 **A skipped step stays visible.** A lane step you decide not to run stays in the log's
 **Lane** as `skip: <reason>`, never dropped. The lane files exist to stop a run from reading a
@@ -90,7 +95,8 @@ cannot reproduce, the refactor or every perf change is reverted), skip the tail,
 **A run ends at a ready pull request, or in production.** This install's release setting is
 `{{oneshot_release}}`. With `production`, a run whose gate was settled goes on past **Watch**
 to the tail's **Release** step, which merges and checks production. That step names which
-gate outcomes count.
+gate outcomes count. In a series, a stage that reaches production ends that stage, not the
+run: the coordinator runs `next` again in the same turn until it prints `complete` or a wait.
 
 **The code's author is not its only reader.** Delegate and review the returned diff, or write it
 yourself and let the review stage read it. Which one is your call. See **Delegating the work**.

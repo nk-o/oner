@@ -67,8 +67,9 @@
   settle by reading the code, running it, or measuring it.
 - A decision is anything a user could notice or an outside caller must honor: product
   behavior, wording on screen, a public API or schema, what data is stored or dropped, a new
-  dependency, a visual direction, scope, which repository ships the code when more than one
-  could. When work runs into one of these unmade, stop that thread and bring two or three
+  dependency, a visual direction, scope (which features or behaviors a change includes), which
+  repository ships the code when more than one could. A limit, a size, or a threshold that a
+  measurement settles is a fact, not scope. When work runs into one of these unmade, stop that thread and bring two or three
   options with a recommendation and the reason for it.
 - A decision is already made when my words, the project's documented rules or principles, or
   a pattern the codebase follows settle it, or when every option but one is worse on every
@@ -241,10 +242,10 @@ usually one small script that imports what the app ships and calls the function 
 
   | The request | Route |
   | --- | --- |
-  | A question, an analysis, how something works, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. |
+  | A question about how something works or why it is built this way, an analysis, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. A question about something that fails, such as "why does X break?", is a defect, two rows down. |
   | Work that needs several pull requests, or names a tracker project or initiative | `lead`, which plans it with me in the tracker or runs the plan I approved |
   | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open, `refine` when the request names it. Both stop before a pull request, and `oneshot` ships only what I pick. |
-  | A defect, or a small change | `oneshot`, whose lane table picks fix or feature |
+  | A defect, a question about one, or a small change | `oneshot`, whose lane table picks fix or feature. The reply opens with the cause once it is found, and the run goes on to the fix. |
   | New or changed behavior | `oneshot`, feature lane. Its gate asks the decisions that are mine. |
 
 - When I say I am away, a route that runs `oneshot` runs as its **Away**. `prototype` and
