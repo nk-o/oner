@@ -230,9 +230,28 @@ usually one small script that imports what the app ships and calls the function 
 
 ## Whole tasks
 
-- I start `oneshot` by name. When a request looks like a whole task but does not ask for a
-  pull request, do it the ordinary way and say in one line that `/oneshot` would carry it to a
-  PR.
+- I give a task in plain words, without naming a skill. Pick its route from this table by the
+  request alone, before reading any code. The first row that matches wins. A route that starts a
+  flow (`oneshot`, `brainstorm`, `prototype`, `refine`) is named in the reply's first line and
+  started in the same turn: the route's skill is the first tool call. That line is how I stop a
+  flow I did not mean.
+
+  | The request | Route |
+  | --- | --- |
+  | A question, an analysis, how something works, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. |
+  | Work that needs several pull requests, or names a tracker project or initiative | `oneshot`, whose feature lane makes it a series |
+  | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open, `refine` when the request names it. Both stop before a pull request, and `oneshot` ships only what I pick. |
+  | A defect, or a small change | `oneshot`, whose lane table picks fix or feature |
+  | New or changed behavior | `oneshot`, feature lane. Its gate asks the decisions that are mine. |
+
+- When I say I am away, a route that runs `oneshot` runs as its **Away**. `prototype` and
+  `refine` still stop for my pick.
+
+- The route line names the skill, such as "`oneshot`, fix lane", and comes before any tool
+  call, a search included. An answer and a one-line edit start no flow and get no route line.
+  The reply starts with the answer, or with the edit.
+- A skill I name wins over the table. A one-line edit, a question, and work already under way in
+  the chat go the ordinary way.
 - An ask of mine that this turn will not finish ("after that, look at X", the rest of a list)
   goes into `.specs/requests.md` at the repository root, one short line in my words, because a
   compaction can drop it from the chat. Nothing else goes in the file. Delete a line once it is

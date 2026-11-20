@@ -2,17 +2,18 @@
 name: oneshot
 description: >-
   Carries one task from idea to an open pull request in one run, stopping at most once, early,
-  for decisions the user could answer differently. Work whose parts must reach production in
-  order becomes a series of pull requests. The user starts it by name. Start it yourself only
-  when the user hands over a whole feature or bug and asks for it carried to a pull request. A
-  question, a one-line edit, a review of shipped code, or work already under way in the chat
-  goes the ordinary way.
+  for decisions the user could answer differently, and on into production when the release
+  setting says so. Work whose parts must reach production in order becomes a series of pull
+  requests. Use when the user hands over a defect, a small change, a new behavior, or work that
+  needs several pull requests, by name or in plain words. A question, a one-line edit, a review
+  of shipped code, or work already under way in the chat goes the ordinary way.
 argument-hint: "[feature idea, ticket, bug report, or question]"
 ---
 
 # Oneshot
 
-The task is whatever the user typed after the skill name, or the task under discussion.
+The task is whatever the user typed after the skill name, the request the route table in
+**Whole tasks** of `AGENTS.md` sent here, or the task under discussion.
 
 This skill implements nothing itself. It picks a lane, writes that lane's steps into the run
 log as a checklist, and runs the skills already in this set. What it adds is the contract below.
@@ -30,6 +31,13 @@ decision left, post the screen as a status note, say `gate: nothing to settle`, 
 in the same turn. Otherwise ask the open decisions with the question routing in `AGENTS.md`,
 recommended option first. A series' release authorization is consent, not a decision, so
 it is asked even when nothing else is.
+
+The first line of the run log's **Gate** records how the gate ended, because the tail's
+**Release** reads it after a resume: `Outcome. nothing to settle`, `Outcome. answered`,
+`Outcome. away` when **Away** took any of the recommendations, even beside answers,
+`Outcome. pull request only` when the user's answer chose to stop at the pull request, or
+`Outcome. approved <path>` when the lane took its decisions from a plan the user approved
+earlier.
 
 **A turn ends only where the run waits.** A message with no tool call ends the turn, and the
 run stands still until someone types, who may be asleep. After the gate, none of these ends a
@@ -78,6 +86,11 @@ lane, then writing a bespoke plan that loses half of it.
 **A run can end without a pull request.** When the lane itself ends the work (the fix lane
 cannot reproduce, the refactor or every perf change is reverted), skip the tail, set
 `Status. stopped: <reason>`, and report without a link.
+
+**A run ends at a ready pull request, or in production.** This install's release setting is
+`{{oneshot_release}}`. With `production`, a run whose gate was settled goes on past **Watch**
+to the tail's **Release** step, which merges and checks production. That step names which
+gate outcomes count.
 
 **The code's author is not its only reader.** Delegate and review the returned diff, or write it
 yourself and let the review stage read it. Which one is your call. See **Delegating the work**.
@@ -194,7 +207,8 @@ The investigation lane writes nothing, so it skips this step.
 
 **Resume before you open.** When this branch already carries `.specs/*/oneshot.md` with
 `Status. running` or `Status. waiting`, that run is the task: read the log, take the first open
-line in its **Lane**, and re-read that step in the lane file the `Lane.` line names. Never open
+line in its **Lane**, and re-read that step in the lane file the `Lane.` line names. A log with
+a `Program.` line is in its **Release** step: continue that program with `--program`. Never open
 a second folder for the same task. When the task the user typed is not that run, set the old
 log's `Status. stopped: superseded`, say so in one line, and open a new folder. A log with an `Auto.` line was opened by `oneshot-auto`:
 read `{{skills_dir}}/oneshot-auto/SKILL.md` too, because its rules hold for the whole run. When
@@ -238,6 +252,7 @@ Status. running | waiting | done | stopped: <reason> | series
 - [ ] <each step's bold title, the lane's then the tail's, in order>
 
 ## Gate
+Outcome. nothing to settle | answered | away | pull request only | approved <path>
 <each decision the user settled, one line with its rationale>
 
 ## Assumptions

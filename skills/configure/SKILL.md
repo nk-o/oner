@@ -56,6 +56,12 @@ off revokes that consent. The build writes the enabled providers into each agent
 and into Codex's `auto_review.extra_policy`. It preserves personal policy and does not replace
 managed policy or grant filesystem or network permissions.
 
+## Release
+
+`oneshot.release` sets where an `oneshot` run ends: `pr` (the default) at a ready pull request,
+or `production`, where a run also merges its own pull request and checks production when its
+gate allows it, per **Release** in `{{skills_dir}}/oneshot/lanes/tail.md`. It takes effect in the next session.
+
 ## Review bots
 
 `reviewBots` sets how `pr-wait` treats each bot that reviews pull requests on the repository's

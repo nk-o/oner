@@ -126,4 +126,40 @@ the run log for a review.
   `watch_pull_request` wakes, set `Status. waiting` in the run log, and set it back to
   `running` when an event or a wake arrives. In a series stage, skip this step:
   the series takes the PR from here, per [`series.md`](series.md).
+- **Release.** This install's release setting is `{{oneshot_release}}`. The step runs in an
+  `oneshot-auto` run whatever the conditions below say. In any other run it runs only when all
+  of these hold, read from the run log: the setting is `production`; the lane is fix, feature,
+  refactor, or perf, so the pull request is this run's own; and the **Gate** `Outcome.` line
+  reads `nothing to settle`, `answered`, or `approved <path>`, in a feature as in a fix. Outside
+  `oneshot-auto`, `away` and `pull request only` never release. Otherwise tick it as
+  `skip: <the condition that failed>`. A series stage ticks it `skip:`, because the series
+  releases every stage itself, and so does the plan lane.
+
+  When **Watch** reports the pull request ready:
+
+  1. Find the release facts per **The release** in step 3 of [`series.md`](series.md). They are
+     found, never asked. Run each command once against production and paste what it printed
+     into **Checks**.
+  2. When a command prints the commit production runs, release as a one-stage series. Take the
+     next free `NNN` in the primary checkout's `.specs/` (the first entry of `git worktree
+     list`), and write there a `program.json` per step 4 of `series.md`. Its `authorization` is
+     the `Auto.` line in an `oneshot-auto` run, and otherwise `oneshot.release: production`,
+     the user's standing consent. `release` holds the facts, and the one stage has this run's
+     branch as its `branch` and `migrations` set when the change carries one. Add a series log
+     `oneshot.md` beside it with a `## Now` section, and write the folder's path into this
+     run's log as `Program. <path>`. Pass `--program <path>` to every `series.mjs` call, because
+     another series may be open in the same checkout. This run's log is the stage run, which
+     `series.mjs` finds by its `Branch.` line. Then follow `series.md` from step 5. Leave the
+     `cleanup` action for the worktree this session runs in. Before any turn that waits, set
+     this log's `Status. waiting` as well as running `series.mjs wait`.
+  3. When nothing tells which commit production runs, merge per **Merge** in `pr-wait` with the
+     repository's merge method, check the result, and run only the **Deploy** paragraph of
+     **After a merge** in `pr-wait`, because its production check cannot tell this deploy from
+     the last one and its clean up would delete this run log. Log `Attention. Production not
+     verified: <why>` under **Assumptions**, with the deploy's result beside it.
+
+  Tick **Release** once `series.mjs report --program <path>` exits 0, or once step 3's deploy
+  watch exits 0. A deploy still pending leaves **Release** open, and a failed one goes to
+  **A broken release** in `pr-wait`.
+  The four hard stops still stop here.
 - **Report** per the skill's Report section.

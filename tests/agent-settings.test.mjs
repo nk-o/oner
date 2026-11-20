@@ -5,7 +5,7 @@ import { mergeTables, mergeTopKeys } from '../build/codex-config.mjs';
 import { readFileSync } from 'node:fs';
 import { listSkills, validateConfig } from '../build/config.mjs';
 import { mergeSettings } from '../build/install.mjs';
-import { renderFile, tokenValues } from '../build/render.mjs';
+import { renderFile, renderText, tokenValues } from '../build/render.mjs';
 
 const personal = 'model = "gpt"\n\n[mcp_servers.node_repl]\ncommand = "node_repl"\n';
 const block = '# oner: start (written by bin/build.mjs)\n["analytics"]\nenabled = false\n# oner: end\n';
@@ -61,6 +61,17 @@ test('agent settings default to browser off, no attribution, telemetry on, no au
   assert.equal(validateConfig({ autoCompact: { tokens: 900000 } }, repo).autoCompact, 900000);
   assert.throws(() => validateConfig({ autoCompact: { tokens: 99999 } }, repo), /autoCompact\.tokens/);
   assert.throws(() => validateConfig({ telemetry: { enabled: 'no' } }, repo), /telemetry\.enabled: must be true or false/);
+});
+
+test('oneshot release defaults to pr, takes production, refuses anything else, and renders as a token', () => {
+  const repo = resolve('.');
+  assert.equal(validateConfig({}, repo).oneshotRelease, 'pr');
+  const production = validateConfig({ oneshot: { release: 'production' } }, repo);
+  assert.equal(production.oneshotRelease, 'production');
+  assert.throws(() => validateConfig({ oneshot: { release: 'merge' } }, repo), /oneshot\.release: must be one of: pr, production/);
+  assert.throws(() => validateConfig({ oneshot: { deploy: true } }, repo), /oneshot\.deploy: unknown key/);
+  const values = tokenValues({ skills_dir: repo, agents_dir: repo, repo_dir: repo, target_dir: repo }, 'tilde', production);
+  assert.equal(renderText('release: {{oneshot_release}}', values), 'release: production');
 });
 
 test('orchestration.parallel defaults to 4, refuses anything below one stage, and reaches series.mjs', () => {

@@ -6,7 +6,7 @@ import { EFFORT_STAGES } from './targets.mjs';
 
 const PATH_TOKENS = ['skills_dir', 'agents_dir', 'repo_dir', 'target_dir'];
 const EFFORT_TOKENS = Object.keys(EFFORT_STAGES).map((stage) => `effort_${stage}`);
-const TOKENS = [...PATH_TOKENS, 'skills_dir_abs', 'repo_dir_abs', 'home', 'reply_language', 'orchestration_parallel', ...EFFORT_TOKENS];
+const TOKENS = [...PATH_TOKENS, 'skills_dir_abs', 'repo_dir_abs', 'home', 'reply_language', 'oneshot_release', 'orchestration_parallel', ...EFFORT_TOKENS];
 const TOKEN_RE = new RegExp(`\\{\\{(${TOKENS.join('|')})\\}\\}`, 'g');
 
 // Everything the output depends on, the build's own code included.
@@ -30,6 +30,7 @@ export function tokenValues(paths, form, config) {
     repo_dir_abs: paths.repo_dir,
     home,
     reply_language: config.language,
+    oneshot_release: config.oneshotRelease,
     orchestration_parallel: String(config.parallel),
     ...Object.fromEntries(Object.keys(EFFORT_STAGES).map((stage) => [`effort_${stage}`, config.effort[stage]])),
   };

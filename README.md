@@ -63,16 +63,32 @@ skills also use `jq`, `lsof`, and the GitHub CLI `gh`.
   to back them up.
 - **What is installed where.** `node bin/status.mjs` prints it.
 
-## One command, start to finish
+## Give a task
 
-```
-/oneshot <the feature, the ticket, or the bug>
-```
+Write the task in plain words, without a skill name. The agent picks a route from the table in
+`AGENTS.md` **Whole tasks**. When the route starts a flow, the first line of the reply names it,
+so you can stop it:
+
+| You write | The agent starts |
+| --- | --- |
+| A question, or "brainstorm X" | an answer, or `brainstorm`, with nothing written |
+| Work that takes several pull requests, or a tracker project | `oneshot`, as a series |
+| How something looks, feels, or moves | `prototype` or `refine`, and the build after you pick |
+| A bug, or a small change | `oneshot` |
+| A new or changed behavior | `oneshot`, which stops at its gate for your decisions |
+
+A one-line edit, a question, and work already under way in the chat go the ordinary way, with no
+route line. A skill you name, such as `/oneshot <the feature, the ticket, or the bug>`, wins over
+the table.
 
 `oneshot` reads the code, then stops once to ask the decisions that are yours to make. Everything
 after that runs without asking: the spec, the implementation, the project's checks, verification
 in the running product, review by several models, fixes for what the review proves, the pull
-request, and a watch on it until checks and review bots are through. It does not merge.
+request, and a watch on it until checks and review bots are through. By default it does not
+merge. Set `oneshot.release` to `production` in `config.json` and a run also merges the pull
+request once it is ready and checks production after the deploy: a fix, feature, refactor, or
+performance run whose gate had nothing to ask, got your answers, or follows a plan you approved.
+A review of an existing pull request never merges.
 
 Work whose parts must reach production one after another becomes a series. With your authorization, each stage is
 merged, deployed, and checked in production before the next one lands.
