@@ -108,9 +108,9 @@ series="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/series.mjs"
 loaded() {
   [ -f "$transcript" ] || return 1
   if [ "$host" = codex ]; then
-    grep -qE '<name>oneshot(-auto)?</name>|\$oneshot|/skills/oneshot(-auto)?/SKILL\.md' "$transcript" 2>/dev/null
+    grep -qE '<name>(oneshot(-auto)?|lead)</name>|\$(oneshot|lead)|/skills/(oneshot(-auto)?|lead)/SKILL\.md' "$transcript" 2>/dev/null
   else
-    grep -qE '<command-name>/oneshot(-auto)?<|Base directory for this skill: [^"\\]*/skills/oneshot(-auto)?(\\|")' \
+    grep -qE '<command-name>/(oneshot(-auto)?|lead)<|Base directory for this skill: [^"\\]*/skills/(oneshot(-auto)?|lead)(\\|")' \
       "$transcript" 2>/dev/null
   fi
 }
@@ -214,7 +214,10 @@ EOF
     while IFS= read -r program; do
       [ -n "$program" ] || continue
       if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] || coordinates "$program"; then
-        printf '%s\n' "An oneshot series is open in this repository, status $(pstatus "$program"), $(progress "$program"). Its folder $program holds the approved spec, the plan, and program.json, which is the state. One session coordinates it. If the task at hand is to continue that series, load the oneshot SKILL.md and follow lanes/series.md: run \`$series next --program $program\` before anything else. For its state alone, run \`$series report --program $program\`, which changes nothing. While it is waiting, ask the user for what its pending action needs, then run \`$series resume --program $program\`."
+        # lead writes tracker.json, and only lead keeps that series' tracker layers.
+        skill=oneshot
+        [ -f "$program/tracker.json" ] && skill=lead
+        printf '%s\n' "An oneshot series is open in this repository, status $(pstatus "$program"), $(progress "$program"). Its folder $program holds the approved spec, the plan, and program.json, which is the state. One session coordinates it. If the task at hand is to continue that series, load the $skill SKILL.md and follow lanes/series.md: run \`$series next --program $program\` before anything else. For its state alone, run \`$series report --program $program\`, which changes nothing. While it is waiting, ask the user for what its pending action needs, then run \`$series resume --program $program\`."
       fi
     done <<EOF
 $programs

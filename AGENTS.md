@@ -215,9 +215,9 @@ usually one small script that imports what the app ships and calls the function 
   `isolation: "worktree"`, because T3 binds no worktree made another way. It takes no
   `subagent_type`, so a delegate with an agent definition has that body, below the
   frontmatter, open its task text.
-- When the host lets a delegate run on another provider or model, take both from
-  `{{skills_dir}}/lead/executors.md` where it exists. It lists only the executors I enabled. Use
-  the `build` tier for code and the `light` tier for read-only work only.
+- A `lead` stage run takes its provider and model from `{{skills_dir}}/lead/executors.md`,
+  which lists only the executors I enabled, per step 4 of the `lead` skill. Other delegates keep
+  the session's provider and the model their own rules give.
 
 ## Worktrees
 
@@ -302,5 +302,6 @@ usually one small script that imports what the app ships and calls the function 
   it with a closing keyword or a partial reference. Do not search the tracker for a match, and
   write to no other issue. This is my standing permission for those writes.
 - `lead` may also create what its plan needs: the project, milestones, owner issues and the
-  decisions document of a plan I asked it to write, and one sub-issue labeled `agent` per stage
-  under an in-scope issue, per **Layers** in the `issue-tracker` skill.
+  decisions document of a plan I asked it to write, and one sub-issue per stage under an owner
+  issue, with the `agent` and executor labels, created when missing, per **Layers** in the
+  `issue-tracker` skill. The owner issues of a plan I asked `lead` to write or run are in scope.

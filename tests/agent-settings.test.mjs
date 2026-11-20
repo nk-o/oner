@@ -100,7 +100,7 @@ test('executors default to the measured tiers, take a tier override, and refuse 
   assert.throws(() => validateConfig({ executors: { grok: { light: { model: 'grok 4' } } } }, repo), /executors\.grok\.light\.model: must be a plain name/);
 });
 
-test('the executor table lists enabled executors only, and says when one has no model', () => {
+test('the executor table lists enabled executors only, and says when one has no build model', () => {
   const repo = resolve('.');
   const config = validateConfig({ executors: { codex: { enabled: false }, grok: { enabled: true }, cursor: { enabled: true } } }, repo);
   const rows = executorsTable(config.executors).split('\n').filter((line) => /^\| [a-z]/.test(line));
@@ -108,7 +108,9 @@ test('the executor table lists enabled executors only, and says when one has no 
     '| claude | lead | opus | high |', '| claude | build | opus | medium |', '| claude | light | haiku | high |',
     '| grok | lead | grok-4.7 | high |', '| grok | build | grok-4.7 | high |', '| grok | light | grok-4.7 | high |',
   ]);
-  assert.match(executorsTable(config.executors), /cursor is enabled with no model for any tier/);
+  assert.match(executorsTable(config.executors), /cursor is enabled with no build model, so it runs no stage/);
+  const lightOnly = validateConfig({ executors: { cursor: { enabled: true, light: { model: 'cursor-x' } } } }, repo);
+  assert.match(executorsTable(lightOnly.executors), /\| cursor \| light \| cursor-x \| default \|\n\ncursor is enabled with no build model/);
   const none = validateConfig({ executors: { claude: { enabled: false }, codex: { enabled: false } } }, repo);
   assert.match(executorsTable(none.executors), /No enabled executor has a model/);
 });
