@@ -43,6 +43,35 @@ the run log for a review.
   `model-check` on it with the properties the lane picked, since a state a user can enter and
   never leave, or a second click while a timer runs, passes every unit test.
 
+  **Migration checks.** When the change carries a migration or adds to a stored data shape,
+  run these in a scratch worktree (`git worktree add`, removed after), so the branch's own
+  checkout stays as it is, and paste each result into **Checks** with the head it ran on:
+  1. It applies cleanly to existing rows. Build a scratch database by replaying, in version
+     order through the project's own migration tool, every migration on the default branch,
+     seed it per the project's `verify-<app>` **Seed** section where it has one, then apply
+     this change's migrations.
+  2. The code production runs works on that database. Find that commit the way **The release**
+     in `series.md` does; when nothing prints it, take the default branch's head and log
+     `Attention. Production commit unknown, checked the default branch`. Run its tests and its
+     writes to each table or record the change touches, inserts included, against the
+     database from check 1. A stored shape with no migration file gets its own scratch store
+     and this check alone: this change's code writes a record with the new field, then that
+     commit's code reads it and writes it back, and the field is still there.
+  3. No open pull request clashes with it. List them with `gh pr list --state open --limit
+     1000`, and read each one's migration files with `gh api repos/<owner>/<repo>/pulls/<number>/files
+     --paginate`, this one left out. One that takes the same version number, or renames, drops,
+     or alters a table or field this change touches, is logged as `Attention. Clashes with
+     #<number>`, not a stop: whichever merges second meets it in its own checks at merge time.
+
+  A migration of this change that does not apply, or a version number the default branch
+  already took or passed, is renumbered or fixed and checked again. Old code that breaks on it, a default-branch
+  change that cannot be reconciled with it, and a check that cannot run are hard stops. The
+  checks hold for one head: run them again on the exact head right before it merges, wherever
+  the merge happens (**Release**, a series `merge` action, or `pr-wait`'s merge), whenever
+  **Checks** names another head or the default branch moved since.
+
+
+
   Then, where the lane took a pin, re-run it, and run `check` on every feature
   `list --affected <Base>` names, or `check --all` when it prints `unmapped` files. When the
   change adds, moves, or removes something a user reaches, update `features.json` in the same
@@ -100,7 +129,7 @@ the run log for a review.
   round.
 - **Resolve.** Run `resolve-review` on the merged list. Its `DECIDE` verdict is not available
   here: the spec, the plan, or the gate pins the behavior, or the decision is taken and logged
-  under **Assumptions**, or it is one of the four hard stops and the run pauses. Its own
+  under **Assumptions**, or it is one of the hard stops and the run pauses. Its own
   `prod-review` of the fixes runs only for a fix past a few lines when round two below will
   skip. Re-run
   `green-repo` after the fixes, then commit them.
@@ -167,5 +196,5 @@ the run log for a review.
   Tick **Release** once `series.mjs report --program <path>` exits 0, or once step 3's deploy
   watch exits 0. A deploy still pending leaves **Release** open, and a failed one goes to
   **A broken release** in `pr-wait`.
-  The four hard stops still stop here.
+  The hard stops still stop here.
 - **Report** per the skill's Report section.

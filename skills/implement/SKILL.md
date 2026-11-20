@@ -80,7 +80,7 @@ end when the user might overturn it. That log is the one place assumptions live,
 gets no copy.
 
 Two things still stop, whatever else is running: a conflict with the spec or a contradicted
-decision, as written above, and the four hard stops in `oneshot`'s contract.
+decision, as written above, and the hard stops in `oneshot`'s contract.
 
 Final verification and Report do not run under `oneshot`: its tail runs `green-repo` and the
 Verify step on the cleaned diff, and writes the report. After the last stage's Verify and
