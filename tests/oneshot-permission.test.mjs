@@ -73,6 +73,19 @@ test('an open run gets its local work approved and leaves the rest to the user',
   }
 });
 
+test('a lead session is approved only for the series it drives, never for a run log on its branch', () => {
+  const lead = `${JSON.stringify({ text: 'Base directory for this skill: /home/u/.claude/skills/lead' })}\n`;
+  const f = fixture({ transcript: lead });
+  const edit = { file_path: join(f.repo, 'app.ts') };
+  assert.equal(f.ask('Edit', edit), 'ask');
+  const program = join(f.repo, '.specs', '002-initiative');
+  mkdirSync(program, { recursive: true });
+  writeFileSync(join(program, 'program.json'), '{"status":"running","stages":[]}');
+  const driver = join(f.root, 'driver.jsonl');
+  writeFileSync(driver, `${lead}${JSON.stringify({ output: `series program: ${program}/program.json` })}\n`);
+  assert.equal(f.ask('Edit', edit, { from: driver }), 'allow');
+});
+
 test('nothing is approved unless the run is running in a session that loaded the skill', () => {
   const f = fixture();
   const other = join(f.root, 'other.jsonl');

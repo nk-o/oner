@@ -1020,6 +1020,10 @@ test('the hook keeps a lead coordinator going, and a new session continues a lea
   const transcript = join(f.root, 'lead.jsonl');
   writeFileSync(transcript, `${JSON.stringify({ text: 'Base directory for this skill: /home/u/.claude/skills/lead' })}\n${JSON.stringify({ output: out })}\n`);
   assert.match(runHook(b.dir, 'Stop', transcript), /oneshot series in .*001-billing is open/);
+  const planner = join(f.root, 'planner.jsonl');
+  writeFileSync(planner, `${JSON.stringify({ text: 'Base directory for this skill: /home/u/.claude/skills/lead' })}\n`);
+  writeFileSync(join(b.dir, '.specs', '001-stage', 'oneshot.md'), `# s\n\nLane. feature\nBranch. ${b.branch}\nStatus. running\n\n## Lane\n- [ ] Ship\n`);
+  assert.equal(runHook(b.dir, 'Stop', planner), '', 'a lead session that drives no series is not sent to a stage run');
   const bystander = join(f.root, 'bystander.jsonl');
   writeFileSync(bystander, '');
   assert.match(runHook(f.repo, 'SessionStart', bystander), /load the oneshot SKILL\.md/);
