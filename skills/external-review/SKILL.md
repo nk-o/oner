@@ -55,11 +55,12 @@ providers are read-only and share nothing, so they run at once and the wall cloc
 of them rather than their sum. It is still longer than a foreground command may take, so start
 this in the background and do the next thing while it works.
 
-Each voice has a deadline, 15 minutes unless `externalReview.<voice>.timeoutMinutes` in
-`config.json` sets another. At the deadline the script stops the voice and every process it
-started, keeps whatever the voice wrote, ends its file with a line saying the review is
-incomplete, and lists it as `timeout`. Grok streams its text, so its file keeps the part it had
-written. Codex keeps its transcript in `codex.log`. Cursor and Claude print only when they
+Each voice has a deadline, 20 minutes for Grok and 15 for the others, unless
+`externalReview.<voice>.timeoutMinutes` in `config.json` sets another. At the deadline the
+script stops the voice and every process it started, keeps whatever the voice wrote, ends its
+file with a line saying the review is incomplete, and lists it as `timeout`. Grok streams its
+text, so its file keeps the part it had written. Codex keeps its transcript in `codex.log`.
+Cursor and Claude print only when they
 finish, so a stopped one leaves its header alone. The other voices run on, and the script exits
 once every voice has finished or been stopped.
 

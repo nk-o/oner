@@ -121,7 +121,7 @@ export function validateConfig(raw, repoDir) {
     if (r.timeoutMinutes !== undefined && !(Number.isInteger(r.timeoutMinutes) && r.timeoutMinutes >= 1 && r.timeoutMinutes <= 1440)) {
       throw at(`${path}.timeoutMinutes`, 'must be a whole number of minutes from 1 to 1440');
     }
-    out.timeoutMinutes = r.timeoutMinutes ?? 15;
+    out.timeoutMinutes = r.timeoutMinutes ?? spec.defaultTimeoutMinutes ?? 15;
     reviewers[name] = out;
   }
 

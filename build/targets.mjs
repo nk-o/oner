@@ -162,7 +162,7 @@ export const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
 // external-review voices, their defaults, and the effort levels the settings page offers.
 export const PROVIDERS = {
   cursor: { label: 'Cursor', cli: 'agent', defaults: { model: 'cursor-grok-4.6-low' } },
-  grok: { label: 'Grok', cli: 'grok', defaultEnabled: false, defaults: { model: 'grok-4.7-build-fast', effort: 'high' }, efforts: ['low', 'medium', 'high', 'xhigh'] },
+  grok: { label: 'Grok', cli: 'grok', defaultEnabled: false, defaultTimeoutMinutes: 20, defaults: { model: 'grok-4.7-build-fast', effort: 'high' }, efforts: ['low', 'medium', 'high', 'xhigh'] },
   codex: { label: 'Codex', cli: 'codex', defaults: { model: 'gpt-6.2-sol', effort: 'medium' }, efforts: ['low', 'medium', 'high'] },
   claude: { label: 'Claude', cli: 'claude', defaults: { model: 'opus', effort: 'high' }, efforts: EFFORT_LEVELS },
 };

@@ -24,7 +24,7 @@ claude_effort="${CLAUDE_EFFORT:-high}"
 # Seconds each voice may run before it is stopped. Grok reviews took a median of 16
 # minutes and up to 37 on this machine, and 16% of them never wrote more than a header.
 cursor_timeout="${CURSOR_TIMEOUT:-900}"
-grok_timeout="${GROK_TIMEOUT:-900}"
+grok_timeout="${GROK_TIMEOUT:-1200}"
 codex_timeout="${CODEX_TIMEOUT:-900}"
 claude_timeout="${CLAUDE_TIMEOUT:-900}"
 base=""
@@ -51,8 +51,8 @@ find different defects. That is the whole reason to run more than one.
 The voices run at the same time, and each one writes its own file. stdout carries
 the paths and nothing else, so a truncated stream can no longer eat a report.
 
-Each voice has a deadline, 15 minutes unless config.json sets
-externalReview.<voice>.timeoutMinutes. A voice past it is stopped with everything it
+Each voice has a deadline, 20 minutes for Grok and 15 for the others, unless config.json
+sets externalReview.<voice>.timeoutMinutes. A voice past it is stopped with everything it
 started, its partial output stays in its file, and it is listed as `timeout`.
 
 Exit 0 when every voice that started finished, 1 when a provider or snapshot failed
