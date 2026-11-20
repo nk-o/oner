@@ -43,5 +43,12 @@ console.log('\nExternal reviewers');
 for (const r of s.reviewers) {
   console.log(`  ${r.label.padEnd(width)} on ${yes(r.enabled).padEnd(4)} cli ${yes(r.cliFound).padEnd(4)} ${r.model}${r.effort ? ` (${r.effort})` : ''}`);
 }
+console.log(`\nRelease    ${s.oneshotRelease}`);
+console.log(`Parallel   ${s.parallel} stages per series`);
+console.log('\nExecutors');
+for (const e of s.executors) {
+  const tiers = Object.entries(e.tiers).map(([tier, t]) => `${tier} ${t.model}${t.effort ? ` (${t.effort})` : ''}`).join(', ');
+  console.log(`  ${e.label.padEnd(width)} on ${yes(e.enabled).padEnd(4)} cli ${yes(e.cliFound).padEnd(4)} ${tiers || 'no model set'}`);
+}
 const off = s.skills.filter((k) => k.disabled).map((k) => k.name);
 console.log(`\nSkills     ${s.skills.length - off.length} on${off.length ? `, off: ${off.join(', ')}` : ''}`);

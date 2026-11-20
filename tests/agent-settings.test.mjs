@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { mergeTables, mergeTopKeys } from '../build/codex-config.mjs';
 import { readFileSync } from 'node:fs';
 import { listSkills, validateConfig } from '../build/config.mjs';
-import { mergeSettings } from '../build/install.mjs';
+import { executorsTable, mergeSettings } from '../build/install.mjs';
 import { renderFile, renderText, tokenValues } from '../build/render.mjs';
 
 const personal = 'model = "gpt"\n\n[mcp_servers.node_repl]\ncommand = "node_repl"\n';
@@ -83,6 +83,34 @@ test('orchestration.parallel defaults to 4, refuses anything below one stage, an
   const config = validateConfig({ orchestration: { parallel: 2 } }, repo);
   const rendered = renderFile(resolve('skills/oneshot/series.mjs'), tokenValues(Object.fromEntries(['skills_dir', 'agents_dir', 'repo_dir', 'target_dir'].map((t) => [t, repo])), 'tilde', config)).toString();
   assert.match(rendered, /Number\.parseInt\('2', 10\)/);
+});
+
+test('executors default to the measured tiers, take a tier override, and refuse an unknown provider, tier, or effort', () => {
+  const repo = resolve('.');
+  const { executors } = validateConfig({}, repo);
+  assert.deepEqual(Object.fromEntries(Object.entries(executors).map(([name, e]) => [name, e.enabled])), { claude: true, codex: true, grok: false, cursor: false });
+  assert.deepEqual(executors.claude.tiers.build, { model: 'opus', effort: 'medium' });
+  assert.deepEqual(executors.cursor.tiers, {});
+  const sonnet = validateConfig({ executors: { claude: { build: { model: 'sonnet', effort: 'high' } } } }, repo).executors.claude.tiers;
+  assert.deepEqual([sonnet.build, sonnet.lead], [{ model: 'sonnet', effort: 'high' }, { model: 'opus', effort: 'high' }]);
+  assert.throws(() => validateConfig({ executors: { gemini: { enabled: true } } }, repo), /executors\.gemini: unknown key, expected one of: claude, codex, grok, cursor/);
+  assert.throws(() => validateConfig({ executors: { claude: { review: { model: 'opus' } } } }, repo), /executors\.claude\.review: unknown key, expected one of: enabled, lead, build, light/);
+  assert.throws(() => validateConfig({ executors: { codex: { build: { effort: 'max' } } } }, repo), /executors\.codex\.build\.effort: must be one of: low, medium, high/);
+  assert.throws(() => validateConfig({ executors: { cursor: { build: { model: 'x', effort: 'high' } } } }, repo), /executors\.cursor\.build\.effort: unknown key/);
+  assert.throws(() => validateConfig({ executors: { grok: { light: { model: 'grok 4' } } } }, repo), /executors\.grok\.light\.model: must be a plain name/);
+});
+
+test('the executor table lists enabled executors only, and says when one has no model', () => {
+  const repo = resolve('.');
+  const config = validateConfig({ executors: { codex: { enabled: false }, grok: { enabled: true }, cursor: { enabled: true } } }, repo);
+  const rows = executorsTable(config.executors).split('\n').filter((line) => /^\| [a-z]/.test(line));
+  assert.deepEqual(rows, [
+    '| claude | lead | opus | high |', '| claude | build | opus | medium |', '| claude | light | haiku | high |',
+    '| grok | lead | grok-4.7 | high |', '| grok | build | grok-4.7 | high |', '| grok | light | grok-4.7 | high |',
+  ]);
+  assert.match(executorsTable(config.executors), /cursor is enabled with no model for any tier/);
+  const none = validateConfig({ executors: { claude: { enabled: false }, codex: { enabled: false } } }, repo);
+  assert.match(executorsTable(none.executors), /No enabled executor has a model/);
 });
 
 test('a disabled skill that was merged or renamed keeps the config valid, and an unknown one still fails', () => {

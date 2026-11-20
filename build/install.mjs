@@ -19,7 +19,7 @@ import { homedir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { BuildError, TargetError } from './config.mjs';
 import { hashInputs, renderFile, renderJson, tokenValues, walk } from './render.mjs';
-import { OPTIONS, PROVIDERS, TARGETS } from './targets.mjs';
+import { EXECUTOR_TIERS, EXECUTORS, OPTIONS, PROVIDERS, TARGETS } from './targets.mjs';
 import { adaptSkill, checkSkillFrontmatter } from './skills.mjs';
 import { mergeReviewPolicy, reviewPolicy } from './review-policy.mjs';
 import { mergeTables, mergeTopKeys } from './codex-config.mjs';
@@ -272,6 +272,10 @@ function renderOutputs(ctx, spec, dir, config, writes) {
     });
   }
 
+  if (out.has(join(spec.skills, 'lead', 'SKILL.md'))) {
+    out.set(join(spec.skills, 'lead', 'executors.md'), { data: Buffer.from(executorsTable(config.executors)), mode: 0o644 });
+  }
+
   if (out.has(join(spec.skills, 'pr-wait', 'SKILL.md'))) {
     out.set(join(spec.skills, 'pr-wait', 'bots.json'), {
       data: Buffer.from(JSON.stringify(config.reviewBots, null, 2) + '\n'),
@@ -352,6 +356,19 @@ function providersEnv(reviewers, vendor) {
     `CLAUDE_EFFORT="${reviewers.claude.effort}"`,
   ];
   return lines.join('\n') + '\n';
+}
+
+export function executorsTable(executors) {
+  const enabled = Object.keys(EXECUTORS).filter((name) => executors[name].enabled);
+  const rows = enabled.flatMap((name) =>
+    EXECUTOR_TIERS.filter((tier) => executors[name].tiers[tier])
+      .map((tier) => `| ${name} | ${tier} | ${executors[name].tiers[tier].model} | ${executors[name].tiers[tier].effort ?? 'default'} |`));
+  const idle = enabled.filter((name) => !Object.keys(executors[name].tiers).length);
+  const lines = ['# Executors', '', 'Written by bin/build.mjs from `executors` in config.json. Only enabled executors are listed.', ''];
+  if (rows.length) lines.push('| Executor | Tier | Model | Effort |', '| --- | --- | --- | --- |', ...rows, '');
+  else lines.push('No enabled executor has a model, so every stage runs on the session\'s own provider and model.', '');
+  for (const name of idle) lines.push(`${name} is enabled with no model for any tier, so it gets no stage. Set \`executors.${name}.build.model\` in config.json to use it.`, '');
+  return lines.join('\n');
 }
 
 // Splits a subagent file into its name, description, and body.

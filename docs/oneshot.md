@@ -128,6 +128,47 @@ again. The hook keeps the coordinating session going while the series runs, once
 state, and stays silent while it waits. The series is finished when `series.mjs report` exits 0,
 which needs every stage done with its evidence.
 
+## /lead
+
+`lead` runs an initiative of several pull requests from the tracker, and the route table starts
+it for work that needs several pull requests or names a tracker project. Given a project,
+milestone, or issue to run, it takes the plan written there as approved. Otherwise it
+brainstorms with you and writes the plan into the tracker: a project, a milestone per outcome a
+user gets, one owner issue per outcome with blocked-by relations for the order, and the
+decisions as a document. It builds nothing until you approve the plan in the chat, and it asks
+for the series' release authorization at the same stop.
+
+It then writes `program.json` with one stage per pull request. A stage comes after the stages
+of the issues that block its own, and a stage that touches a schema, a migration, a lockfile,
+or deploy config is `serial`. `series.mjs` drives it as described above, with `lead` as the
+coordinator.
+
+The tracker gets two layers. Each stage has a sub-issue under its owner issue, labeled `agent`
+and the executor's name, which holds every technical update with a pointer to resume from. The
+owner issue gets three comments, started, waits on you, and shipped, in the language your
+rules set for tracker text, without commits, paths, or code. An answer always comes from the
+chat or the question tool, never from a tracker comment, because every comment is written
+under your account. A secret only you can give holds its own stage, and the others go on.
+
+### Executors
+
+`executors.<provider>` in `config.json` (`claude`, `codex`, `grok`, `cursor`) sets which
+providers build the stages, each with `enabled` and a model per tier: `lead` coordinates,
+`build` writes a stage's code, and `light` only reads. The build writes the enabled ones into
+the skill's `executors.md`. The defaults come from a measurement on three solved tasks:
+
+| Provider | lead | build | light | On by default |
+| --- | --- | --- | --- | --- |
+| claude | opus, high | opus, medium | haiku, high | yes |
+| codex | gpt-6.2-sol, high | gpt-6.2-sol, medium | gpt-6-luna, high | yes |
+| grok | grok-4.7, high | grok-4.7, high | grok-4.7, high | no |
+| cursor | none | none | none | no |
+
+Sonnet with high effort is a cheaper `build` model that was correct on all three tasks, and
+slower. Haiku and Luna missed a required behavior when they wrote code, so `light` never runs a
+stage. A delegate reaches another provider only where the host can start one, such as T3
+Code's `delegate_task`.
+
 ## /oneshot-auto
 
 ```
