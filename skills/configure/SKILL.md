@@ -3,8 +3,8 @@ name: configure
 description: >-
   Sets up, changes, and updates oner, the shared rules and skills installed into the user's
   coding agents. Use when the user asks to set up or reconfigure oner, to change the reply
-  language, which agents get it, which external reviewers run, which skills are off, or the
-  agent settings (Chrome access, attribution, telemetry, the command guard, auto-compact), to
+  language, which agents get it, which external reviewers run, which executors `lead` uses,
+  which skills are off, or the agent settings (Chrome access, attribution, telemetry, the command guard, auto-compact), to
   update it, or to open its settings page. Also when a session-start note says an update is available.
 ---
 
@@ -61,6 +61,18 @@ managed policy or grant filesystem or network permissions.
 `oneshot.release` sets where an `oneshot` run ends: `pr` (the default) at a ready pull request,
 or `production`, where a run also merges its own pull request and checks production when its
 gate allows it, per **Release** in `{{skills_dir}}/oneshot/lanes/tail.md`. It takes effect in the next session.
+
+`orchestration.parallel` (4 by default) caps how many stages of a series build at once. A
+`program.json` can set its own `parallel`.
+
+## Executors
+
+`executors.<provider>` (`claude`, `codex`, `grok`, `cursor`) sets which providers `lead` hands
+stages to. Each takes `enabled` and a model per tier, `lead`, `build`, and `light`, as
+`{ "model": "...", "effort": "..." }`. Claude and Codex are on by default, Grok and Cursor off,
+and Cursor has no default models. Turn on only the providers the user pays for. The build
+writes the enabled ones into `{{skills_dir}}/lead/executors.md`. `light` stays read-only
+whatever model it names.
 
 ## Review bots
 

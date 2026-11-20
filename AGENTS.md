@@ -215,6 +215,9 @@ usually one small script that imports what the app ships and calls the function 
   `isolation: "worktree"`, because T3 binds no worktree made another way. It takes no
   `subagent_type`, so a delegate with an agent definition has that body, below the
   frontmatter, open its task text.
+- A `lead` stage run takes its provider and model from `{{skills_dir}}/lead/executors.md`,
+  which lists only the executors I enabled, per step 4 of the `lead` skill. Other delegates keep
+  the session's provider and the model their own rules give.
 
 ## Worktrees
 
@@ -232,14 +235,14 @@ usually one small script that imports what the app ships and calls the function 
 
 - I give a task in plain words, without naming a skill. Pick its route from this table by the
   request alone, before reading any code. The first row that matches wins. A route that starts a
-  flow (`oneshot`, `brainstorm`, `prototype`, `refine`) is named in the reply's first line and
-  started in the same turn: the route's skill is the first tool call. That line is how I stop a
-  flow I did not mean.
+  flow (`oneshot`, `lead`, `brainstorm`, `prototype`, `refine`) is named in the reply's first
+  line and started in the same turn: the route's skill is the first tool call. That line is how I
+  stop a flow I did not mean.
 
   | The request | Route |
   | --- | --- |
   | A question, an analysis, how something works, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. |
-  | Work that needs several pull requests, or names a tracker project or initiative | `oneshot`, whose feature lane makes it a series |
+  | Work that needs several pull requests, or names a tracker project or initiative | `lead`, which plans it with me in the tracker or runs the plan I approved |
   | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open, `refine` when the request names it. Both stop before a pull request, and `oneshot` ships only what I pick. |
   | A defect, or a small change | `oneshot`, whose lane table picks fix or feature |
   | New or changed behavior | `oneshot`, feature lane. Its gate asks the decisions that are mine. |
@@ -298,3 +301,7 @@ usually one small script that imports what the app ships and calls the function 
   when the branch name carries its id, or when the pull request or the spec being built names
   it with a closing keyword or a partial reference. Do not search the tracker for a match, and
   write to no other issue. This is my standing permission for those writes.
+- `lead` may also create what its plan needs: the project, milestones, owner issues and the
+  decisions document of a plan I asked it to write, and one sub-issue per stage under an owner
+  issue, with the `agent` and executor labels, created when missing, per **Layers** in the
+  `issue-tracker` skill. The owner issues of a plan I asked `lead` to write or run are in scope.

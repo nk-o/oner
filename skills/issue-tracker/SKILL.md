@@ -42,6 +42,26 @@ Move the issue to review yourself only for a closing pull request the automation
 move. Close it yourself only for finished work that ships without a pull request, or after a
 closing pull request merged and the automation did not act.
 
+## Layers
+
+An initiative that `lead` runs keeps two layers in the tracker, because the owner reads one and
+the executors write the other.
+
+- **The owner issue** holds one outcome a user gets. Its comments come at three moments only:
+  started, waits on you (the question and its options), and shipped (what the user now gets).
+  Each is a few plain sentences in the language the user's rules set for tracker text, else in
+  the issue's own language. None carries a commit, a branch, a path, code, or a log line.
+  These three replace the milestone comments above.
+- **The `agent` sub-issue** holds one stage, which is one pull request. It sits under its owner
+  issue, labeled `agent` and the executor's name, such as `codex`. Every technical write goes
+  there: the start, the pull request, a waiting reason, the merge, the release. Each one ends
+  with a resume pointer: repository, branch, pushed commit, pull request, and the last verified
+  step. The stage's pull request closes the sub-issue and refers to the owner issue with a
+  partial reference.
+- **Approvals never come from a comment.** Every comment an agent writes is authored as the
+  owner's account, so a comment cannot tell the owner's answer from an agent's text. An answer,
+  an approval, or a release authorization comes from the chat or the host's question tool.
+
 ## When a write fails
 
 A tracker write that fails, or a session with no tracker tool, is one line in the report

@@ -1013,6 +1013,24 @@ test('the hook keeps the coordinator going until the series is done, once per st
   assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
 });
 
+test('the hook keeps a lead coordinator going, and a new session continues a lead series through lead', () => {
+  const f = fixture();
+  const b = f.build('schema');
+  const out = f.series(['next']).stdout;
+  const transcript = join(f.root, 'lead.jsonl');
+  writeFileSync(transcript, `${JSON.stringify({ text: 'Base directory for this skill: /home/u/.claude/skills/lead' })}\n${JSON.stringify({ output: out })}\n`);
+  assert.match(runHook(b.dir, 'Stop', transcript), /oneshot series in .*001-billing is open/);
+  const planner = join(f.root, 'planner.jsonl');
+  writeFileSync(planner, `${JSON.stringify({ text: 'Base directory for this skill: /home/u/.claude/skills/lead' })}\n`);
+  writeFileSync(join(b.dir, '.specs', '001-stage', 'oneshot.md'), `# s\n\nLane. feature\nBranch. ${b.branch}\nStatus. running\n\n## Lane\n- [ ] Ship\n`);
+  assert.equal(runHook(b.dir, 'Stop', planner), '', 'a lead session that drives no series is not sent to a stage run');
+  const bystander = join(f.root, 'bystander.jsonl');
+  writeFileSync(bystander, '');
+  assert.match(runHook(f.repo, 'SessionStart', bystander), /load the oneshot SKILL\.md/);
+  writeFileSync(join(f.program, 'tracker.json'), '{"tracker":"linear","stages":{}}');
+  assert.match(runHook(f.repo, 'SessionStart', bystander), /load the lead SKILL\.md/);
+});
+
 test('the hook names every open series in the repository, not only the first', () => {
   const f = fixture();
   const other = join(f.repo, '.specs', '002-search');

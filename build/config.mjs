@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { BOT_MODES, EFFORT_LEVELS, EFFORT_STAGES, PROVIDERS, REVIEW_BOTS, TARGETS } from './targets.mjs';
+import { BOT_MODES, EFFORT_LEVELS, EFFORT_STAGES, EXECUTOR_TIERS, EXECUTORS, PROVIDERS, REVIEW_BOTS, TARGETS } from './targets.mjs';
 
 export class BuildError extends Error {}
 // A refusal caused by what is in one agent's directory, not by the sources.
@@ -44,7 +44,8 @@ const RENAMED = { improve: 'improve-code' };
 // Returns the config with every default filled in and every dir absolute:
 // { language, disabledSkills, effort: { <stage>: <level> }, reviewers: { <provider>: { enabled, ... } },
 //   reviewBots: { <bot>: <mode> }, browser, attribution, telemetry, guard, autoCompact: <tokens> | null, parallel,
-//   oneshotRelease: 'pr' | 'production', targets: { <name>: { enabled, dir } } }
+//   oneshotRelease: 'pr' | 'production', executors: { <provider>: { enabled, tiers: { <tier>: { model, effort? } } } },
+//   targets: { <name>: { enabled, dir } } }
 export function loadConfig(repoDir) {
   return validateConfig(readRawConfig(repoDir), repoDir);
 }
@@ -54,7 +55,7 @@ export function loadConfig(repoDir) {
 export function validateConfig(raw, repoDir) {
   const at = (path, msg) => new BuildError(`config.json ${path}: ${msg}`);
   if (!isObject(raw)) throw at('', 'must be an object');
-  onlyKeys(raw, ['$schema', 'language', 'local', 'skills', 'effort', 'externalReview', 'reviewBots', 'browser', 'attribution', 'telemetry', 'guard', 'autoCompact', 'oneshot', 'orchestration', 'targets'], '', at);
+  onlyKeys(raw, ['$schema', 'language', 'local', 'skills', 'effort', 'externalReview', 'reviewBots', 'browser', 'attribution', 'telemetry', 'guard', 'autoCompact', 'oneshot', 'orchestration', 'executors', 'targets'], '', at);
 
   if (raw.language !== undefined && (typeof raw.language !== 'string' || !raw.language.trim())) {
     throw at('language', 'must be a language name, such as "English"');
@@ -159,6 +160,30 @@ export function validateConfig(raw, repoDir) {
     throw at('orchestration.parallel', 'must be a whole number of stages, 1 or more');
   }
 
+  const executorsIn = objectAt(raw.executors, 'executors', at);
+  onlyKeys(executorsIn, Object.keys(EXECUTORS), 'executors', at);
+  const executors = {};
+  for (const [name, spec] of Object.entries(EXECUTORS)) {
+    const path = `executors.${name}`;
+    const e = objectAt(executorsIn[name], path, at);
+    onlyKeys(e, ['enabled', ...EXECUTOR_TIERS], path, at);
+    boolAt(e.enabled, `${path}.enabled`, at);
+    const tiers = {};
+    for (const tier of EXECUTOR_TIERS) {
+      const t = objectAt(e[tier], `${path}.${tier}`, at);
+      onlyKeys(t, spec.efforts ? ['model', 'effort'] : ['model'], `${path}.${tier}`, at);
+      if (t.model !== undefined && (typeof t.model !== 'string' || !/^[A-Za-z0-9._:-]+$/.test(t.model))) {
+        throw at(`${path}.${tier}.model`, 'must be a plain name such as "sonnet"');
+      }
+      if (t.effort !== undefined && !spec.efforts.includes(t.effort)) {
+        throw at(`${path}.${tier}.effort`, `must be one of: ${spec.efforts.join(', ')}`);
+      }
+      const merged = { ...spec.tiers[tier], ...t };
+      if (merged.model) tiers[tier] = merged;
+    }
+    executors[name] = { enabled: e.enabled ?? spec.defaultEnabled, tiers };
+  }
+
   const targetsIn = objectAt(raw.targets, 'targets', at);
   onlyKeys(targetsIn, Object.keys(TARGETS), 'targets', at);
   const targets = {};
@@ -176,7 +201,7 @@ export function validateConfig(raw, repoDir) {
     targets[name] = { enabled: t.enabled ?? (spec.alwaysOn || existsSync(dir)), explicit: t.enabled !== undefined, dir };
   }
 
-  return { language: raw.language?.trim() ?? 'English', localRepository, disabledSkills: disabled, effort, reviewers, reviewBots, ...switches, autoCompact: compact.tokens ?? null, oneshotRelease: oneshot.release ?? 'pr', parallel: orchestration.parallel ?? 4, targets };
+  return { language: raw.language?.trim() ?? 'English', localRepository, disabledSkills: disabled, effort, reviewers, reviewBots, ...switches, autoCompact: compact.tokens ?? null, oneshotRelease: oneshot.release ?? 'pr', parallel: orchestration.parallel ?? 4, executors, targets };
 }
 
 export function listSkills(repoDir) {

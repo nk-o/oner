@@ -167,6 +167,18 @@ export const PROVIDERS = {
   claude: { label: 'Claude', cli: 'claude', defaults: { model: 'opus', effort: 'high' }, efforts: EFFORT_LEVELS },
 };
 
+// Providers `lead` hands stages to. The default tiers come from one measurement on three
+// solved tasks, where Haiku and Luna missed required behavior, so `light` stays read-only.
+export const EXECUTOR_TIERS = ['lead', 'build', 'light'];
+const tiers = (lead, build, light) => ({ lead, build, light });
+const voice = ({ label, cli, efforts }) => ({ label, cli, efforts });
+export const EXECUTORS = {
+  claude: { ...voice(PROVIDERS.claude), defaultEnabled: true, tiers: tiers({ model: 'opus', effort: 'high' }, { model: 'opus', effort: 'medium' }, { model: 'haiku', effort: 'high' }) },
+  codex: { ...voice(PROVIDERS.codex), defaultEnabled: true, tiers: tiers({ model: 'gpt-6.2-sol', effort: 'high' }, { model: 'gpt-6.2-sol', effort: 'medium' }, { model: 'gpt-6-luna', effort: 'high' }) },
+  grok: { ...voice(PROVIDERS.grok), defaultEnabled: false, tiers: tiers({ model: 'grok-4.7', effort: 'high' }, { model: 'grok-4.7', effort: 'high' }, { model: 'grok-4.7', effort: 'high' }) },
+  cursor: { ...voice(PROVIDERS.cursor), defaultEnabled: false, tiers: {} },
+};
+
 // Review bots a repository can run on its side, which pr-wait waits on (`wait`), also asks
 // for a review (`request`), or ignores (`off`).
 export const BOT_MODES = ['off', 'wait', 'request'];

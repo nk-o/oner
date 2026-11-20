@@ -114,13 +114,26 @@ loaded() {
       "$transcript" 2>/dev/null
   fi
 }
+leads() {
+  [ -n "$driving" ] && [ -f "$transcript" ] || return 1
+  if [ "$host" = codex ]; then
+    grep -qE '<name>lead</name>|/skills/lead/SKILL\.md' "$transcript" 2>/dev/null
+  else
+    grep -qE '<command-name>/lead<|Base directory for this skill: [^"\\]*/skills/lead(\\|")' "$transcript" 2>/dev/null
+  fi
+}
 
 case "$(field '.hook_event_name // empty')" in
   Stop)
     # Background work or a scheduled wakeup starts the next turn by itself.
     [ "$(field '(.background_tasks // []) | length')" = "0" ] || exit 0
     [ "$(field '(.session_crons // []) | length')" = "0" ] || exit 0
-    loaded || exit 0
+    if ! loaded; then
+      leads || exit 0
+      log=""
+      closed=""
+      status=""
+    fi
 
     # A stage run that waits on the user holds the series with it.
     [ "$status" = "waiting" ] && exit 0
@@ -182,8 +195,8 @@ Only series.mjs marks a stage done: a finished worker, green local checks, an op
     fi
     ;;
   PermissionRequest)
-    [ "$host" = claude ] && loaded || exit 0
-    if [ "$status" = running ] || [ "$delegate" = true ] || [ -n "$driving" ]; then
+    [ "$host" = claude ] || exit 0
+    if loaded && { [ "$status" = running ] || [ "$delegate" = true ] || [ -n "$driving" ]; } || leads; then
       printf '%s' "$input" | node "$(dirname "$0")/permission.mjs" "$(dirname "$0")/.." 2>/dev/null || true
     fi
     ;;
@@ -214,7 +227,9 @@ EOF
     while IFS= read -r program; do
       [ -n "$program" ] || continue
       if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] || coordinates "$program"; then
-        printf '%s\n' "An oneshot series is open in this repository, status $(pstatus "$program"), $(progress "$program"). Its folder $program holds the approved spec, the plan, and program.json, which is the state. One session coordinates it. If the task at hand is to continue that series, load the oneshot SKILL.md and follow lanes/series.md: run \`$series next --program $program\` before anything else. For its state alone, run \`$series report --program $program\`, which changes nothing. While it is waiting, ask the user for what its pending action needs, then run \`$series resume --program $program\`."
+        skill=oneshot
+        [ -f "$program/tracker.json" ] && skill=lead
+        printf '%s\n' "An oneshot series is open in this repository, status $(pstatus "$program"), $(progress "$program"). Its folder $program holds the approved spec, the plan, and program.json, which is the state. One session coordinates it. If the task at hand is to continue that series, load the $skill SKILL.md and follow lanes/series.md: run \`$series next --program $program\` before anything else. For its state alone, run \`$series report --program $program\`, which changes nothing. While it is waiting, ask the user for what its pending action needs, then run \`$series resume --program $program\`."
       fi
     done <<EOF
 $programs
