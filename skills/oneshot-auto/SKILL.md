@@ -3,8 +3,9 @@ name: oneshot-auto
 description: >-
   Runs oneshot with nobody watching and carries the task past the pull request into
   production. The gate does not wait, the pull request is merged once it is ready, and the
-  deploy is verified in production. It stops only for a change that destroys data or breaks an
-  outside contract, and for a login only the user can supply. The user starts it by name. For
+  deploy is verified in production. It stops only for a change that destroys data, a
+  migration that does more than add or fails its checks, a change that breaks an outside
+  contract, and a login only the user can supply. The user starts it by name. For
   a run that ends at a ready pull request, use `oneshot`.
 argument-hint: "[feature idea, ticket, or bug report]"
 disable-model-invocation: true
@@ -39,7 +40,9 @@ takes the recommended option of every question, and logs each under **Assumption
 ## Hard stops
 
 `oneshot`'s **Three hard stops** hold as written there: an additive migration is a decision
-with its checks, not a stop. When a hard stop comes up, set `Status. waiting` and ask through the host's question tool, with the pull
+with its checks, not a stop. One more becomes a decision here: a change to an outside contract
+that every existing caller survives. Take it, log it under **Assumptions** as a line that starts
+with `Attention.`, and go on. When a hard stop comes up, set `Status. waiting` and ask through the host's question tool, with the pull
 request link, what blocks, and the options with the recommended one first.
 
 ## Release

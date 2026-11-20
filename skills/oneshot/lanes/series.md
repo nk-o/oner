@@ -90,9 +90,11 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    --authorization "<their words>"`, which is the only way the field is written later.
 
    The hard stops still stop. A migration or data shape the approved spec already sets is
-   settled, and its stage carries `migrations`, so only one the spec does not cover stops the
-   series. That holds for an additive one too: a stage run returns a migration its plan does
-   not name unanswered, because a started stage's `migrations` flag cannot change. A decision that can only
+   settled, even one that does more than add, so only one the spec does not cover stops the
+   series. A stage with a migration file carries `migrations`, and a stored shape with no
+   file is proved by the stage's `accept` check. A stage run returns a migration its plan does
+   not name unanswered, additive or not, because a started stage's `migrations` flag cannot
+   change. A decision that can only
    be settled once an earlier stage is in production stays in the plan as the first task of
    its stage. The series asks it when that stage starts, as a `decision` wait.
 4. **Spec.** Run `spec` unattended at full depth into the program folder. plan.md holds one
@@ -157,7 +159,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    | `restart` | The branch was cut before a stage it needs was merged. Remove it and start again. |
    | `fix` | A fresh delegate works what `next` names in the stage's checkout by `pr-wait`'s **Handle an event**, and pushes. It does not wait. |
    | `update` | Merge the default branch into the stage's branch, run `green-repo`, and push. `next` asks for this whenever the head lacks a stage merged since the branch was cut, whatever GitHub's own setting. |
-   | `merge` | With a local gate, the action names it: run it first in the stage's checkout, and when it fails, stop the merge and work the failure as a `fix`. Run the printed `gh pr merge` command exactly, as a command of its own, then `next`. `--match-head-commit` lets the merge through only for the head whose checks `next` verified. |
+   | `merge` | A stage that carries a migration or a stored shape runs the tail's **Migration checks** on that head first, unless **Checks** already names it. With a local gate, the action names it: run it first in the stage's checkout, and when it fails, stop the merge and work the failure as a `fix`. Run the printed `gh pr merge` command exactly, as a command of its own, then `next`. `--match-head-commit` lets the merge through only for the head whose checks `next` verified. |
    | `accept` | Record the production check the stage run wrote, with `series.mjs amend --stage <id> --accept "<command>"`, once its log shows the check failing on production as it is. When the stage run wrote none, a fresh delegate writes it. When no read-only check can see the stage, record `--waive-accept "<reason>"` instead. |
    | `wait-checks`, `wait-merge`, `wait-deploy`, `wait-verify`, `hold` | Run `series.mjs next --wait 1800`. It returns once an action other than a wait appears. Where the host wakes the session when background work ends, run it in the background and end the turn, in T3 Code after `t3_background_wait` on its task ID where that tool exists. Where it does not, run it in the foreground as one command and wait on that command with the longest timeout the host allows. |
    | `fix-forward` | Cut the branch it names from the updated default branch and run a stage run there with `Lane. fix`, on the failure it quotes. The stage stays open until the fix passes production. |
@@ -194,7 +196,9 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    update from the default branch with no conflict does not.
 
    **A stage run** is an ordinary oneshot run in the stage's checkout. A migration or data
-   shape its plan does not name is a hard stop there, additive or not. It has its own
+   shape its plan names is settled by the approved spec, even one that does more than add, and
+   gets the tail's **Migration checks**; one its plan does not name is a hard stop there,
+   additive or not. It has its own
    `.specs/NNN-slug/oneshot.md`, with `Lane. feature` and one more line,
    `Series. <program folder> stage <id>`. Copy the program's spec.md into its folder, and
    write its plan.md from the program plan's `Planned at.` line, its Done when, its
