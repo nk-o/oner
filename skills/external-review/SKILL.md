@@ -58,9 +58,10 @@ this in the background and do the next thing while it works.
 Each voice has a deadline, 15 minutes unless `externalReview.<voice>.timeoutMinutes` in
 `config.json` sets another. At the deadline the script stops the voice and every process it
 started, keeps whatever the voice wrote, ends its file with a line saying the review is
-incomplete, and lists it as `timeout`. The other voices run on. The script exits once every
-voice has finished or been stopped, so waiting for it never takes longer than the longest
-deadline.
+incomplete, and lists it as `timeout`. Grok streams its text, so its file keeps the part it had
+written. Codex keeps its transcript in `codex.log`. Cursor and Claude print only when they
+finish, so a stopped one leaves its header alone. The other voices run on, and the script exits
+once every voice has finished or been stopped.
 
 ## The voices are not the same reviewer twice
 

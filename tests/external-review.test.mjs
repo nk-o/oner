@@ -48,8 +48,12 @@ appendFileSync(process.env.CALL_LOG, JSON.stringify({
   compat: process.env.GROK_CLAUDE_HOOKS_ENABLED,
   overlay: process.env.GROK_CONFIG ?? null,
 }) + '\\n');
-console.log(JSON.stringify({ text: process.env.CLI_FAILURE ? 'Provider failure detail' : 'Reviewed answer.txt: after', stopReason: process.env.CANCELLED ? 'cancelled' : 'end_turn' }));
-process.exit(process.env.CLI_FAILURE ? 7 : 0);
+if (process.env.CLI_FAILURE) { console.log('Provider failure detail'); process.exit(7); }
+console.log(JSON.stringify({ type: 'thought', data: 'thinking' }));
+console.log(JSON.stringify({ type: 'text', data: 'Reviewed answer.txt: ' }));
+console.log(JSON.stringify({ type: 'text', data: 'after' }));
+console.log(JSON.stringify({ type: 'end', stopReason: process.env.CANCELLED ? 'cancelled' : 'end_turn' }));
+process.exit(0);
 `;
   writeFileSync(join(bin, 'grok'), mock, { mode: 0o755 });
   return {
@@ -72,7 +76,7 @@ test('Grok reviews the sanitized change with the configured effort and isolated 
   assert.equal(call.secret, false);
   assert.equal(call.hooks, false);
   assert.notEqual(call.cwd, f.repo);
-  assert.deepEqual(call.args.slice(0, 6), ['--model', 'grok-4.7', '--effort', 'high', '--output-format', 'json']);
+  assert.deepEqual(call.args.slice(0, 6), ['--model', 'grok-4.7', '--effort', 'high', '--output-format', 'streaming-json']);
   assert.equal(call.args[call.args.indexOf('--permission-mode') + 1], 'dontAsk');
   assert.equal(call.args[call.args.indexOf('--tools') + 1], 'read_file,list_dir,grep');
   assert.equal(call.args.some((arg) => arg.startsWith('Bash(')), false);
@@ -153,11 +157,11 @@ const codexMock = `
 const args = process.argv.slice(2);
 if (args[0] === 'login') { console.log('Logged in using ChatGPT'); process.exit(0); }
 process.stderr.write('codex transcript: exec git diff, thinking, tokens used\\n'.repeat(50));
-if (process.env.CODEX_LIMIT) { process.stderr.write("You've hit your usage limit.\\n"); process.exit(1); }
+if (process.env.CODEX_LIMIT) { process.stderr.write("You've hit your usage limit.\\n" + 'codex transcript after the limit\\n'.repeat(60)); process.exit(1); }
 console.log('Codex review body: answer.txt changed');
 `;
 
-test('a voice past its deadline is stopped with its children and reported as timeout, the others stand', (t) => {
+test('a voice past its deadline is stopped with its detached children, keeps its streamed text, and is reported as timeout while the others stand', (t) => {
   const f = fixture(t);
   const bin = join(f.dir, 'bin');
   const child = join(f.dir, 'child.pid');
@@ -165,8 +169,8 @@ test('a voice past its deadline is stopped with its children and reported as tim
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 if (process.argv[2] === 'models') { console.log('You are logged in with grok.com.'); process.exit(0); }
-writeFileSync(process.env.CHILD_PID, String(spawn('sleep', ['60'], { stdio: 'ignore' }).pid));
-process.stderr.write('Grok partial progress\\n');
+writeFileSync(process.env.CHILD_PID, String(spawn('sleep', ['60'], { stdio: 'ignore', detached: true }).pid));
+console.log(JSON.stringify({ type: 'text', data: 'Grok partial finding' }));
 setTimeout(() => {}, 60000);
 `);
   writeMock(bin, 'codex', codexMock);
@@ -178,7 +182,7 @@ setTimeout(() => {}, 60000);
   assert.ok(seconds < 12, `took ${seconds}s`);
   const grok = result.stdout.match(/grok\s+timeout\s+(.+grok\.md)/)?.[1];
   assert.ok(grok, result.stdout);
-  assert.match(readFileSync(grok, 'utf8'), /Grok partial progress[\s\S]*stopped at its 2-second deadline, this review is incomplete/);
+  assert.match(readFileSync(grok, 'utf8'), /Grok partial finding[\s\S]*stopped at its 2-second deadline, this review is incomplete/);
   assert.match(result.stdout, /codex\s+ok\s+/);
   const pid = Number(readFileSync(child, 'utf8'));
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
@@ -199,7 +203,7 @@ test('codex.md holds the review alone and the transcript is dropped after a clea
   assert.equal(existsSync(join(report, '..', 'codex.log')), false);
 });
 
-test('a Codex usage limit on stderr still reads as limit', (t) => {
+test('a Codex usage limit early in a long transcript still reads as limit', (t) => {
   const f = fixture(t);
   writeMock(join(f.dir, 'bin'), 'codex', codexMock);
   writeFileSync(join(f.scripts, 'providers.env'), 'ENABLED="codex"\n');
@@ -211,5 +215,6 @@ test('a Codex usage limit on stderr still reads as limit', (t) => {
 test('timeoutMinutes must be a whole number of minutes', () => {
   assert.throws(() => validateConfig({ externalReview: { grok: { timeoutMinutes: 0 } } }, resolve('.')), /externalReview\.grok\.timeoutMinutes/);
   assert.throws(() => validateConfig({ externalReview: { codex: { timeoutMinutes: 2.5 } } }, resolve('.')), /whole number/);
+  assert.throws(() => validateConfig({ externalReview: { claude: { timeoutMinutes: 1e21 } } }, resolve('.')), /1 to 1440/);
   assert.equal(validateConfig({ externalReview: { grok: { timeoutMinutes: 30 } } }, resolve('.')).reviewers.grok.timeoutMinutes, 30);
 });

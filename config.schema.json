@@ -74,6 +74,7 @@
               "description": "Minutes this voice may review before it is stopped and reported as timeout.",
               "type": "integer",
               "minimum": 1,
+              "maximum": 1440,
               "default": 15
             },
             "model": {
@@ -94,6 +95,7 @@
               "description": "Minutes this voice may review before it is stopped and reported as timeout.",
               "type": "integer",
               "minimum": 1,
+              "maximum": 1440,
               "default": 15
             },
             "model": {
@@ -118,6 +120,7 @@
               "description": "Minutes this voice may review before it is stopped and reported as timeout.",
               "type": "integer",
               "minimum": 1,
+              "maximum": 1440,
               "default": 15
             },
             "model": {
@@ -142,6 +145,7 @@
               "description": "Minutes this voice may review before it is stopped and reported as timeout.",
               "type": "integer",
               "minimum": 1,
+              "maximum": 1440,
               "default": 15
             },
             "model": {

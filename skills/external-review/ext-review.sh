@@ -161,7 +161,7 @@ tmp="${TMPDIR:-/tmp}"
 outdir="$(mktemp -d "${tmp%/}/ext-review.XXXXXX")"
 snapshot="$outdir/repository"
 # A Grok voice stopped at its deadline or from outside never ran its own cleanup.
-cleanup() { rm -rf -- "$snapshot" "$outdir/grok-home" "$outdir/grok-input" "$outdir/grok.json"; rmdir "$outdir" 2>/dev/null || true; }
+cleanup() { rm -rf -- "$snapshot" "$outdir/grok-home" "$outdir/grok-input" "$outdir/grok.jsonl"; rmdir "$outdir" 2>/dev/null || true; }
 trap cleanup EXIT
 rc=0
 node "$here/snapshot.mjs" "$root" "$base" "$snapshot" || rc=$?
@@ -255,28 +255,39 @@ run_grok() (
   if [ ! -s "$input/untracked.txt" ]; then rm -f -- "$input/untracked.txt"; fi
 
   printf '===== grok: %s (%s), this repository'"'"'s review contract =====\n\n' "$grok_model" "$grok_effort"
-  grok --model "$grok_model" --effort "$grok_effort" --output-format json \
+  grok --model "$grok_model" --effort "$grok_effort" --output-format streaming-json \
     --prompt-file <(grok_contract "$input") --no-subagents --disable-web-search --sandbox read-only \
     --permission-mode dontAsk --tools read_file,list_dir,grep \
     --rules 'Perform a static, read-only review with read_file, list_dir and grep. You have no shell. Report execution-dependent claims as unproven and complete the review from the available evidence.' \
-    --allow Read --allow Grep --allow Glob >"$outdir/grok.json" || rc=$?
-  if [ "$rc" = 0 ]; then
-    node -e '
-      const result = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
-      console.log(result.text);
-      if (result.stopReason !== "end_turn") {
-        console.error("ext-review: Grok stopped before completing review: " + result.stopReason);
-        process.exitCode = 1;
-      }
-    ' "$outdir/grok.json" || rc=$?
-  else
-    cat "$outdir/grok.json"
-  fi
-  rm -f -- "$outdir/grok.json"
+    --allow Read --allow Grep --allow Glob >"$outdir/grok.jsonl" || rc=$?
+  if [ "$rc" = 0 ]; then grok_text "$outdir/grok.jsonl" || rc=$?
+  else grok_text "$outdir/grok.jsonl" || true; fi
+  rm -f -- "$outdir/grok.jsonl"
   rm -rf -- "$GROK_HOME" "$input"
   printf '\n'
   return "$rc"
 )
+
+# Grok streams its answer as JSON lines, so a voice stopped at its deadline still
+# has the text it wrote. Prints that text and any line that is not JSON, such as a
+# CLI error, and exits 1 unless the stream ended with end_turn.
+grok_text() {
+  node -e '
+    let text = "", stop = "no end event";
+    for (const line of require("node:fs").readFileSync(process.argv[1], "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      let event;
+      try { event = JSON.parse(line); } catch { text += line + "\n"; continue; }
+      if (event.type === "text") text += event.data;
+      if (event.type === "end") stop = event.stopReason;
+    }
+    console.log(text);
+    if (stop !== "end_turn") {
+      console.error("ext-review: Grok stopped before completing review: " + stop);
+      process.exitCode = 1;
+    }
+  ' "$1"
+}
 
 # ---------------------------------------------------------------- claude voice
 
@@ -347,7 +358,7 @@ tally() {
     echo "ext-review: the $2 voice ran past its deadline and was stopped, its partial output is in $3" >&2
   elif [ "$1" = 0 ]; then
     ran=$((ran + 1)); status="ok"
-  elif grep -qiE "usage limit|hit your limit|rate limit|quota|resource.?exhausted" "$3"; then
+  elif grep -qsiE "usage limit|hit your limit|rate limit|quota|resource.?exhausted" "$3" "${3%.md}.log"; then
     limited=$((limited + 1)); status="limit"
     echo "ext-review: the $2 voice is out of its usage limit and was skipped, its output is in $3" >&2
   else
@@ -359,27 +370,19 @@ $(printf '%-8s %-9s %s' "$2" "$status" "$3")"
 }
 
 # The voices are read-only and share nothing, so they run at once. The wall clock
-# is then the slowest of them rather than their sum. Job control puts each voice in
-# a process group of its own, so its deadline stops every process it started. A
-# voice writes its exit status to <voice>.rc as its last act.
+# is then the slowest of them rather than their sum. Job control is on while they
+# start, so each voice gets a process group of its own, and off afterwards, because
+# bash 3.2 left on it hands Ctrl-C to the poll's `sleep` and exits without the trap.
+# A voice publishes its exit status as <voice>.rc, renamed into place, as its last act.
 set -m
-started=""
+pending=""
+trap 'stop_voices; exit 130' INT TERM HUP
 launch() {
-  { rc=0; "run_$1" || rc=$?; printf '%s' "$rc" >"$outdir/$1.rc"; } >"$outdir/$1.md" 2>&1 </dev/null &
+  { rc=0; "run_$1" || rc=$?; printf '%s' "$rc" >"$outdir/$1.rc.tmp"; mv -f -- "$outdir/$1.rc.tmp" "$outdir/$1.rc"; } >"$outdir/$1.md" 2>&1 </dev/null &
   printf -v "$1_pid" '%s' "$!"
   disown "$!"
-  started="$started $1"
+  pending="$pending $1"
 }
-# A voice in its own group no longer dies with the script's group, so an
-# interrupted run stops them itself.
-stop_voices() {
-  local voice pid
-  for voice in $started; do
-    pid="${voice}_pid"
-    kill -TERM -- "-${!pid}" 2>/dev/null || true
-  done
-}
-trap 'stop_voices; exit 130' INT TERM HUP
 
 if wants cursor; then
   if command -v agent >/dev/null 2>&1; then launch cursor
@@ -409,41 +412,73 @@ ext-review: no claude voice, the \`claude\` CLI is not on PATH.
             Install Claude Code and log in to add it."
   fi
 fi
+set +m
 
-# TERM to the voice's group, then KILL after five seconds.
-expire() {
-  local i
-  kill -TERM -- "-$1" 2>/dev/null || true
+# Codex starts its shell tools in sessions of their own, outside the voice's group,
+# so every descendant is collected before anything is signaled.
+descendants() {
+  ps -A -o pid= -o ppid= | awk -v root="$1" '
+    { kids[$2] = kids[$2] " " $1 }
+    END { q[1] = root; h = 1; t = 1
+      while (h <= t) { n = split(kids[q[h++]], k, " "); for (j = 1; j <= n; j++) { q[++t] = k[j]; print k[j] } } }'
+}
+# TERM to each voice's group and descendants, then KILL what is left after five seconds.
+stop_groups() {
+  local pid procs="" i alive
+  for pid in "$@"; do procs="$procs $(descendants "$pid" | tr '\n' ' ')"; done
+  for pid in "$@"; do kill -TERM -- "-$pid" 2>/dev/null || true; done
+  for pid in $procs; do kill -TERM "$pid" 2>/dev/null || true; done
   for i in 1 2 3 4 5; do
-    kill -0 -- "-$1" 2>/dev/null || return 0
+    alive=""
+    for pid in "$@"; do if kill -0 -- "-$pid" 2>/dev/null; then alive=1; fi; done
+    for pid in $procs; do if kill -0 "$pid" 2>/dev/null; then alive=1; fi; done
+    if [ -z "$alive" ]; then return 0; fi
     sleep 1
   done
-  kill -KILL -- "-$1" 2>/dev/null || true
+  for pid in "$@"; do kill -KILL -- "-$pid" 2>/dev/null || true; done
+  for pid in $procs; do kill -KILL "$pid" 2>/dev/null || true; done
+}
+# A voice in its own group no longer dies with the script's group, so an
+# interrupted run stops the ones still running itself.
+stop_voices() {
+  local voice pid leaders=""
+  for voice in $pending; do pid="${voice}_pid"; leaders="$leaders ${!pid}"; done
+  if [ -n "${leaders// /}" ]; then stop_groups $leaders; fi
 }
 
 clock=$SECONDS
-pending="$started"
 while [ -n "${pending// /}" ]; do
   still=""
+  overdue=""
   for voice in $pending; do
     pid="${voice}_pid"; pid="${!pid}"
     limit="${voice}_timeout"; limit="${!limit}"
-    file="$outdir/$voice.md"
     # The second look at .rc closes the race with a voice that wrote it and exited
     # between the first look and kill -0. A voice gone with no .rc was killed from outside.
     if [ -f "$outdir/$voice.rc" ] || ! kill -0 "$pid" 2>/dev/null; then
       rc=137
       if [ -f "$outdir/$voice.rc" ]; then rc="$(cat "$outdir/$voice.rc")"; rm -f -- "$outdir/$voice.rc"; fi
-      tally "$rc" "$voice" "$file"
+      tally "$rc" "$voice" "$outdir/$voice.md"
     elif [ $((SECONDS - clock)) -ge "$limit" ]; then
-      expire "$pid"
-      printf '\n===== %s: stopped at its %s-second deadline, this review is incomplete =====\n' "$voice" "$limit" >>"$file"
-      if [ "$voice" = codex ] && [ -f "$outdir/codex.log" ]; then printf 'Its transcript so far is in %s.\n' "$outdir/codex.log" >>"$file"; fi
-      tally timeout "$voice" "$file"
+      overdue="$overdue $voice"
     else
       still="$still $voice"
     fi
   done
+  # Voices that reach their deadline together share one five-second grace.
+  if [ -n "$overdue" ]; then
+    leaders=""
+    for voice in $overdue; do pid="${voice}_pid"; leaders="$leaders ${!pid}"; done
+    stop_groups $leaders
+    for voice in $overdue; do
+      file="$outdir/$voice.md"
+      limit="${voice}_timeout"; limit="${!limit}"
+      if [ "$voice" = grok ] && [ -f "$outdir/grok.jsonl" ]; then grok_text "$outdir/grok.jsonl" >>"$file" 2>/dev/null || true; fi
+      printf '\n===== %s: stopped at its %s-second deadline, this review is incomplete =====\n' "$voice" "$limit" >>"$file"
+      if [ "$voice" = codex ] && [ -f "$outdir/codex.log" ]; then printf 'Its transcript so far is in %s.\n' "$outdir/codex.log" >>"$file"; fi
+      tally timeout "$voice" "$file"
+    done
+  fi
   pending="$still"
   if [ -n "${pending// /}" ]; then sleep 1; fi
 done
