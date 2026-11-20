@@ -55,8 +55,9 @@ and the ones you might overturn appear in the final report. A question the run c
 an input, timing, what a library returns) is answered that way, not asked. Three kinds of decision
 stop the run wherever they come up: a contract outside the repository, dropping or overwriting
 data a user has, and a migration or stored data shape that does more than add. One that only
-adds is decided, flagged with `Attention.`, and checked before the merge: it applies cleanly,
-the code production runs works on it, and no open pull request's migration conflicts with it. When you say you
+adds is decided, flagged with `Attention.`, and checked right before the merge: it applies to
+existing rows, and the code production runs works on it. A clash with another open pull
+request's migration is noted, and whichever merges second meets it in its own checks. When you say you
 are stepping away, the gate takes its own recommended answers and keeps going.
 
 ## The run log

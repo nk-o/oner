@@ -46,15 +46,17 @@ the run log for a review.
   **Migration checks.** When the change carries a migration or adds to a stored data shape,
   run these in a scratch worktree (`git worktree add`, removed after), so the branch's own
   checkout stays as it is, and paste each result into **Checks** with the head it ran on:
-  1. It applies cleanly. Build a scratch database by replaying, in version order through the
-     project's own migration tool, every migration on the default branch, then this change's.
-     Seed it per the project's `verify-<app>` **Seed** section where it has one.
+  1. It applies cleanly to existing rows. Build a scratch database by replaying, in version
+     order through the project's own migration tool, every migration on the default branch,
+     seed it per the project's `verify-<app>` **Seed** section where it has one, then apply
+     this change's migrations.
   2. The code production runs works on that database. Find that commit the way **The release**
      in `series.md` does; when nothing prints it, take the default branch's head and log
      `Attention. Production commit unknown, checked the default branch`. Run its tests and its
      writes to each table or record the change touches, inserts included, against the
-     database from check 1. A record it reads and writes back keeps the new field. A stored
-     shape with no migration file gets this check alone.
+     database from check 1. A stored shape with no migration file gets its own scratch store
+     and this check alone: this change's code writes a record with the new field, then that
+     commit's code reads it and writes it back, and the field is still there.
   3. No open pull request clashes with it. List them with `gh pr list --state open --limit
      1000`, and read each one's migration files with `gh api repos/<owner>/<repo>/pulls/<number>/files
      --paginate`, this one left out. One that takes the same version number, or renames, drops,

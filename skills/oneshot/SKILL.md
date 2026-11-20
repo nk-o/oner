@@ -79,12 +79,12 @@ this way. A secret in T3 Code still goes through `request_secret`, which waits f
 in front of you changes a contract something outside this repository already depends on, drops
 or overwrites data a user has, or sets a migration or a stored data shape that does more than
 add. These are expensive to unwind after the fact, which is the whole reason the rest are not.
-One that only adds (a new table, a nullable column, a column whose default is a constant, a
+One that only adds (a new table, a new column that is nullable or has a constant default, a
 non-unique index built without blocking writes where the database can, a new optional field in
 a stored record) is a decision: take it, log it under **Assumptions** as a line that starts
 with `Attention.`, and pass the tail's **Migration checks** before the merge. A unique index, a
-foreign key, a check or any other constraint on existing rows, a column made required, a
-rename, a type change, or a rewrite of rows does more than add.
+foreign key, a check or any other constraint on existing rows, an existing column made
+required, a rename, a type change, or a rewrite of rows does more than add.
 
 **A skipped step stays visible.** A lane step you decide not to run stays in the log's
 **Lane** as `skip: <reason>`, never dropped. The lane files exist to stop a run from reading a

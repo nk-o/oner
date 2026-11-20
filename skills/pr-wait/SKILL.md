@@ -99,8 +99,10 @@ about the code. No file in `.github/workflows` triggering on `pull_request` is h
 
 ## Merge, only when the task says so
 
-A change that carries a migration or adds to a stored data shape merges only after the
-**Migration checks** in `oneshot`'s `lanes/tail.md` ran again per their merge-time rule.
+A change that carries a migration or adds to a stored data shape merges only after its migration checks ran on the exact head that merges and on the default
+branch as it is now: it applies to existing rows, the code production runs works on it, and no
+migration merged since takes its number or alters what it touches. `oneshot`'s `lanes/tail.md`,
+**Migration checks**, has the full list.
 
 Merge only when the task says to merge once the pull request is ready. Never turn on
 auto-merge, the app's switch included. It waits only for required checks, merges at once on a
