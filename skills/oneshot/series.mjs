@@ -8,7 +8,7 @@
 //
 //   series.mjs next [--wait <seconds>] [--program <dir>]
 //   series.mjs wait <auth|permission|decision|input|review> <pending action> [--stage <id>] [--program <dir>]
-//   series.mjs resume [--recheck <stage>] [--authorization <the user's words>] [--program <dir>]
+//   series.mjs resume [--stage <id>] [--recheck <stage>] [--authorization <the user's words>] [--program <dir>]
 //   series.mjs amend --stage <id> (--accept <command> | --waive-accept <reason>) [--program <dir>]
 //   series.mjs amend (--stages <file> | --release <file>) --approval <the user's words> [--program <dir>]
 //   series.mjs report [--program <dir>]
@@ -34,11 +34,16 @@ const HTTP_AUTH = /authentication (failed|required)|unauthori[sz]ed|bad credenti
 const STATES = ['pending', 'building', 'pr-open', 'merged', 'deployed', 'done', 'failed'];
 const REASONS = ['auth', 'permission', 'decision', 'input', 'review'];
 // The fields of a stage the plan writes. Everything else is series.mjs's.
-const AUTHORED = ['id', 'title', 'after', 'migrations', 'accept', 'acceptWaived', 'branch'];
+const AUTHORED = ['id', 'title', 'after', 'migrations', 'accept', 'acceptWaived', 'branch', 'serial'];
 const MAX_FIXES = 2;
-const WAITS = new Set(['wait-checks', 'wait-merge', 'wait-deploy', 'wait-verify', 'hold']);
+// The build writes config.json's orchestration.parallel into this string.
+const DEFAULT_PARALLEL = Number.parseInt('{{orchestration_parallel}}', 10) || 4;
+const UNAUTHORIZED = 'the user has not authorized merging and deploying this series';
+const WAITS = new Set(['wait-checks', 'wait-merge', 'wait-deploy', 'wait-verify', 'hold', 'asked']);
+// Actions that leave every stage where it is until the user answers.
+const IDLE = new Set(['ask', 'asked', 'hold', 'cleanup']);
 const ORDER = ['ask', 'fix-forward', 'merge', 'accept', 'cleanup', 'wait-merge', 'wait-deploy', 'wait-verify', 'fix',
-  'update', 'restart', 'wait-checks', 'build', 'start', 'hold', 'complete'];
+  'update', 'restart', 'wait-checks', 'build', 'start', 'asked', 'hold', 'complete'];
 
 const short = (sha) => (sha ? sha.slice(0, 9) : 'none');
 const lastLine = (text) => text.trim().split('\n').pop() ?? '';
@@ -141,6 +146,7 @@ function normalize(p, dir, root) {
   if (p.authorization !== undefined && (typeof p.authorization !== 'string' || !p.authorization.trim())) {
     bad('authorization must quote the user\'s approval of merging and deploying, or be left out');
   }
+  if (p.parallel !== undefined && !(Number.isInteger(p.parallel) && p.parallel >= 1)) bad('parallel must be a whole number of stages, 1 or more');
   p.slug ??= basename(dir).replace(/^\d+-/, '');
   p.base ??= (git(root, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], { ok: true }) ?? 'origin/main').replace(/^origin\//, '');
   const r = p.release ?? bad('release is missing');
@@ -180,6 +186,10 @@ function normalize(p, dir, root) {
     }
     if (s.acceptWaived !== undefined && (typeof s.acceptWaived !== 'string' || !s.acceptWaived.trim())) {
       bad(`stage ${s.id} acceptWaived must say why no read-only check can see the stage`);
+    }
+    if (s.serial !== undefined && typeof s.serial !== 'boolean') bad(`stage ${s.id} serial must be true or false`);
+    if (s.waiting !== undefined && !(REASONS.includes(s.waiting?.reason) && typeof s.waiting.action === 'string')) {
+      bad(`stage ${s.id} waiting must name its reason and pending action`);
     }
   }
 }
@@ -334,9 +344,11 @@ function advance(ctx, s) {
     s.state = state;
     ctx.changed = true;
   };
+  // The wait is the stage's own. A stage whose merge is already out holds the
+  // release while it waits, so no other stage merges past it.
   const ask = (reason, detail) => {
-    p.status = 'waiting';
-    p.waiting = { reason, action: `stage ${s.id}: ${detail}`, since: ctx.now };
+    s.waiting = { reason, action: detail, since: ctx.now, ...(ctx.merging === s.id ? { release: true } : {}) };
+    ctx.asked.push(s);
     ctx.changed = true;
     return [act('ask', s, detail)];
   };
@@ -356,6 +368,8 @@ function advance(ctx, s) {
         const open = s.after.filter((id) => ctx.byId[id].state !== 'done');
         if (open.length) return [act('hold', s, `waits for ${open.join(', ')}`)];
         if (!branchExists(s.branch)) {
+          const full = ctx.full(s);
+          if (full) return [act('hold', s, full)];
           const check = s.accept.length || s.acceptWaived ? '' : `; write its production check while you build, ${ctx.amendAccept(s)}`;
           return [act('start', s, `create branch ${s.branch} from origin/${p.base} at ${short(ctx.baseSha)} and build the stage on it${check}`)];
         }
@@ -389,6 +403,8 @@ function advance(ctx, s) {
             ctx.changed = true;
             continue;
           }
+          // A closed pull request merges nothing, so its approval no longer holds the release.
+          delete s.approvedHead;
           return ask('decision', `${s.pr.url} was closed without merging`);
         }
         if (v.state === 'MERGED') {
@@ -442,7 +458,7 @@ function advance(ctx, s) {
         if (!s.accept.length && !s.acceptWaived) {
           return [act('accept', s, `the stage has no production check of its own, so a deploy alone would pass it: ${ctx.amendAccept(s)}`)];
         }
-        if (!p.authorization) return ask('input', 'the user has not authorized merging and deploying this series');
+        if (!p.authorization) return ask('input', UNAUTHORIZED);
         if (s.approvedHead !== v.headRefOid) {
           s.approvedHead = v.headRefOid;
           s.checks = { head: v.headRefOid, at: ctx.now, passed: c.passed };
@@ -516,10 +532,35 @@ function advance(ctx, s) {
   }
 }
 
+// A waiting stage is not advanced, but a merge of it outside the series still
+// takes the release, and withdraws a merge this pass printed for another stage.
+// A closed pull request merges nothing, so its approval stops holding the release.
+function holdRelease(ctx, s) {
+  if (['building', 'pr-open'].includes(s.state) && !s.waiting.release) {
+    const [pr] = gh(ctx.root, ['pr', 'list', '--head', s.branch, '--state', 'all', '--limit', '1', '--json', 'number,url']);
+    const state = pr && gh(ctx.root, ['pr', 'view', String(pr.number), '--json', 'state']).state;
+    if (state === 'MERGED') s.waiting.release = true;
+    if (state === 'CLOSED') delete s.approvedHead;
+    ctx.changed ||= state === 'MERGED' || state === 'CLOSED';
+  }
+  if (!s.waiting.release) return;
+  if (ctx.mergeAction && ctx.merging !== s.id) {
+    Object.assign(ctx.mergeAction, { kind: 'hold', detail: `${s.id} merged outside the series; merges go one at a time` });
+    ctx.mergeAction = null;
+  }
+  ctx.merging ??= s.id;
+}
+
+const stageWait = (s) => ({ reason: s.waiting.reason, action: `stage ${s.id}: ${s.waiting.action}`, since: s.waiting.since });
+
 function pass({ p, root }, dir) {
   const actions = [];
   if (p.status === 'waiting') {
-    actions.push({ kind: 'ask', stage: '-', detail: `waiting for ${p.waiting.reason}: ${p.waiting.action}. Ask the user, then run series.mjs resume` });
+    const waits = [...(p.waiting.stages ? [] : [p.waiting]), ...p.stages.filter((s) => s.waiting).map(stageWait)];
+    for (const w of waits) {
+      const id = waits.length > 1 && p.stages.find((s) => w.action.startsWith(`stage ${s.id}: `) && s.waiting)?.id;
+      actions.push({ kind: 'ask', stage: '-', detail: `waiting for ${w.reason}: ${w.action}. Ask the user, then run series.mjs resume${id ? ` --stage ${id}` : ''}` });
+    }
     return { actions, changed: false };
   }
   if (p.status !== 'running') {
@@ -534,22 +575,51 @@ function pass({ p, root }, dir) {
   // One stage at a time goes from an approved merge to verified production,
   // and a stage being fixed forward still holds that place.
   ctx.releasing = () => ctx.merging ??
-    (p.stages.find((s) => ['merged', 'deployed', 'failed'].includes(s.state) || (s.history.length && s.state !== 'done')) ??
+    (p.stages.find((s) => ['merged', 'deployed', 'failed'].includes(s.state) || (s.history.length && s.state !== 'done') || s.waiting?.release) ??
       p.stages.find((s) => s.state === 'pr-open' && s.approvedHead))?.id;
+  // A new stage starts only while fewer than `parallel` stages are being built
+  // or are open before their merge is approved, and never beside another
+  // serial stage that has not merged.
+  const parallel = p.parallel ?? DEFAULT_PARALLEL;
+  const starting = new Set();
+  ctx.asked = [];
+  ctx.full = (s) => {
+    const open = p.stages.filter((o) => o !== s && (starting.has(o.id) || ['building', 'pr-open'].includes(o.state) ||
+      (o.state === 'failed' && !o.waiting) ||
+      (o.state === 'pending' && git(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${o.branch}`], { ok: true }) !== null)));
+    const serial = s.serial && open.find((o) => o.serial);
+    if (serial) return `${serial.id} is serial too and is still being built or fixed; serial stages build one at a time`;
+    const building = open.filter((o) => !(o.state === 'pr-open' && (o.approvedHead || o.waiting?.release)));
+    if (building.length >= parallel) return `${building.map((o) => o.id).join(', ')} are being built, and parallel is ${parallel}`;
+    starting.add(s.id);
+    return null;
+  };
   try {
     git(root, ['fetch', '--quiet', 'origin', p.base]);
     ctx.baseSha = git(root, ['rev-parse', `refs/remotes/origin/${p.base}`]);
     for (const s of p.stages) {
-      const found = advance(ctx, s);
+      if (s.waiting) holdRelease(ctx, s);
+      const found = s.waiting
+        ? [act('asked', s, `the user has been asked (${s.waiting.reason}): ${s.waiting.action}. Run series.mjs resume --stage ${s.id} with the answer`)]
+        : advance(ctx, s);
       if (!['pending', 'done'].includes(s.state)) keepRun(ctx, s);
-      if (p.status === 'waiting') return { actions: found, changed: true };
       actions.push(...found);
     }
   } catch (error) {
     if (!(error instanceof AuthLost)) throw error;
+    // A question this pass raised was never printed, so the next pass asks it again.
+    for (const s of ctx.asked) delete s.waiting;
     p.status = 'waiting';
     p.waiting = { reason: 'auth', action: `run series.mjs next again once the login is back; it stopped at ${error.message}`, since: ctx.now };
     return { actions: [], changed: true, error };
+  }
+  // The program waits only once no stage can act without the user.
+  const waiting = p.stages.filter((s) => s.waiting);
+  if (waiting.length && actions.every((a) => IDLE.has(a.kind))) {
+    p.status = 'waiting';
+    p.waiting = { ...stageWait(waiting[0]), stages: waiting.map((s) => s.id) };
+    const asks = waiting.map((s) => actions.find((a) => a.stage === s.id && a.kind === 'ask') ?? act('ask', s, s.waiting.action));
+    return { actions: asks, changed: true };
   }
   if (p.stages.every((s) => s.state === 'done')) {
     p.status = 'done';
@@ -580,7 +650,7 @@ function next(dir, wait) {
     }
     result.actions.sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind));
     // A cleanup the coordinator left for later does not end a wait.
-    if (Date.now() >= deadline || !result.actions.every((a) => WAITS.has(a.kind) || a.kind === 'cleanup')) return result;
+    if (Date.now() >= deadline || result.p.status === 'waiting' || !result.actions.every((a) => WAITS.has(a.kind) || a.kind === 'cleanup')) return result;
     sleep(Math.min(30000, deadline - Date.now()));
   }
 }
@@ -628,7 +698,13 @@ function amendProgram({ p, root }, dir, stageId, a) {
         if (started.some((x) => x.id === s.id)) throw new Refusal(`Stage ${s.id} has started; it stays as it is.`);
       }
       const before = p.stages.filter((s) => !started.includes(s)).map((s) => s.id);
-      p.stages = [...started, ...listed.map((s) => ({ ...s }))];
+      // A kept stage keeps its open question, and next derives the program's wait again.
+      const asked = Object.fromEntries(p.stages.filter((s) => !started.includes(s) && s.waiting).map((s) => [s.id, s.waiting]));
+      p.stages = [...started, ...listed.map((s) => ({ ...s, ...(asked[s.id] ? { waiting: asked[s.id] } : {}) }))];
+      if (p.waiting?.stages) {
+        p.status = 'running';
+        delete p.waiting;
+      }
       Object.assign(record, { removed: before.filter((id) => !listed.some((s) => s.id === id)), stages: listed.map((s) => s.id) });
     }
     if (a.release) {
@@ -668,7 +744,7 @@ function main(argv) {
   }
   const [command, ...rest] = args;
   if (!['next', 'wait', 'resume', 'amend', 'report'].includes(command) || !(wait >= 0)) {
-    throw new Refusal('Usage: series.mjs next [--wait <seconds>] | wait <reason> <pending action> [--stage <id>] | resume [--recheck <stage>] [--authorization <words>] | amend --stage <id> --accept <command> | amend --stage <id> --waive-accept <reason> | amend --stages <file> --approval <words> | amend --release <file> --approval <words> | report [--program <dir>]');
+    throw new Refusal('Usage: series.mjs next [--wait <seconds>] | wait <reason> <pending action> [--stage <id>] | resume [--stage <id>] [--recheck <stage>] [--authorization <words>] | amend --stage <id> --accept <command> | amend --stage <id> --waive-accept <reason> | amend --stages <file> --approval <words> | amend --release <file> --approval <words> | report [--program <dir>]');
   }
   const dir = findProgram(process.cwd(), given);
   if (command === 'next') {
@@ -679,50 +755,83 @@ function main(argv) {
   if (command === 'wait') {
     const [reason, ...action] = rest;
     if (!REASONS.includes(reason) || !action.length) throw new Refusal(`Usage: series.mjs wait <${REASONS.join('|')}> <pending action>`);
-    const { p } = update(dir, ({ p }) => {
+    const { p, result: pending } = update(dir, ({ p }) => {
       if (p.status !== 'running' && p.status !== 'waiting') throw new Refusal(`The program is ${p.status}.`);
-      if (stage && !p.stages.some((x) => x.id === stage)) throw new Refusal(`No stage ${stage}.`);
-      p.status = 'waiting';
-      // The prefix is what lets resume --recheck answer for that stage.
-      p.waiting = { reason, action: `${stage ? `stage ${stage}: ` : ''}${action.join(' ')}`, since: new Date().toISOString() };
+      const since = new Date().toISOString();
+      if (!stage) {
+        p.status = 'waiting';
+        p.waiting = { reason, action: action.join(' '), since };
+        return p.waiting;
+      }
+      const s = p.stages.find((x) => x.id === stage) ?? (() => { throw new Refusal(`No stage ${stage}.`); })();
+      // Only that stage waits; next sets the program waiting once no other stage can act.
+      s.waiting = { reason, action: action.join(' '), since };
+      return stageWait(s);
     });
-    console.log(`${summary(dir, p)}\nwaiting for ${reason}: ${p.waiting.action}`);
+    console.log(`${summary(dir, p)}\nwaiting for ${reason}: ${pending.action}${stage ? `\nRun series.mjs next: the stages that do not depend on ${stage} go on.` : ''}`);
     return 0;
   }
   if (command === 'resume') {
     const { p, result: pending } = update(dir, ({ p }) => {
-      if (p.status !== 'waiting') throw new Refusal(`The program is ${p.status}, not waiting.`);
+      const stageWaits = p.stages.filter((x) => x.waiting);
+      if (p.status !== 'waiting' && !(p.status === 'running' && stageWaits.length)) throw new Refusal(`The program is ${p.status}, not waiting.`);
+      if (stage && recheck && stage !== recheck) throw new Refusal(`--stage ${stage} and --recheck ${recheck} name different stages.`);
       if (authorization !== undefined) {
         if (!authorization.trim()) throw new Refusal('--authorization quotes the user\'s approval of merging and deploying.');
         p.authorization = authorization.trim();
       }
       const now = new Date().toISOString();
-      const waited = p.waiting;
-      const asked = p.stages.find((x) => waited.action.startsWith(`stage ${x.id}: `));
-      if (recheck && recheck !== asked?.id) {
-        throw new Refusal(`The program waits on ${asked ? `stage ${asked.id}` : 'no stage'}, so --recheck ${recheck} answers nothing. A wait about one stage is written with --stage <id>.`);
+      const own = p.status === 'waiting' && !p.waiting.stages ? p.waiting : null;
+      const named = stage ?? recheck;
+      const about = (w, id) => w.action.startsWith(`stage ${id}: `);
+      // The answer is for the program's own wait unless it names a stage that
+      // waits on its own. A program wait written before stages had their own
+      // names its stage in the prefix. An authorization answers every stage
+      // that waited for one.
+      const unauthorized = authorization !== undefined ? stageWaits.filter((x) => x.waiting.action === UNAUTHORIZED) : [];
+      let answered = [];
+      let waited = [];
+      if (own && (!named || (about(own, named) && !stageWaits.some((x) => x.id === named)))) {
+        waited = [own];
+      } else {
+        answered = named ? stageWaits.filter((x) => x.id === named)
+          : unauthorized.length ? unauthorized : stageWaits.length === 1 ? stageWaits : [];
       }
+      if (!waited.length && !answered.length) {
+        const ownStage = own && p.stages.find((x) => about(own, x.id));
+        const on = [...(own ? [ownStage ? `stage ${ownStage.id}` : 'the whole program'] : []), ...stageWaits.map((x) => `stage ${x.id}`)].join(', ');
+        throw new Refusal(named
+          ? `The program waits on ${on || 'no stage'}, so --${stage ? 'stage' : 'recheck'} ${named} answers nothing. A wait about one stage is written with --stage <id>.`
+          : `Several stages wait (${stageWaits.map((x) => x.id).join(', ')}); name the one the answer is about with --stage <id>.`);
+      }
+      answered = [...new Set([...answered, ...unauthorized])];
+      waited = [...waited, ...answered.map(stageWait)];
+      const asked = waited[0] === own ? p.stages.find((x) => about(own, x.id)) : answered[0];
       if (asked?.state === 'failed' && recheck) {
         // The user repaired it outside the series, so production is read again.
         delete asked.failure;
         delete asked.answered;
         asked.state = 'merged';
       } else if (asked?.state === 'failed') {
-        asked.answered = waited.action;
+        asked.answered = waited[0].action;
       } else if (recheck) {
-        asked.recheck = waited.action;
+        asked.recheck = waited[0].action;
       }
-      // Time spent waiting on the user does not count against a release's timeout.
-      for (const s of p.stages) {
+      // Time spent waiting on the user does not count against a release's
+      // timeout: every stage's for a wait of the whole program, else the answered ones'.
+      for (const s of waited[0] === own ? p.stages : answered) {
         if (s.state === 'merged') s.mergedAt = now;
         if (s.state === 'deployed') s.deployedAt = now;
       }
-      (p.waits ??= []).push({ ...waited, resumedAt: now, ...(recheck ? { recheck } : {}) });
-      p.status = 'running';
-      delete p.waiting;
-      return waited;
+      for (const w of waited) (p.waits ??= []).push({ reason: w.reason, action: w.action, since: w.since, resumedAt: now, ...(recheck ? { recheck } : {}) });
+      for (const s of answered) delete s.waiting;
+      if (p.status === 'waiting' && (waited[0] === own || p.waiting.stages)) {
+        p.status = 'running';
+        delete p.waiting;
+      }
+      return waited.map((w) => w.action).join('; ');
     });
-    console.log(`${summary(dir, p)}\nresumed. The pending action was: ${pending.action}\nRun series.mjs next before repeating any of it: next reads GitHub and production first.`);
+    console.log(`${summary(dir, p)}\nresumed. The pending action was: ${pending}\nRun series.mjs next before repeating any of it: next reads GitHub and production first.`);
     return 0;
   }
   if (command === 'amend') {
@@ -733,7 +842,7 @@ function main(argv) {
   const { p } = load(dir);
   const lines = p.stages.map((s) =>
     `${s.id} ${s.state} ${s.pr?.url ?? 'no PR'} merge ${short(s.merge)} deployed ${short(s.deployed)} verified ${s.verifiedAt ?? 'no'}` +
-    (s.fixes ? ` fixes ${s.fixes}` : ''));
+    (s.fixes ? ` fixes ${s.fixes}` : '') + (s.waiting ? ` waits for ${s.waiting.reason}: ${s.waiting.action}` : ''));
   const open = p.stages.filter((s) => s.state !== 'done');
   console.log([summary(dir, p, 'series report'), ...lines, ...(open.length ? [`incomplete: ${open.map((s) => `${s.id} (${s.state})`).join(', ')}`] : [])].join('\n'));
   return open.length ? 1 : 0;
