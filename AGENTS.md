@@ -259,7 +259,9 @@ usually one small script that imports what the app ships and calls the function 
   work already under way in the chat go the ordinary way.
 - An ask of mine that this turn will not finish ("after that, look at X", the rest of a list)
   goes into `.specs/requests.md` at the repository root, one short line in my words, because a
-  compaction can drop it from the chat. Nothing else goes in the file. Delete a line once it is
+  compaction can drop it from the chat. A report on one of those asks is a status note: the turn
+  goes on to the next line, and ends only at a question that needs me or when the file is empty.
+  Nothing else goes in the file. Delete a line once it is
   done or I drop it, and the file once it is empty. `.specs/` stays in `.gitignore`. Once work
   you ran in this checkout has merged, delete its folder under `.specs/`, except an oneshot
   series' folder, which stays until the series is done.

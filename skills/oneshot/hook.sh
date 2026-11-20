@@ -74,7 +74,8 @@ if [ "$branch" = "HEAD" ]; then
     done
   done < <(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
 fi
-[ -n "$log" ] || [ -n "$closed" ] || [ -n "$programs" ] || [ "$delegate" = true ] || exit 0
+[ -n "$log" ] || [ -n "$closed" ] || [ -n "$programs" ] || [ "$delegate" = true ] ||
+  { [ "$(field '.hook_event_name // empty')" = Stop ] && [ -s "$requests" ]; } || exit 0
 
 rel="${log#"$root"/}"
 transcript="$(field '.transcript_path // empty')"
@@ -171,6 +172,12 @@ $driving
 EOF
       message="$message
 Only series.mjs marks a stage done: a finished worker, green local checks, an open or merged pull request, and a started deployment do not. Run \`$series next --program <folder>\` for each series above and take the first action it prints, with any status note in the same message as the tool call. If a stage needs the user, for a decision or a review only they can give, run \`$series wait <reason> \"<pending action>\" --stage <id> --program <folder>\`, hand the other stages' work to background delegates, then ask and end the turn. When every action left is a wait or a question already asked, end the turn. For a lost login, leave out --stage. If the user's last message was about something else, end the turn and leave the series open."
+    elif [ -s "$requests" ]; then
+      state="$root/.specs/.requests-stop-state"
+      tracked="$(cat "$requests" 2>/dev/null)"
+      message="Asks from this task are still open in .specs/requests.md:
+$(head -n 6 "$requests")
+A report on one of them is a status note, not the end of the task. Take the next one now, with any status note in the same message as the next tool call, and delete each line once it is done. If the next one needs the user, ask and end the turn. If the user's last message was about something else, end the turn."
     fi
     [ -n "$message" ] || exit 0
 

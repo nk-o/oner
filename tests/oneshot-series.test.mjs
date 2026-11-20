@@ -920,6 +920,18 @@ test('an ordinary run still ends at its open pull request', () => {
   assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript), '');
 });
 
+test('a skill session that ends its turn with asks left in .specs/requests.md goes on to the next one', () => {
+  const f = fixture();
+  rmSync(f.program, { recursive: true });
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, '<command-name>/oneshot</command-name>\n');
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Move plugin downloads to Ownkey\n');
+  assert.match(runHook(f.repo, 'Stop', transcript), /still open in \.specs\/requests\.md:\\n- Move plugin downloads to Ownkey/);
+  assert.equal(runHook(f.repo, 'Stop', transcript), '');
+  writeFileSync(join(f.repo, '.specs', 'requests.md'), '');
+  assert.equal(runHook(f.repo, 'Stop', transcript), '');
+});
+
 test('the reminder names a run log past 16 KB and stays quiet below it', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });
