@@ -89,10 +89,10 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    "authorize the release of <program folder>"`. When the user answers, run `series.mjs resume
    --authorization "<their words>"`, which is the only way the field is written later.
 
-   The hard stops still stop. An additive migration or data shape is a decision, as in
-   `oneshot`'s contract, when the approved spec sets it, because its stage carries
-   `migrations`; one the spec does not cover stops the series, because a started stage's flag
-   cannot change. A decision that can only
+   The hard stops still stop. A migration or data shape the approved spec already sets is
+   settled, and its stage carries `migrations`, so only one the spec does not cover stops the
+   series. That holds for an additive one too: a stage run returns a migration its plan does
+   not name unanswered, because a started stage's `migrations` flag cannot change. A decision that can only
    be settled once an earlier stage is in production stays in the plan as the first task of
    its stage. The series asks it when that stage starts, as a `decision` wait.
 4. **Spec.** Run `spec` unattended at full depth into the program folder. plan.md holds one
@@ -193,7 +193,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    the tail's review again on the commits after the reviewed head before `merge`. A plain
    update from the default branch with no conflict does not.
 
-   **A stage run** is an ordinary oneshot run in the stage's checkout. It has its own
+   **A stage run** is an ordinary oneshot run in the stage's checkout. A migration or data
+   shape its plan does not name is a hard stop there, additive or not. It has its own
    `.specs/NNN-slug/oneshot.md`, with `Lane. feature` and one more line,
    `Series. <program folder> stage <id>`. Copy the program's spec.md into its folder, and
    write its plan.md from the program plan's `Planned at.` line, its Done when, its

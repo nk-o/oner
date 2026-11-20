@@ -43,14 +43,26 @@ the run log for a review.
   `model-check` on it with the properties the lane picked, since a state a user can enter and
   never leave, or a second click while a timer runs, passes every unit test.
 
-  When the change carries a migration, run three checks and paste each result into **Checks**.
-  It applies cleanly, through the project's own migration tool, on a copy of the schema
-  production has. The code production runs now still works on the migrated schema: run the
-  base commit's tests, or its server path, against it. Nothing conflicts with it: the default
-  branch since **Base** and the branch of every open pull request (`gh pr list`, then `git
-  fetch`) add no migration with the same number or name, or one that touches the same table
-  and column, and the numbering still follows the default branch's last migration after an
-  update. A check that fails is a hard stop.
+  **Migration checks.** When the change carries a migration or adds to a stored data shape,
+  run these and paste each result into **Checks**, naming the head they ran on:
+  1. It applies cleanly through the project's own migration tool, on a scratch database built
+     from the default branch's migrations and seeded per the project's `verify-<app>` **Seed**
+     section where it has one.
+  2. The code production runs works on the migrated schema. Find that commit the way **The
+     release** in `series.md` does, else take the default branch's head, and say which one ran.
+     Check it out with this change's migration files added, and run its tests and its writes to
+     each table the migration touches, inserts included. A stored shape with no migration file
+     gets this check alone: that commit reads a record this change wrote.
+  3. Nothing conflicts with it. Every open pull request (`gh pr list --state open --limit 1000`,
+     then `gh pr diff <number> --name-only` on each, this one left out) and the default branch
+     since **Base** add no migration with the same number or name, and none that renames,
+     drops, or alters a table this migration touches. Another additive change to the same
+     table is not a conflict.
+
+  A migration that does not apply, or a number taken since **Base**, is fixed here and checked
+  again. Old code that breaks on it, a conflict with another pull request, and a check that
+  cannot run are hard stops. Run the checks again on the head that will merge whenever a later
+  commit edits a migration or merges the default branch.
 
   Then, where the lane took a pin, re-run it, and run `check` on every feature
   `list --affected <Base>` names, or `check --all` when it prints `unmapped` files. When the
@@ -146,7 +158,9 @@ the run log for a review.
   of these hold, read from the run log: the setting is `production`; the lane is fix, feature,
   refactor, or perf, so the pull request is this run's own; and the **Gate** `Outcome.` line
   reads `nothing to settle`, `answered`, or `approved <path>`, in a feature as in a fix. Outside
-  `oneshot-auto`, `away` and `pull request only` never release. Otherwise tick it as
+  `oneshot-auto`, `away` and `pull request only` never release. A change that carries a
+  migration or adds to a stored data shape also needs **Migration checks** in **Checks** that
+  passed on the head that merges. Otherwise tick it as
   `skip: <the condition that failed>`. A series stage ticks it `skip:`, because the series
   releases every stage itself, and so does the plan lane.
 

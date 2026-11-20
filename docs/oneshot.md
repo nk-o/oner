@@ -53,11 +53,10 @@ A task that fits none of them gets a lane written for it in the run log.
 Decisions taken after the gate go under **Assumptions** in the run log, each with its evidence,
 and the ones you might overturn appear in the final report. A question the run can answer by running something (behavior on
 an input, timing, what a library returns) is answered that way, not asked. Three kinds of decision
-stop the run wherever they come up: dropping or overwriting data a user has, a migration the
-running code cannot work with, and a contract change that breaks a caller outside the
-repository. A migration or data shape that only adds is decided, flagged with `Attention.`, and
-checked: it applies cleanly, the running code works on it, and no other branch's migration
-conflicts with it. When you say you
+stop the run wherever they come up: a contract outside the repository, dropping or overwriting
+data a user has, and a migration or stored data shape that does more than add. One that only
+adds is decided, flagged with `Attention.`, and checked before the merge: it applies cleanly,
+the code production runs works on it, and no open pull request's migration conflicts with it. When you say you
 are stepping away, the gate takes its own recommended answers and keeps going.
 
 ## The run log

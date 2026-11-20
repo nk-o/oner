@@ -38,8 +38,8 @@ takes the recommended option of every question, and logs each under **Assumption
 
 ## Hard stops
 
-`oneshot`'s **Three hard stops** hold as written there, additive migrations included. When one
-comes up, set `Status. waiting` and ask through the host's question tool, with the pull
+`oneshot`'s **Three hard stops** hold as written there: an additive migration is a decision
+with its checks, not a stop. When a hard stop comes up, set `Status. waiting` and ask through the host's question tool, with the pull
 request link, what blocks, and the options with the recommended one first.
 
 ## Release

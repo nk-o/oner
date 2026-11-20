@@ -75,15 +75,15 @@ recommended option of every question, log each under **Assumptions**, and go on.
 stops and a login only the user can supply still stop, and a series' release is never authorized
 this way. A secret in T3 Code still goes through `request_secret`, which waits for the user.
 
-**Three hard stops survive the gate.** Stop and ask, whatever else is running, when the change
-drops, rewrites, or overwrites data a user has, adds a migration the code production runs now
-cannot work with, or changes a contract something outside this repository depends on in a way
-an existing caller does not survive. These are expensive to unwind after the fact, which is the
-whole reason the rest are not. A migration or stored data shape that only adds (a new table, a
-nullable or defaulted column, an index that existing rows and the running code's writes
-satisfy), and a contract change every existing caller survives, are decisions: take each, log it
-under **Assumptions** as a line that starts with `Attention.`, and run the migration checks in
-the tail's **Verify**. A check that fails makes it a hard stop.
+**Three hard stops survive the gate.** Stop and ask, whatever else is running, when the choice
+in front of you changes a contract something outside this repository already depends on, drops
+or overwrites data a user has, or sets a migration or a stored data shape that does more than
+add. These are expensive to unwind after the fact, which is the whole reason the rest are not.
+One that only adds (a new table, a nullable or defaulted column, a non-unique index, a new
+optional field in a stored record) is a decision: take it, log it under **Assumptions** as a line
+that starts with `Attention.`, and pass the tail's **Migration checks** before the merge. A
+unique index or constraint, a column made required, a rename, a type change, or a rewrite of
+rows does more than add.
 
 **A skipped step stays visible.** A lane step you decide not to run stays in the log's
 **Lane** as `skip: <reason>`, never dropped. The lane files exist to stop a run from reading a
