@@ -44,7 +44,7 @@ is your call, per **Delegating the work**.
    reads. With no such screen, `skip: no UI`.
 6. **Build.** Run `implement` in unattended mode on that folder. Silence in the plan is
    decided here and logged under **Assumptions** in the run log; a conflict with the spec and
-   the four hard stops still stop. Delegate or not per **Delegating the work**, and review
+   the hard stops still stop. Delegate or not per **Delegating the work**, and review
    every diff you did not write before its checkbox is ticked. When the plan adds or reshapes
    UI a user sees, load `frontend-design` before the first UI edit, and tell a delegate that
    writes UI to load it too. The run log is what the report

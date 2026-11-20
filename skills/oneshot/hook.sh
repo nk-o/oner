@@ -163,7 +163,7 @@ case "$(field '.hook_event_name // empty')" in
       tracked="$(cat "$(dirname "$log")"/*.md 2>/dev/null)"
       message="The oneshot run in $rel is open and this turn ended with steps still open:
 $open
-If nothing needs the user, continue with the first open step now, and put any status note in the same message as the next tool call. If the run does need the user, at the gate, at one of the four hard stops, at a conflict with the spec or a gate decision, or for a login only the user can supply, set \`Status. waiting\` in the run log and end the turn. If the user's last message was about something else, end the turn and leave the run open."
+If nothing needs the user, continue with the first open step now, and put any status note in the same message as the next tool call. If the run does need the user, at the gate, at one of the hard stops, at a conflict with the spec or a gate decision, or for a login only the user can supply, set \`Status. waiting\` in the run log and end the turn. If the user's last message was about something else, end the turn and leave the run open."
     elif [ -n "$unfinished" ]; then
       state="$(dirname "$closed")/.stop-state"
       tracked="$(cat "$(dirname "$closed")"/*.md 2>/dev/null)"

@@ -71,15 +71,19 @@ something, as `brainstorm`'s phase 2 does, and log the result under **Assumption
 
 **Away.** When the user says they are stepping away ("going to bed", "run until done", "I will
 read it in the morning"), the gate still posts its screen and does not wait: take the
-recommended option of every question, log each under **Assumptions**, and go on. The four hard
+recommended option of every question, log each under **Assumptions**, and go on. The hard
 stops and a login only the user can supply still stop, and a series' release is never authorized
 this way. A secret in T3 Code still goes through `request_secret`, which waits for the user.
 
-**Four hard stops survive the gate.** Stop and ask, whatever else is running, when the choice
-in front of you sets a database schema or a migration, fixes the shape of data that gets
-stored, changes a contract something outside this repository already depends on, or drops or
-overwrites data a user has. These are expensive to unwind after the fact, which is the whole
-reason the rest are not.
+**Three hard stops survive the gate.** Stop and ask, whatever else is running, when the change
+drops, rewrites, or overwrites data a user has, adds a migration the code production runs now
+cannot work with, or changes a contract something outside this repository depends on in a way
+an existing caller does not survive. These are expensive to unwind after the fact, which is the
+whole reason the rest are not. A migration or stored data shape that only adds (a new table, a
+nullable or defaulted column, an index that existing rows and the running code's writes
+satisfy), and a contract change every existing caller survives, are decisions: take each, log it
+under **Assumptions** as a line that starts with `Attention.`, and run the migration checks in
+the tail's **Verify**. A check that fails makes it a hard stop.
 
 **A skipped step stays visible.** A lane step you decide not to run stays in the log's
 **Lane** as `skip: <reason>`, never dropped. The lane files exist to stop a run from reading a

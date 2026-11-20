@@ -38,14 +38,8 @@ takes the recommended option of every question, and logs each under **Assumption
 
 ## Hard stops
 
-Two kinds of `oneshot`'s hard stops become decisions: a migration or stored data shape that
-only adds (a new table, a nullable or defaulted column, an index), and a change to an outside
-contract that every existing caller survives. Take it, log it under **Assumptions** as a line
-that starts with `Attention.`, and go on.
-
-These still stop: a change that drops, rewrites, or overwrites data a user has, a migration the
-code production runs now cannot work with, and a contract change that breaks a caller outside
-this repository. Set `Status. waiting` and ask through the host's question tool, with the pull
+`oneshot`'s **Three hard stops** hold as written there, additive migrations included. When one
+comes up, set `Status. waiting` and ask through the host's question tool, with the pull
 request link, what blocks, and the options with the recommended one first.
 
 ## Release

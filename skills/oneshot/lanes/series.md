@@ -89,8 +89,10 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    "authorize the release of <program folder>"`. When the user answers, run `series.mjs resume
    --authorization "<their words>"`, which is the only way the field is written later.
 
-   The four hard stops still stop. A migration or data shape the approved spec already sets
-   is settled, so only one the spec does not cover stops the series. A decision that can only
+   The hard stops still stop. An additive migration or data shape is a decision, as in
+   `oneshot`'s contract, when the approved spec sets it, because its stage carries
+   `migrations`; one the spec does not cover stops the series, because a started stage's flag
+   cannot change. A decision that can only
    be settled once an earlier stage is in production stays in the plan as the first task of
    its stage. The series asks it when that stage starts, as a `decision` wait.
 4. **Spec.** Run `spec` unattended at full depth into the program folder. plan.md holds one
@@ -218,7 +220,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    delegate at once. Its brief opens with the instruction to load `oneshot` and read **A stage
    run** in `lanes/series.md`, then holds the program folder's absolute path, the stage id, its
    branch and checkout, the rule that it runs the stage run above through Ship and never
-   touches `program.json`, merges, or deploys, the rule that a question at one of the four
+   touches `program.json`, merges, or deploys, the rule that a question at one of the the
    hard stops comes back unanswered in its summary, the rule that it removes what it
    creates for its checks, the rule that it writes the stage's production check, and the
    check that proves it: an open pull request whose checks are running. The coordinator puts a hard stop to the user, per

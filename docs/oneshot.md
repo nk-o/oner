@@ -31,7 +31,7 @@ and a skill you name wins over the table.
   finds. When nothing tells which commit production runs, it merges and reports production as
   not verified, after watching the deploy. A gate that took its own recommendations while you
   were away, or an answer that chose to stop at the pull request, ends the run at the pull
-  request. A review run on an existing pull request never merges it. The four hard stops still stop, and a series still
+  request. A review run on an existing pull request never merges it. The hard stops still stop, and a series still
   asks for its own release authorization, unless the release setting is `production` and you
   answered the gate or approved the plan it runs.
 
@@ -52,9 +52,12 @@ A task that fits none of them gets a lane written for it in the run log.
 
 Decisions taken after the gate go under **Assumptions** in the run log, each with its evidence,
 and the ones you might overturn appear in the final report. A question the run can answer by running something (behavior on
-an input, timing, what a library returns) is answered that way, not asked. Four kinds of decision
-stop the run wherever they come up: a database schema or migration, the shape of stored data, a
-contract outside the repository, and dropping or overwriting data a user has. When you say you
+an input, timing, what a library returns) is answered that way, not asked. Three kinds of decision
+stop the run wherever they come up: dropping or overwriting data a user has, a migration the
+running code cannot work with, and a contract change that breaks a caller outside the
+repository. A migration or data shape that only adds is decided, flagged with `Attention.`, and
+checked: it applies cleanly, the running code works on it, and no other branch's migration
+conflicts with it. When you say you
 are stepping away, the gate takes its own recommended answers and keeps going.
 
 ## The run log
@@ -181,13 +184,9 @@ Code's `delegate_task`.
 ```
 
 The same run for when you are not watching, carried into production. Starting it by name is
-your authorization to merge and deploy this task, and it differs from `oneshot` in three ways:
+your authorization to merge and deploy this task, and it differs from `oneshot` in two ways:
 
 - The gate posts its screen and takes its own recommended answers.
-- A migration or data shape that only adds, and a contract change every existing caller
-  survives, are decided and flagged with `Attention.` in the report. Dropping or overwriting
-  data, a migration the running code cannot work with, and a breaking contract change still
-  stop the run.
 - After the pull request is ready, the **Release** step runs whatever the release setting says.
   It releases the run as a one-stage series: merge, wait for the repository's own pipeline to
   deploy, then the production checks. When nothing tells which commit production runs, it merges,

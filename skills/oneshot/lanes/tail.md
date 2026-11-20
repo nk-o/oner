@@ -43,6 +43,15 @@ the run log for a review.
   `model-check` on it with the properties the lane picked, since a state a user can enter and
   never leave, or a second click while a timer runs, passes every unit test.
 
+  When the change carries a migration, run three checks and paste each result into **Checks**.
+  It applies cleanly, through the project's own migration tool, on a copy of the schema
+  production has. The code production runs now still works on the migrated schema: run the
+  base commit's tests, or its server path, against it. Nothing conflicts with it: the default
+  branch since **Base** and the branch of every open pull request (`gh pr list`, then `git
+  fetch`) add no migration with the same number or name, or one that touches the same table
+  and column, and the numbering still follows the default branch's last migration after an
+  update. A check that fails is a hard stop.
+
   Then, where the lane took a pin, re-run it, and run `check` on every feature
   `list --affected <Base>` names, or `check --all` when it prints `unmapped` files. When the
   change adds, moves, or removes something a user reaches, update `features.json` in the same
@@ -100,7 +109,7 @@ the run log for a review.
   round.
 - **Resolve.** Run `resolve-review` on the merged list. Its `DECIDE` verdict is not available
   here: the spec, the plan, or the gate pins the behavior, or the decision is taken and logged
-  under **Assumptions**, or it is one of the four hard stops and the run pauses. Its own
+  under **Assumptions**, or it is one of the hard stops and the run pauses. Its own
   `prod-review` of the fixes runs only for a fix past a few lines when round two below will
   skip. Re-run
   `green-repo` after the fixes, then commit them.
@@ -167,5 +176,5 @@ the run log for a review.
   Tick **Release** once `series.mjs report --program <path>` exits 0, or once step 3's deploy
   watch exits 0. A deploy still pending leaves **Release** open, and a failed one goes to
   **A broken release** in `pr-wait`.
-  The four hard stops still stop here.
+  The hard stops still stop here.
 - **Report** per the skill's Report section.
