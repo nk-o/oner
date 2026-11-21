@@ -197,7 +197,7 @@ the run log for a review.
      found, never asked. Run each command once against production and paste what it printed
      into **Checks**.
   2. When a command prints the commit production runs, release as a one-stage series. Take the
-     next free `NNN` in the primary checkout's `.specs/` (the first entry of `git worktree
+     next free `NNN` in the primary checkout's `.oner/` (the first entry of `git worktree
      list`), and write there a `program.json` per step 4 of `series.md`. Its `authorization` is
      the `Auto.` line in an `oneshot-auto` run, and otherwise `oneshot.release: production`,
      the user's standing consent. `release` holds the facts, and the one stage has this run's

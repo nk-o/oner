@@ -166,10 +166,10 @@ Left alone, always:
 - a T3 Code worktree whose task is not settled, archived, or deleted, whose task
   has active work or a connected provider session, or whose records cannot be read
 - any branch still referenced by a T3 Code task, even after its checkout is removed
-- a worktree whose `.specs/*/oneshot.md` reads `Status. running` or `waiting`,
+- a worktree whose `.oner/*/oneshot.md` reads `Status. running` or `waiting`,
   because git ignores that log and no proof above can see it
 - the worktrees and branches of every stage an open oneshot series has not
-  finished, read from `program.json` in the primary checkout's `.specs/`. A
+  finished, read from `program.json` in the primary checkout's `.oner/`. A
   stage is merged hours before it is verified, and until then its run log lives
   in its worktree
 - every worktree passed as `--keep PATH`, and its branch

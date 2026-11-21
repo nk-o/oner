@@ -14,13 +14,14 @@
 //   series.mjs report [--program <dir>]
 //
 // Without --program it takes the one program under the primary checkout's
-// .specs/ whose status is running or waiting, else the newest one.
+// .oner/ whose status is running or waiting, else the newest one.
 // lanes/series.md describes program.json. Exit 2 is a usage or record error, 3
 // a lost login: the program is then waiting, with the step that failed as its
 // pending action.
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
+import { NEW, OLD, migrate } from './migrate.mjs';
 
 class Refusal extends Error {}
 class AuthLost extends Error {}
@@ -92,12 +93,20 @@ function worktrees(root) {
 }
 
 // The open program, or with none open the newest one, so a finished series
-// can still be reported.
+// can still be reported. A --program path from before the move to .oner/ is
+// read at its new place.
 function findProgram(cwd, given) {
-  if (given) return resolve(given);
   const r = run('git', ['-C', cwd, 'worktree', 'list', '--porcelain']);
-  if (r.code !== 0) throw new Refusal('Not inside a git repository.');
-  const specs = join(/^worktree (.+)$/m.exec(r.out)[1], '.specs');
+  const primary = r.code === 0 ? /^worktree (.+)$/m.exec(r.out)[1] : null;
+  const top = run('git', ['-C', cwd, 'rev-parse', '--show-toplevel']).out.trim();
+  const old = given ? resolve(given).lastIndexOf(`/${OLD}/`) : -1;
+  migrate([top, primary, old >= 0 ? resolve(given).slice(0, old) : null]);
+  if (given) {
+    const dir = resolve(given);
+    return old >= 0 && !existsSync(dir) ? `${dir.slice(0, old)}/${NEW}/${dir.slice(old + OLD.length + 2)}` : dir;
+  }
+  if (!primary) throw new Refusal('Not inside a git repository.');
+  const specs = join(primary, NEW);
   const programs = (existsSync(specs) ? readdirSync(specs).sort() : [])
     .map((name) => join(specs, name))
     .flatMap((dir) => {
@@ -307,9 +316,11 @@ function changedSince(from, to) {
 // removing the worktree, or handing the series to another agent, loses nothing.
 function archive(ctx, s) {
   for (const wt of worktrees(ctx.root)) {
-    if (wt.branch !== s.branch || !existsSync(join(wt.dir, '.specs'))) continue;
-    for (const name of readdirSync(join(wt.dir, '.specs'))) {
-      const src = join(wt.dir, '.specs', name);
+    if (wt.branch !== s.branch) continue;
+    migrate([wt.dir, ctx.root]);
+    if (!existsSync(join(wt.dir, NEW))) continue;
+    for (const name of readdirSync(join(wt.dir, NEW))) {
+      const src = join(wt.dir, NEW, name);
       const log = join(src, 'oneshot.md');
       if (!existsSync(log) || !readFileSync(log, 'utf8').split('\n').includes(`Branch. ${s.branch}`)) continue;
       if (dirname(src) === dirname(ctx.dir)) return relative(ctx.dir, src);

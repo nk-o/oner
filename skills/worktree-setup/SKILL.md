@@ -110,7 +110,7 @@ worktree commits its own port:
 .claude/launch.json
 ```
 
-Add the `.specs/` line as well, per `spec`'s Depth section.
+Add the `.oner/` line as well, per `spec`'s Depth section.
 
 `.claude/worktree.json` is committed, so every checkout and every teammate gets the same setup.
 

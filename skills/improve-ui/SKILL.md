@@ -19,8 +19,8 @@ mouse. This run looks at each screen where a user meets it, fixes the defects in
 product's own system, and looks again, until a fresh look finds nothing it may fix. It edits the
 current checkout on its own branch, and commits only the setup in step 1 and the checkpoint in
 step 2. Its evidence goes to the run folder,
-`.specs/improve-ui-<YYYY-MM-DD>/` in this checkout, and its ledger to `.specs/improve-ui.md` in
-the primary checkout, the first entry of `git worktree list`. Keep `.specs/` out of git as
+`.oner/improve-ui-<YYYY-MM-DD>/` in this checkout, and its ledger to `.oner/improve-ui.md` in
+the primary checkout, the first entry of `git worktree list`. Keep `.oner/` out of git as
 `improve-code` step 1 does.
 
 ## 1. Set up
@@ -50,7 +50,7 @@ the primary checkout, the first entry of `git worktree list`. Keep `.specs/` out
   write its frame in `run.md`: content width and alignment, gutters, the surface content sits
   on (a card, a panel, the bare page), where the header starts, and the anatomy of a list row.
   This frame is the bar every other surface is held to in step 3.
-- **Ledger.** Read `.specs/improve-ui.md` in the primary checkout. Create it when missing, with
+- **Ledger.** Read `.oner/improve-ui.md` in the primary checkout. Create it when missing, with
   two sections, `## Open` and `## Rejected`, one line per decision:
   `<surface> | <decision> | <reason> | <default branch sha> | <YYYY-MM-DD>`. A finding that
   matches a **Rejected** line is dropped unless a file it cites changed since that line's sha.

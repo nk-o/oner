@@ -288,7 +288,7 @@ is_protected() {
 # An oneshot run whose log still reads running or waiting is resumed from this
 # worktree, and its log is ignored by git, so no proof above can see it.
 open_run_in() {
-  grep -qxE 'Status\. (running|waiting)' "$1"/.specs/*/oneshot.md 2>/dev/null
+  grep -qxE 'Status\. (running|waiting)' "$1"/.oner/*/oneshot.md 2>/dev/null
 }
 
 # Branches of the stages an open oneshot series has not finished, its fix
@@ -296,7 +296,7 @@ open_run_in() {
 # worktree holds its run log until series.mjs archives it. "*" without jq.
 series_branches() {
   local program slug
-  for program in "$1"/.specs/*/program.json; do
+  for program in "$1"/.oner/*/program.json; do
     [ -f "$program" ] || continue
     command -v jq >/dev/null 2>&1 || { echo '*'; return 0; }
     slug="$(basename "$(dirname "$program")" | sed -E 's/^[0-9]+-//')"

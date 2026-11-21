@@ -24,7 +24,7 @@ export function asksSource({ repos }) {
       for (const root of roots) {
         const trees = await listWorktrees(root, signal).catch(() => [{ path: root }]);
         for (const { path } of trees) {
-          const file = join(path, '.specs', 'requests.md');
+          const file = join(path, '.oner', 'requests.md');
           let text;
           let info;
           try {

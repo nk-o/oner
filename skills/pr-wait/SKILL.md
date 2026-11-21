@@ -161,7 +161,7 @@ reached someone. Those, and any failed migration, go to the user with the pull r
 rollback note.
 
 **Clean up.** Once the change is live, update the issue through `issue-tracker` when one is in
-scope, and delete this work's `.specs/` folder per `AGENTS.md`. For the work's worktree, print
+scope, and delete this work's `.oner/` folder per `AGENTS.md`. For the work's worktree, print
 the plan `wt.sh finish` shows and leave the removal to the user, unless the task said to finish
 it.
 

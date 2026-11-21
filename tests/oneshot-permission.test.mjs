@@ -22,13 +22,13 @@ function fixture({ status = 'running', transcript = '<command-name>/oneshot</com
   g('init', '-q', '-b', 'main');
   g('config', 'user.email', 'fixture@example.test');
   g('config', 'user.name', 'Fixture');
-  writeFileSync(join(repo, '.gitignore'), '.specs/\n');
+  writeFileSync(join(repo, '.gitignore'), '.oner/\n');
   g('add', '.');
   g('commit', '-qm', 'Initialize fixture');
   g('switch', '-q', '-c', 'feature');
   const log = (s) => {
-    mkdirSync(join(repo, '.specs', '001-feature'), { recursive: true });
-    writeFileSync(join(repo, '.specs', '001-feature', 'oneshot.md'),
+    mkdirSync(join(repo, '.oner', '001-feature'), { recursive: true });
+    writeFileSync(join(repo, '.oner', '001-feature', 'oneshot.md'),
       `# feature\n\nLane. feature\nBranch. feature\nStatus. ${s}\n\n## Lane\n- [ ] Build\n`);
   };
   log(status);
@@ -78,7 +78,7 @@ test('a lead session is approved only for the series it drives, never for a run 
   const f = fixture({ transcript: lead });
   const edit = { file_path: join(f.repo, 'app.ts') };
   assert.equal(f.ask('Edit', edit), 'ask');
-  const program = join(f.repo, '.specs', '002-initiative');
+  const program = join(f.repo, '.oner', '002-initiative');
   mkdirSync(program, { recursive: true });
   writeFileSync(join(program, 'program.json'), '{"status":"running","stages":[]}');
   const driver = join(f.root, 'driver.jsonl');
@@ -116,8 +116,8 @@ test('a delegate in a detached worktree and an oneshot-auto session count as the
 test('a merge is approved only for a verified head inside a series the user authorized', () => {
   const f = fixture();
   const program = (fields) => {
-    mkdirSync(join(f.repo, '.specs', '002-series'), { recursive: true });
-    writeFileSync(join(f.repo, '.specs', '002-series', 'program.json'), JSON.stringify({ stages: [], ...fields }));
+    mkdirSync(join(f.repo, '.oner', '002-series'), { recursive: true });
+    writeFileSync(join(f.repo, '.oner', '002-series', 'program.json'), JSON.stringify({ stages: [], ...fields }));
   };
   const merge = 'gh pr merge 7 --squash --match-head-commit abc1234';
   program({ status: 'running' });

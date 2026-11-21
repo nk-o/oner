@@ -173,7 +173,7 @@ production verified it.
 When the user asks what `lead` would do, or for a dry run, run steps 1, 3, and 4 on the plan
 as read, ask nothing, and write nothing to the tracker and start no stage. Write `program.json`,
 `tracker.json`, and `tracker-writes.md` to a folder the user names, else to the session's
-scratch directory, never under `.specs/`, where the hook and `series.mjs` would take it for a
+scratch directory, never under `.oner/`, where the hook and `series.mjs` would take it for a
 live program. `tracker-writes.md` lists every write the run would make, in order, as if every
 stage shipped without a wait. Each line holds the operation, the issue, the labels, and the text.
 Done when `series.mjs report --program <folder>` lists every stage as incomplete. It changes

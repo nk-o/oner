@@ -16,7 +16,7 @@ if (!run || !['articles', 'edits', 'run.md'].some((name) => existsSync(join(run,
 }
 const siteIndex = args.indexOf('--site');
 const site = siteIndex === -1 ? '' : args[siteIndex + 1];
-// The run folder sits in <repo>/.specs/, beside the repo's .claude/docs.json.
+// The run folder sits in <repo>/.oner/, beside the repo's .claude/docs.json.
 const contract = join(run, '..', '..', '.claude', 'docs.json');
 const product = existsSync(contract) ? JSON.parse(readFileSync(contract, 'utf8')).product ?? '' : '';
 const name = `${product ? `${product} ` : ''}Docs Preview`;

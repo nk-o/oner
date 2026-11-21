@@ -440,18 +440,18 @@ test('orphan cleanup retains support for a deleted directory in another editor',
 
 test('a merged worktree that still holds an open oneshot run or series stage is kept', () => {
   const f = fixture(); const dir = f.worktree('feature');
-  writeFileSync(join(f.repo, '.git/info/exclude'), '.specs/\n');
+  writeFileSync(join(f.repo, '.git/info/exclude'), '.oner/\n');
   const tidyRun = () => f.run(tidy, ['--kept', '--skip-docker', '--skip-wp-env', '--root', f.repo]).stdout;
   assert.match(tidyRun(), /worktree {2}feature {2}\[feature\]/);
 
-  mkdirSync(join(dir, '.specs/001-feature'), { recursive: true });
-  const log = join(dir, '.specs/001-feature/oneshot.md');
+  mkdirSync(join(dir, '.oner/001-feature'), { recursive: true });
+  const log = join(dir, '.oner/001-feature/oneshot.md');
   writeFileSync(log, 'Lane. feature\nBranch. feature\nStatus. waiting\n');
   assert.match(tidyRun(), /kept {6}worktree feature {2}\(open oneshot run\)/);
 
   writeFileSync(log, 'Lane. feature\nBranch. feature\nStatus. done\n');
-  mkdirSync(join(f.repo, '.specs/002-limits'), { recursive: true });
-  const program = join(f.repo, '.specs/002-limits/program.json');
+  mkdirSync(join(f.repo, '.oner/002-limits'), { recursive: true });
+  const program = join(f.repo, '.oner/002-limits/program.json');
   const stage = (state) => writeFileSync(program, JSON.stringify({ status: 'running', stages: [{ id: 'one', branch: 'feature', state }] }));
   stage('merged');
   let out = tidyRun();
@@ -555,8 +555,8 @@ test('unreadable T3 state preserves its checkout, launch settings and branch', (
 test('T3 port cleanup preserves open runs and stops a settled task server', async () => {
   const f = fixture(); const dir = f.worktree('feature'); f.launch(dir); t3State(f, dir);
   const live = await server(dir);
-  writeFileSync(join(f.repo, '.git/info/exclude'), '.specs/\n');
-  const log = join(dir, '.specs/001-feature/oneshot.md'); mkdirSync(join(log, '..'), { recursive: true });
+  writeFileSync(join(f.repo, '.git/info/exclude'), '.oner/\n');
+  const log = join(dir, '.oner/001-feature/oneshot.md'); mkdirSync(join(log, '..'), { recursive: true });
   writeFileSync(log, 'Status. waiting\n');
   const args = ['--yes', '--ports-only', '--root', f.repo, '--kept'];
   const kept = f.run(tidy, args); assert.equal(kept.status, 0, kept.stderr); assert.ok(existsSync(join(dir, '.claude/launch.json')));
@@ -584,7 +584,7 @@ test('forced cleanup cannot drop an active T3 checkout', () => {
 test('cache reclamation preserves work while removing ignored caches only when idle', async () => {
   const f = fixture(); const dir = f.worktree('feature');
   f.runGit('config', 'core.excludesFile', join(f.root, 'excludes'));
-  writeFileSync(join(f.root, 'excludes'), 'node_modules/\n.next/\n.specs/\n');
+  writeFileSync(join(f.root, 'excludes'), 'node_modules/\n.next/\n.oner/\n');
   t3State(f, dir, { settled: false, session: true });
   const cache = join(dir, 'node_modules/package'); const next = join(dir, 'apps/web/.next');
   mkdirSync(cache, { recursive: true }); mkdirSync(next, { recursive: true });
@@ -601,7 +601,7 @@ test('cache reclamation preserves work while removing ignored caches only when i
   const live = await server(dir);
   assert.equal(f.run(tidy, ['--yes', ...args]).status, 0); assert.ok(existsSync(cache));
   const stopped = new Promise(resolvePromise => live.child.once('exit', resolvePromise)); live.child.kill(); await stopped;
-  const log = join(dir, '.specs/001/oneshot.md'); mkdirSync(join(log, '..'), { recursive: true });
+  const log = join(dir, '.oner/001/oneshot.md'); mkdirSync(join(log, '..'), { recursive: true });
   writeFileSync(log, 'Status. waiting\n');
   assert.equal(f.run(tidy, ['--yes', ...args]).status, 0); assert.ok(existsSync(cache));
   writeFileSync(log, 'Status. done\n');

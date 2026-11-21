@@ -17,7 +17,7 @@ argument-hint: "[architecture | recurrence | bugs | security | dependencies] [pa
 Agents extend the patterns they read, and the code that changes most is where a shallow module
 or a missed bug costs the most. This pass finds both, verifies every candidate, and writes a plan
 for each concern the user picks. It changes no tracked file. Everything it writes goes in the
-ignored `.specs/` of the primary checkout: the ledger `.specs/improve-code.md` and one plan folder
+ignored `.oner/` of the primary checkout: the ledger `.oner/improve-code.md` and one plan folder
 per concern. `/oneshot <folder>` builds a plan.
 
 ## 1. Scope
@@ -26,10 +26,10 @@ per concern. `/oneshot <folder>` builds a plan.
   `dependencies`, or several of them. With none, run all five. A path, a module, a subsystem, or a pain point in the argument narrows
   every kind to it.
 - **Primary checkout.** The first entry of `git worktree list`. When neither its `.gitignore`
-  nor `$(git rev-parse --git-common-dir)/info/exclude` carries a `.specs/` line, add one to the
+  nor `$(git rev-parse --git-common-dir)/info/exclude` carries a `.oner/` line, add one to the
   exclude file, so this pass changes no tracked file.
-- **Ledger.** Read `<primary>/.specs/improve-code.md` before anything else. When it is missing
-  and `.specs/improve.md` exists, rename that file, the ledger from before this skill's rename.
+- **Ledger.** Read `<primary>/.oner/improve-code.md` before anything else. When it is missing
+  and `.oner/improve.md` exists, rename that file, the ledger from before this skill's rename.
   When both are missing, create it in this shape with `Last pass. none` and empty sections.
   Step 4 writes the lines.
 
@@ -183,7 +183,7 @@ Drop a candidate that matches a **Rejected** line, unless a file it cites change
 line's sha: `git diff --quiet <sha> <default branch> -- <path>` exits 1. Then it comes back with
 the old reason quoted beside it. A sha git cannot read, exit 128, keeps the row rejected. Drop
 one that a **Planned** line covers. A **Planned** line with no branch stays while its folder is still in
-`<primary>/.specs/`. One with a branch stays until that branch is merged into the default branch
+`<primary>/.oner/`. One with a branch stays until that branch is merged into the default branch
 or exists neither locally nor on the remote. A line that no longer holds comes out of the
 ledger, and its rows can come back.
 
@@ -243,10 +243,10 @@ Then update the ledger. Lines already there stay unless a rule in step 3 took th
   dependencies, the shape of the deepened module, what sits behind the seam, which tests
   survive. For alternative interfaces, use `codebase-design`'s DESIGN-IT-TWICE.md. A term that
   turns out fuzzy gets its precise name before the design goes further.
-- **Write each plan.md** under `<primary>/.specs/NNN-slug/`, with the next free number across
-  `.specs/` and `specs/`, in the shape of `spec`'s plan-only plan (its **Depth** and **Step 2**).
+- **Write each plan.md** under `<primary>/.oner/NNN-slug/`, with the next free number across
+  `.oner/` and `specs/`, in the shape of `spec`'s plan-only plan (its **Depth** and **Step 2**).
   Skip its checkpoints, because the answer in step 4 is the approval, and its `.gitignore` step,
-  because step 1 keeps `.specs/` out of git. Under the title and before **Done when**, put two
+  because step 1 keeps `.oner/` out of git. Under the title and before **Done when**, put two
   lines: `Source. improve-code <YYYY-MM-DD>`, and `Lane. fix` for a single `FIX`, `Lane. refactor`
   for a `DEEPEN`, or `Lane. feature` for the cleanup folder. **Decisions** carry one line per
   row with its finding, evidence, and verdict, plus the choice a `DECIDE` row got and what

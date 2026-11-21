@@ -2,10 +2,11 @@
 # Lifecycle hook for the oneshot skill. It runs on session start, resume, and
 # compaction, on every prompt, and when a turn ends. It acts only when the
 # current branch carries a run log whose Status line reads running or waiting,
-# or the primary checkout's .specs/ holds a series program.json whose status
+# or the primary checkout's .oner/ holds a series program.json whose status
 # does, and it never fails the prompt.
 #
-# SessionStart also prints the open asks in .specs/requests.md, in any session.
+# SessionStart first moves the old state folder into .oner/ through
+# migrate.mjs, then prints the open asks in .oner/requests.md, in any session.
 # SessionStart and UserPromptSubmit print one reminder, which the host adds to
 # the model's context. PermissionRequest hands the request to permission.mjs
 # while a run or a series this session drives is running, so the user is asked
@@ -33,18 +34,24 @@ fi
 
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || exit 0
+# A series outlives every stage branch and worktree, so its program lives in the
+# primary checkout, which every worktree of the repository can find.
+primary="$(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -n 1)"
+if [ "$(field '.hook_event_name // empty')" = "SessionStart" ]; then
+  node "$(dirname "$0")/migrate.mjs" "$root" "$primary" 2>&1 || true
+fi
 
-requests="$root/.specs/requests.md"
+requests="$root/.oner/requests.md"
 has_asks() { [ -f "$requests" ] && grep -q '[^[:space:]]' "$requests" 2>/dev/null; }
 if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] && has_asks; then
-  printf '%s\n%s\n' "Asks still open from earlier work, kept in .specs/requests.md. Delete a line once it is done or dropped:" "$(grep '[^[:space:]]' "$requests" | head -n 20)"
+  printf '%s\n%s\n' "Asks still open from earlier work, kept in .oner/requests.md. Delete a line once it is done or dropped:" "$(grep '[^[:space:]]' "$requests" | head -n 20)"
 fi
 
 log=""
 status=""
 closed=""
 if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
-  for candidate in "$root"/.specs/*/oneshot.md; do
+  for candidate in "$root"/.oner/*/oneshot.md; do
     [ -f "$candidate" ] || continue
     grep -qxF "Branch. $branch" "$candidate" 2>/dev/null || continue
     status="$(sed -nE 's/^Status\. (running|waiting)$/\1/p' "$candidate" | head -n 1)"
@@ -53,12 +60,9 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
   done
 fi
 
-# A series outlives every stage branch and worktree, so its program lives in the
-# primary checkout, which every worktree of the repository can find.
-primary="$(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -n 1)"
 # Every open program, one folder per line. Several can run at once.
 programs=""
-for candidate in "${primary:-$root}"/.specs/*/program.json; do
+for candidate in "${primary:-$root}"/.oner/*/program.json; do
   [ -f "$candidate" ] || continue
   case "$(jq -r '.status // "running"' "$candidate" 2>/dev/null)" in
     running|waiting) programs="$programs$(dirname "$candidate")
@@ -70,7 +74,7 @@ done
 delegate=false
 if [ "$branch" = "HEAD" ]; then
   while IFS= read -r wt; do
-    for candidate in "$wt"/.specs/*/oneshot.md; do
+    for candidate in "$wt"/.oner/*/oneshot.md; do
       [ -f "$candidate" ] && grep -qxF 'Status. running' "$candidate" 2>/dev/null && delegate=true
     done
   done < <(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
@@ -81,7 +85,7 @@ fi
 rel="${log#"$root"/}"
 transcript="$(field '.transcript_path // empty')"
 # The open-asks reminder is let go once per session, so its latch is the session's own.
-asks_state="$root/.specs/.requests-stop-state-$(printf '%s' "$transcript" | { shasum 2>/dev/null || sha1sum; } | cut -c1-12)"
+asks_state="$root/.oner/.requests-stop-state-$(printf '%s' "$transcript" | { shasum 2>/dev/null || sha1sum; } | cut -c1-12)"
 pstatus() { jq -r '.status // "running"' "$1/program.json" 2>/dev/null; }
 # Only the session that ran series.mjs has this line, so a session that merely
 # saw the reminder below is not taken for the one coordinating the series.
@@ -188,7 +192,7 @@ Only series.mjs marks a stage done: a finished worker, green local checks, an op
     elif has_asks && ! held; then
       state="$asks_state"
       tracked="$(cat "$requests" 2>/dev/null)"
-      message="Asks are still open in .specs/requests.md:
+      message="Asks are still open in .oner/requests.md:
 $(grep '[^[:space:]]' "$requests" | head -n 6)
 When they belong to the task the user gave this session, a report on one of them is a status note, not the end of the task: take the next one now, with any status note in the same message as the next tool call, and delete each line once it is done. If the next one needs the user, ask and end the turn. If they are not this session's task, or the user's last message was about something else, end the turn."
     fi
@@ -226,7 +230,7 @@ When they belong to the task the user gave this session, a report on one of them
     case "$prompt" in
       "The oneshot run in $rel is open and this turn ended with steps still open:"*) ;;
       "The oneshot series in "*" is open, "*) ;;
-      "Asks are still open in .specs/requests.md:"*) ;;
+      "Asks are still open in .oner/requests.md:"*) ;;
       *)
         rm -f "$asks_state" 2>/dev/null
         [ -n "$log" ] && rm -f "$(dirname "$log")/.stop-state" 2>/dev/null

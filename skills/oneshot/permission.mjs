@@ -60,10 +60,10 @@ function mergeIsAuthorized(command, primary) {
   if (!merges.length) return true;
   if (!merges.every((m) => /--match-head-commit[\s=]+[0-9a-f]{7,40}\b/.test(m))) return false;
   let folders = [];
-  try { folders = readdirSync(join(primary, '.specs')); } catch { return false; }
+  try { folders = readdirSync(join(primary, '.oner')); } catch { return false; }
   return folders.some((folder) => {
     try {
-      const program = JSON.parse(readFileSync(join(primary, '.specs', folder, 'program.json'), 'utf8'));
+      const program = JSON.parse(readFileSync(join(primary, '.oner', folder, 'program.json'), 'utf8'));
       return (program.status ?? 'running') === 'running' && typeof program.authorization === 'string' && program.authorization.trim() !== '';
     } catch { return false; }
   });
