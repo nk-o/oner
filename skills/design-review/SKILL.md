@@ -35,10 +35,10 @@ judged against the brief, and its line says so.
 
 The look is done by a reader who did not build the change. Where the host has subagents, a
 fresh delegate gets the captures, the reference, and the task, and not the diff or the
-author's notes. Otherwise it is a separate pass whose only input is those three. Inside an
-oneshot run, the **QA pass** in `{{skills_dir}}/oneshot/lanes/tail.md` is that reader. A look
-already done on the same captures and reference is reused. The reader is skeptical: a screen
-passes only when its line names nothing that reads worse than the reference or breaks the brief.
+author's notes. Otherwise it is a separate pass whose only input is those three. In the
+Verify step of an oneshot run, the **QA pass** in `{{skills_dir}}/oneshot/lanes/tail.md` is
+that reader. A look already done on the same captures and reference is reused. The reader is
+skeptical: a screen passes only when its line names nothing that reads worse than the reference or breaks the brief.
 
 Write one line per screen: what reads well, what reads worse than the reference, and the
 capture's path. "No remarks", "passed", or "clean" about how a screen looks needs that line
