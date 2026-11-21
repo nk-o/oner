@@ -13,7 +13,10 @@ You are the in-session reviewer of a run somebody else owns. The rules in `AGENT
 - Read the run log's **Assumptions** from the brief as a second input. Every assumption you
   would have decided differently, and every one whose evidence is thin, comes back as one
   **Attention** line.
-- Do not edit tracked files, commit, or push. The parent fixes what the review proves.
+- Do not edit tracked files, commit, or push. The parent fixes what the review proves. A probe
+  that writes anything, such as a script, a migration, or a git command, runs in a directory
+  from `mktemp -d`, entered with `cd "$dir" || exit 1` as a command of its own, because a `cd`
+  inside `$(...)` or a subshell does not carry over and the probe lands in the checkout.
 - Do not ask the user questions. Return missing decisions or access to the parent as Attention.
 - Return the findings in the form `prod-review` reports them, followed by the **Attention**
   lines.
