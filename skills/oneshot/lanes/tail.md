@@ -70,8 +70,6 @@ the run log for a review.
   the merge happens (**Release**, a series `merge` action, or `pr-wait`'s merge), whenever
   **Checks** names another head or the default branch moved since.
 
-
-
   Then, where the lane took a pin, re-run it, and run `check` on every feature
   `list --affected <Base>` names, or `check --all` when it prints `unmapped` files. When the
   change adds, moves, or removes something a user reaches, update `features.json` in the same
@@ -85,11 +83,29 @@ the run log for a review.
   Then run `break-ui` on each screen and `break-api` on each endpoint, job, or command the
   change reaches that a user or a caller touches, with the cases the lane picked before the
   edit, or with cases taken from the boundary in **Base** when the lane picked none. Size it to
-  the change. A one-line fix gets the one or two cases beside its reproduction. When the change
-  is UI a user sees, run `design-review` on it: **Look first** on captures at the widths it
-  names, the rest on the rendered UI. Here all of them only report. Every row that did not
-  hold and every defect the review shows is a finding for Resolve, not an edit made in this
-  step. Paste both results into the run log's **Checks**.
+  the change. A one-line fix gets the one or two cases beside its reproduction.
+
+  **QA pass.** When the change reaches a screen or a flow a user touches, a reader who did not
+  write the change runs the test plan: the cases the lane picked before the edit (feature lane
+  step 4, the fix lane's reproduction) and the acceptance criteria. Where the host has
+  subagents, the reader is a fresh delegate on the `light` tier of this session's executor in
+  `{{skills_dir}}/lead/executors.md`, else on the host's smallest model, and its brief holds
+  only the test plan, **Base** and the head, how to start the app (the `verify-<app>` skill
+  where the repository has one), and the reference **Look first** in `design-review` names.
+  Without subagents it is a separate pass whose only inputs are those. It writes no tracked
+  file. It runs the app at **Base**, in a scratch worktree removed after, and at the head, side
+  by side, at the narrowest supported width and the width the user views, drives each case as a
+  user does (click, type, submit), and carries out **Look first** on every capture. It returns
+  `pass` or `fail` per case with both captures' paths, a suspected cause as `file:line` for each
+  fail, and `Approve` or `Not approve` overall. A defect the head shows and the base does not is
+  the change's. One both show is `pre-existing`: it stays out of the verdict and goes to the
+  report as one sentence, per **Editing** in `AGENTS.md`. A `Not approve` is a finding for
+  Resolve, and the author's word alone neither reports the screen done nor merges against it.
+  Then run the rest of `design-review` on the rendered UI with the same captures.
+
+  Here all of them only report. Every row that did not hold and every defect a review shows is
+  a finding for Resolve, not an edit made in this step. Paste every result into the run log's
+  **Checks**.
 - **Cross the boundary if the change does.** When the change reaches a wire format, a stored
   column another service reads, a pinned library's internals, or a file another language
   parses, run `blast-radius` on that path and paste its result into the run log's **Checks**.
