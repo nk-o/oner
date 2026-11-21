@@ -92,8 +92,9 @@ pstatus() { jq -r '.status // "running"' "$1/program.json" 2>/dev/null; }
 # A transcript from before the move to .oner/ names the program by its old path.
 coordinates() {
   [ -f "$transcript" ] || return 1
+  local before="${1%/.oner/*}/.specs/${1##*/.oner/}"
   grep -qF "series program: $1/program.json" "$transcript" 2>/dev/null ||
-    grep -qF "series program: ${1%/.oner/*}/.specs/${1##*/.oner/}/program.json" "$transcript" 2>/dev/null
+    { [ ! -e "$before" ] && grep -qF "series program: $before/program.json" "$transcript" 2>/dev/null; }
 }
 # The open programs this session coordinates, and those of them running.
 coordinated=""

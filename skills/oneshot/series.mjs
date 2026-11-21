@@ -316,7 +316,10 @@ function changedSince(from, to) {
 // removing the worktree, or handing the series to another agent, loses nothing.
 function archive(ctx, s) {
   for (const wt of worktrees(ctx.root)) {
-    if (wt.branch !== s.branch || !existsSync(join(wt.dir, NEW))) continue;
+    if (wt.branch !== s.branch) continue;
+    // The stage's branch stays clean, so its ignore line goes to the shared info/exclude.
+    migrate([wt.dir, ctx.root], { tracked: false });
+    if (!existsSync(join(wt.dir, NEW))) continue;
     for (const name of readdirSync(join(wt.dir, NEW))) {
       const src = join(wt.dir, NEW, name);
       const log = join(src, 'oneshot.md');

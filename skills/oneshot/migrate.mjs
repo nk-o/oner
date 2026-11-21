@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // Moves a repository's ignored state folder from .specs/ to .oner/, for each
 // root it is given. series.mjs runs it on every command and hook.sh on session
-// start. Only an ignored folder that git tracks nothing in is moved. An entry
-// that cannot move, because .oner/ already holds its name or a file in it
-// cannot be read or written, stays in .specs/ and is named on stderr. The old
-// ignore line stays until .specs/ is empty, and each entry has its paths
-// rewritten before it moves, so a run cut off halfway is finished by the next
-// one, and a run after a finished one changes nothing.
+// start. A folder git tracks anything in is not state, and stays. The run makes
+// .oner/ ignored, moves every entry whose name .oner/ does not hold yet, then
+// rewrites the paths in .oner/'s text files that name an entry that moved, and
+// removes .specs/ last, once it is empty and every rewrite went through. Until
+// then each run repeats the rewrite, so a run cut off anywhere is finished by
+// the next one, and a run after a finished one changes nothing. An entry that
+// stays, and a file it cannot rewrite, is named on stderr.
 //
 //   migrate.mjs <root>...
 import { spawnSync } from 'node:child_process';
@@ -21,111 +22,122 @@ const line = (name) => new RegExp(`^/?${name.replace('.', '\\.')}/?\\s*$`);
 const lists = (text, name) => text.split('\n').some((l) => line(name).test(l));
 const read = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const exists = (path) => Boolean(lstatSync(path, { throwIfNoEntry: false }));
 
 function git(root, args) {
   const r = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
   return { ok: r.status === 0, out: (r.stdout ?? '').trim() };
 }
 
-function ignoreFiles(root) {
+// .oner/ becomes ignored before anything moves into it: listed beside the
+// .specs/ line, or at the end of .gitignore. With `tracked` false, as for a
+// stage worktree whose branch must stay clean, the line goes to the shared
+// info/exclude instead. Returns false when git still does not ignore it.
+function ignoreNew(root, tracked) {
+  if (git(root, ['check-ignore', '-q', `${NEW}/`]).ok) return true;
   const common = git(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
-  return [join(root, '.gitignore'), ...(common.ok ? [join(common.out, 'info', 'exclude')] : [])];
-}
-
-// Before any entry moves: .oner/ is listed beside the .specs/ line, wherever
-// that line is written, or in .gitignore when no file names either folder.
-function ignoreBoth(root) {
-  const files = ignoreFiles(root);
-  if (files.some((file) => lists(read(file), NEW))) return;
-  const holder = files.find((file) => lists(read(file), OLD));
+  const exclude = common.ok ? join(common.out, 'info', 'exclude') : null;
+  const files = tracked ? [join(root, '.gitignore'), exclude] : [exclude];
+  const holder = files.find((file) => file && lists(read(file), OLD));
   if (holder) {
     writeFileSync(holder, read(holder).split('\n').flatMap((l) => (line(OLD).test(l) ? [l, l.replace(OLD, NEW)] : [l])).join('\n'));
-    return;
+  } else if (files[0]) {
+    const text = read(files[0]);
+    writeFileSync(files[0], `${text}${text && !text.endsWith('\n') ? '\n' : ''}${NEW}/\n`);
   }
-  const text = read(files[0]);
-  writeFileSync(files[0], `${text}${text && !text.endsWith('\n') ? '\n' : ''}${NEW}/\n`);
+  return git(root, ['check-ignore', '-q', `${NEW}/`]).ok;
 }
 
-// Once .specs/ is gone, a .gitignore that lists both folders drops the old line.
-function dropOld(root) {
-  const file = join(root, '.gitignore');
-  const text = read(file);
-  if (lists(text, NEW) && lists(text, OLD)) writeFileSync(file, text.split('\n').filter((l) => !line(OLD).test(l)).join('\n'));
-}
-
-// The spellings of `<root>/.specs/<name>` a stored path or command uses.
+// The spellings of `<root>/.specs/` a stored path or command uses.
 function prefixes(root) {
   const home = process.env.HOME ? resolve(process.env.HOME) : null;
   const under = home && root.startsWith(`${home}/`) ? relative(home, root) : null;
   return [root, ...(under ? [`~/${under}`, `$HOME/${under}`, `\${HOME}/${under}`] : [])];
 }
 
-// Rewrites `<root>/.specs/<name>` to `<root>/.oner/<name>` in every text file
-// under `path`, keeping its mode, without following a symlink. A name that
-// stays in .specs/ keeps its old path.
-function rewrite(path, targets) {
-  const stat = lstatSync(path, { throwIfNoEntry: false });
-  if (!stat) return;
-  if (stat.isDirectory()) {
-    for (const name of readdirSync(path)) rewrite(join(path, name), targets);
-    return;
-  }
-  if (!stat.isFile() || path.endsWith('.migrate.tmp')) return;
-  const buffer = readFileSync(path);
-  if (buffer.includes(0)) return;
-  const text = buffer.toString('utf8');
+// Each root's spellings, with the names that now live in its .oner/ and not in
+// its .specs/, longest first, so a reference is rewritten only to where its
+// entry went.
+function moved(roots) {
+  return roots.flatMap((root) => {
+    const names = (existsSync(join(root, NEW)) ? readdirSync(join(root, NEW)) : [])
+      .filter((name) => !exists(join(root, OLD, name))).sort((a, b) => b.length - a.length);
+    return names.length ? prefixes(root).map((prefix) => ({ prefix, names })) : [];
+  });
+}
+
+function rewriteText(text, targets) {
   let next = text;
-  for (const { prefix, kept } of targets) {
-    next = next.replace(new RegExp(`${escape(prefix)}/${escape(OLD)}/([^/\\s'"\`]*)`, 'g'),
-      (match, name) => (kept.has(name) ? match : `${prefix}/${NEW}/${name}`));
+  for (const { prefix, names } of targets) {
+    next = next.replace(new RegExp(`${escape(prefix)}/${escape(OLD)}/([^/\\n]*)`, 'g'), (match, rest) => {
+      const name = names.find((n) => rest === n || (rest.startsWith(n) && !/[\w-]/.test(rest[n.length]) && !(rest[n.length] === '.' && /[\w-]/.test(rest[n.length + 1] ?? ''))));
+      return name ? `${prefix}/${NEW}/${rest}` : match;
+    });
   }
-  if (next === text) return;
-  const tmp = `${path}.${process.pid}.migrate.tmp`;
-  writeFileSync(tmp, next);
-  chmodSync(tmp, stat.mode & 0o7777);
-  renameSync(tmp, path);
+  return next;
+}
+
+// Rewrites every text file under `path`, keeping its mode, without following a
+// symlink. Returns the files it could not rewrite.
+function rewrite(path, targets, warn) {
+  const stat = lstatSync(path, { throwIfNoEntry: false });
+  if (!stat) return 0;
+  try {
+    if (stat.isDirectory()) return readdirSync(path).reduce((n, name) => n + rewrite(join(path, name), targets, warn), 0);
+    if (!stat.isFile() || path.endsWith('.migrate.tmp')) return 0;
+    const buffer = readFileSync(path);
+    if (buffer.includes(0)) return 0;
+    const text = buffer.toString('utf8');
+    const next = rewriteText(text, targets);
+    if (next === text) return 0;
+    const tmp = `${path}.${process.pid}.migrate.tmp`;
+    writeFileSync(tmp, next);
+    chmodSync(tmp, stat.mode & 0o7777);
+    renameSync(tmp, path);
+    return 0;
+  } catch (error) {
+    warn(`Could not rewrite the ${OLD}/ paths in ${path}: ${error.message}`);
+    return 1;
+  }
 }
 
 // Returns the entries it left in .specs/.
-export function migrate(roots, warn = (text) => process.stderr.write(`${text}\n`)) {
+export function migrate(roots, { warn = (text) => process.stderr.write(`${text}\n`), tracked = true } = {}) {
   const all = [...new Set(roots.filter(Boolean).map((root) => resolve(root)))];
-  const targets = [];
-  const eligible = all.filter((root) => {
-    try {
-      if (!lstatSync(join(root, OLD), { throwIfNoEntry: false })?.isDirectory()) return false;
-      if (!git(root, ['check-ignore', '-q', `${OLD}/`]).ok || git(root, ['ls-files', '--', OLD]).out) return false;
-      const kept = new Set(readdirSync(join(root, OLD)).filter((name) => lstatSync(join(root, NEW, name), { throwIfNoEntry: false })));
-      targets.push(...prefixes(root).map((prefix) => ({ prefix, kept })));
-      return true;
-    } catch (error) {
-      warn(`Left ${join(root, OLD)} in place: ${error.message}`);
-      return false;
-    }
-  });
   const left = [];
   for (const root of all) {
     const from = join(root, OLD);
+    const to = join(root, NEW);
     try {
-      if (eligible.includes(root)) {
-        ignoreBoth(root);
-        const to = join(root, NEW);
-        mkdirSync(to, { recursive: true });
-        for (const name of readdirSync(from)) {
-          const src = join(from, name);
-          const dest = join(to, name);
-          try {
-            if (lstatSync(dest, { throwIfNoEntry: false })) throw new Error(`${dest} already exists. Merge the two by hand`);
-            rewrite(src, targets);
-            renameSync(src, dest);
-          } catch (error) {
-            if (!lstatSync(src, { throwIfNoEntry: false })) continue;
-            left.push(src);
-            warn(`Left ${src} in place: ${error.message.replace(/\.$/, '')}.`);
-          }
-        }
-        if (!readdirSync(from).length) rmdirSync(from);
+      if (!lstatSync(from, { throwIfNoEntry: false })?.isDirectory() || git(root, ['ls-files', '--', OLD]).out) continue;
+      mkdirSync(to, { recursive: true });
+      if (!ignoreNew(root, tracked)) {
+        warn(`Left ${from} in place: git does not ignore ${to}/.`);
+        continue;
       }
-      if (!existsSync(from)) dropOld(root);
+      for (const name of readdirSync(from)) {
+        const src = join(from, name);
+        const dest = join(to, name);
+        if (exists(dest)) {
+          left.push(src);
+          warn(`Left ${src} in place: ${dest} already exists. Merge the two by hand.`);
+          continue;
+        }
+        try {
+          renameSync(src, dest);
+        } catch (error) {
+          if (!exists(src)) continue;
+          left.push(src);
+          warn(`Left ${src} in place: ${error.message}`);
+        }
+      }
+      const failed = rewrite(to, moved(all), warn);
+      if (!failed && !readdirSync(from).length) {
+        rmdirSync(from);
+        const file = join(root, '.gitignore');
+        const text = read(file);
+        if (tracked && lists(text, NEW) && lists(text, OLD)) writeFileSync(file, text.split('\n').filter((l) => !line(OLD).test(l)).join('\n'));
+      }
     } catch (error) {
       warn(`Stopped moving ${from} to ${NEW}/: ${error.message}`);
     }
