@@ -51,9 +51,9 @@ gate's questions, a hard stop, a conflict with the spec or a gate decision that 
 `spec` stops on, what only the user can do, a wait on background work this run started or on
 the pull request's events, and the final Report. A server or watcher started in the background
 never ends, so stop it once the step that needed it is done. Before a turn that waits on the
-user or a delegate, set `Status. waiting` in the run log, and back to `running` when it
-returns. While it reads `running`, the host's lifecycle hook catches a turn that ends with
-steps still open in the log's **Lane**, and names them.
+user, set `Status. waiting` in the run log, and back to `running` when the answer arrives.
+While it reads `running`, the host's lifecycle hook catches a turn that ends with steps still
+open in the log's **Lane**, and names them.
 
 **A called skill's ending is not the run's.** Its Report, its closing line, its offer, its
 "then stop", and its "leave pushing to the user" are for when the user runs it alone. Here its
@@ -63,15 +63,17 @@ output goes where the lane step says, usually the run log, and the next step fol
 series is open, copy each ask in it into the log's **Requests**, the series log's in a series,
 one `- [ ]` line per ask in the user's words, so a numbered or bulleted list becomes one line
 per item. An ask inside the current work joins it. An ask that needs its own pull request
-becomes a new stage per **Changing the plan** in `series.md`, or outside a series a line in
-`.specs/requests.md`. A question gets its answer in a status note. Tick each line with its
-commit, `declined: <reason>`, or `moved: <where>`. The report lists every line not ticked with
-a commit.
+becomes a new stage per **Changing the plan** in `series.md` when it belongs to the program's
+spec, and otherwise a line in `.specs/requests.md`. A question gets its answer in a status
+note. Tick each line with its commit, `answered`, `declined: <reason>`, or `moved: <where>`.
+The report lists every line not ticked with a commit or `answered`.
 
 **Standing consent.** Consent the user gives in words, such as "merge it yourself", goes into
 **Gate** verbatim and covers the actions it names for the rest of the run or series. When the
 host refuses an action it covers, ask once for the allow rule that would let it through, in a
-series with `series.mjs wait permission`, and treat the consent as given.
+series with `series.mjs wait permission`, and treat the consent as given. Consent to a series'
+release is written with `series.mjs resume --authorization "<their words>"`, per **The
+authorization** in `series.md`.
 
 **Things only the user can do are asked once.** Every action found that only the user can
 take, such as a login, a token, a form, or a browser step, goes into one message that lists
@@ -175,7 +177,8 @@ writers in one checkout share its git index and break each other's builds.
 
 **Every host starts them per Delegating in `AGENTS.md`.** Codex uses the same two agents from
 `{{agents_dir}}/`, and a T3 Code `delegate_task` for one plan.md task opens with
-`{{agents_dir}}/oneshot-worker.md`'s body.
+`{{agents_dir}}/oneshot-worker.md`'s body. Before a turn ends to wait on a `delegate_task`, set
+`Status. waiting` in the run log, and back to `running` when it returns.
 
 **No subagents available changes how a step runs, not whether it runs.** Write the code
 yourself, then review it in a separate pass whose only input is the diff, and say so. `external-review`
@@ -234,8 +237,10 @@ The investigation lane writes nothing, so it skips this step.
 line in its **Lane**, and re-read that step in the lane file the `Lane.` line names. A log with
 a `Program.` line is in its **Release** step: continue that program with `--program`. Never open
 a second folder for the same task. When the task the user typed is not that run, set the old
-log's `Status. stopped: superseded`, say so in one line, and open a new folder. A log with an `Auto.` line was opened by `oneshot-auto`:
-read `{{skills_dir}}/oneshot-auto/SKILL.md` too, because its rules hold for the whole run. When
+log's `Status. stopped: superseded`, say so in one line, and open a new folder. A log with an
+`Auto.` line was opened by `oneshot-auto`: read `{{skills_dir}}/oneshot-auto/SKILL.md` too,
+because its rules hold for the whole run. A log with a `Lead.` line was opened by `lead`, and
+its open steps are that skill's: read `{{skills_dir}}/lead/SKILL.md`. When
 the hook names an open series in this repository and the task is that series, read the `## Now`
 section of the series log in its program folder, then follow [`lanes/series.md`](lanes/series.md)
 from step 5, whichever agent ran it before.

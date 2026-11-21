@@ -279,11 +279,13 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    `program.json`'s `stages`, and run `series.mjs amend --stages <file> --approval "<the
    user's words, verbatim>"`. When the user's own message asks for the new stage, that message
    is the approval: amend without asking, and show the new stage map in a status note. Ask
-   first only when the change alters a started stage or a gate decision, drops data, or
-   touches payments, which the first authorization never named: pause with `wait decision`,
-   show the new stage map with one line per stage, as at the gate, ask the approval and the
-   release of the new stages as one question, and amend with that answer, then `resume`.
-   `amend` keeps every started stage as it is. Release commands change the same way, with
+   first only when the change alters a started stage or a gate decision, drops data, touches
+   payments, or reaches one of `oneshot`'s hard stops, which the first authorization never
+   named: pause with `wait decision`, show the new stage map with one line per stage, as at
+   the gate, ask the approval and the release of the new stages as one question, and amend with
+   that answer, then `resume`. `amend` keeps every started stage as it is and refuses a field
+   only `series.mjs` writes, so an approved change to a started stage goes to a fresh delegate
+   with the whole scope, per step 5. Release commands change the same way, with
    `--release <file>`.
 
    **Work outside the series.** The repository keeps moving while a series runs. The user's
@@ -314,16 +316,18 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    section in that `oneshot.md`, rewritten at every stage transition and before every turn
    that waits:
    - each stage in progress, its branch, worktree, pull request, and the action `next` last
-     printed, and its live delegate with the delegate's id on the host;
+     printed, and its live delegate with the delegate's id on the host and the checkout's
+     head commit;
    - everything the series depends on outside the folder: a credential store item, an allow
      rule, an operator tool and the path it runs from, a local database or container;
    - what the next coordinator reads first, in order.
 
    No separate handoff file. A new coordinator, on any host, reads `## Now`, then runs `next`.
-   After a resume or in a new session, a `build` stage whose delegate the host cannot show as
-   running, and whose checkout has no new commit or log change since `## Now` was written,
-   gets a fresh delegate with the same brief, and its stage run resumes from its own log per
-   **Resume before you open** in the skill.
+   After a resume or in a new session, a `build` stage gets a fresh delegate with the same
+   brief when the host shows its delegate ended, or cannot show it and the checkout's head and
+   run log are unchanged since `## Now` was written. The stage run resumes from its own log per
+   **Resume before you open** in the skill. A checkout that changed while its delegate is not
+   shown belongs to a live delegate, so it is checked again on the next pass.
    Where the host can start a new session, hand off after every stage that `next` records as
    done, never in the middle of one, so no coordinator carries more than one stage's context.
 6. **Report.** `series.mjs report` exits 0 only when every stage is done with its evidence.

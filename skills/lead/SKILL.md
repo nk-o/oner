@@ -21,12 +21,12 @@ steps and add only what the tracker and the executors change. **Layers** in the
 ## 1. Take the plan
 
 Done when the series log is open and the plan is in the tracker and read back, or in the
-program folder when the session has no tracker tool.
+program folder when the session has no tracker tool or no home in it.
 
-Open the series log before anything else: the run log of `oneshot` step 1, with `Lane. series`,
-**Requests**, and a **Lane** holding this skill's steps, so the host's start and compaction
-hooks find an open run from the first minute. No stage is built, by this session or a
-delegate, before `series.mjs next` printed its `start`.
+Outside a **Dry run**, open the series log before anything else: the run log of `oneshot` step
+1, with `Lane. series`, a `Lead.` line, **Requests**, and a **Lane** holding this skill's steps,
+so the host's start and compaction hooks find an open run from the first minute. No stage is
+built, by this session or a delegate, before `series.mjs next` printed its `start` or `build`.
 
 - **The user asks you to run a tracker project, milestone, or issue.** That request approves
   the plan written there. Read the owner issues, their blocked-by relations, and the decisions
@@ -42,8 +42,8 @@ delegate, before `series.mjs next` printed its `start`.
 With no tracker tool in the session, the plan stays in the program folder, and the rest runs
 as an oneshot series with no tracker writes and no `tracker.json`. A tracker tool that works
 but has no team or project for this repository is a question at the stop, with creating one
-as the recommendation when the user's other repositories use that tracker, and the plan waits
-in the program folder until it is answered.
+as the recommendation when the user's other repositories use that tracker. The plan waits in
+the program folder, and the stop asks this even when nothing else is open.
 
 ## 2. The stop
 
@@ -105,20 +105,23 @@ each, so a tier is a starting point, not a ranking.
 - **`build`** runs a stage run. Take the session's own provider when it has a `build` row,
   else the first `build` row the host can start, else the session's own model with a line
   under **Assumptions**. A stage whose main output is a screen a user sees runs on its
-  executor's `lead` tier model and effort.
+  executor's `lead` row, else on the `lead` row of an enabled executor the host can start,
+  else on the session's own model.
 - **`lead`** is the coordinator: this session, or the session that takes the series over.
 - **`light`** only reads, such as a search, a summary, or a log. It never runs a stage, because
   both light models missed a required behavior when they wrote code.
 
 When the user's words assign kinds of work to executors or to this session ("visual work
 stays with you", "backend to another provider"), that assignment wins over the tiers for every
-stage and delegate it covers, and the stage map shows each stage's executor. An assignment to
+stage and delegate it covers, and the stage map shows each stage's executor. Work assigned to
+this session goes to a delegate on this session's provider at its `lead` row. An assignment to
 an executor that is not enabled, or that the host cannot start, is one line at the stop naming
 the executor used instead.
 
 Start each delegate per **Delegating** in `AGENTS.md`. Where the host starts other providers'
-delegates, such as T3 Code's `delegate_task`, pass the provider, model, and effort it lists for
-the row. A host without that reaches only its own provider.
+delegates and lists their ids, such as T3 Code's `delegate_task` and `orchestrator_capabilities`,
+map the row's provider, model, and effort to the ids the host lists. A host without that
+reaches only its own provider.
 
 ## 5. Run the stages
 
