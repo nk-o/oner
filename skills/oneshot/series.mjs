@@ -317,8 +317,7 @@ function changedSince(from, to) {
 function archive(ctx, s) {
   for (const wt of worktrees(ctx.root)) {
     if (wt.branch !== s.branch) continue;
-    // The stage's branch stays clean, so its ignore line goes to the shared info/exclude.
-    migrate([wt.dir, ctx.root], { tracked: false });
+    migrate([wt.dir, ctx.root]);
     if (!existsSync(join(wt.dir, NEW))) continue;
     for (const name of readdirSync(join(wt.dir, NEW))) {
       const src = join(wt.dir, NEW, name);

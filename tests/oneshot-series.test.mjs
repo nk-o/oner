@@ -1102,6 +1102,7 @@ function beforeTheMove(f) {
   p.release.accept = [join(old, 'release', 'accept.sh')];
   writeFileSync(join(old, 'program.json'), JSON.stringify(p, null, 2));
   writeFileSync(join(f.repo, '.gitignore'), `node_modules/\n${OLD}/\n`);
+  f.g('commit', '-qam', 'Ignore the old state folder');
   return old;
 }
 
@@ -1116,11 +1117,14 @@ test('series.mjs moves the old state folder into .oner/ with its paths, and take
   assert.deepEqual(f.record().release.accept, [join(f.program, 'release', 'accept.sh')]);
   assert.equal(readFileSync(join(f.program, 'release', 'accept.sh'), 'utf8'), `#!/bin/sh\ntest -d '${f.program}'\n`);
   assert.equal(spawnSync(join(f.program, 'release', 'accept.sh')).status, 0, 'the rewritten check still runs');
-  assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), `node_modules/\n${NEW}/\n`);
+  assert.equal(f.g('status', '--porcelain', '--', '.gitignore'), '', 'the tracked .gitignore stays as it was');
+  assert.equal(spawnSync(git, ['-C', f.repo, 'check-ignore', '-q', `${NEW}/`]).status, 0);
+  const exclude = join(f.repo, '.git', 'info', 'exclude');
+  assert.match(readFileSync(exclude, 'utf8'), new RegExp(`^${NEW.replace('.', '\\.')}/$`, 'm'));
 
-  const after = tree(f.repo);
+  const after = [tree(f.repo), readFileSync(exclude, 'utf8')];
   assert.deepEqual(migrate([f.repo]), []);
-  assert.deepEqual(tree(f.repo), after, 'a second run changes nothing');
+  assert.deepEqual([tree(f.repo), readFileSync(exclude, 'utf8')], after, 'a second run changes nothing');
   assert.equal(f.series(['next', '--program', old]).status, 0);
 });
 
@@ -1161,7 +1165,7 @@ test('a migration cut off halfway, or blocked by a name .oner/ holds, is finishe
   assert.equal(existsSync(join(f.repo, OLD)), false);
   assert.match(readFileSync(join(f.repo, NEW, '002-search', 'oneshot.md'), 'utf8'), new RegExp(`Asks\\. ${join(f.repo, NEW, 'requests.md')}, kept`));
   assert.equal(readFileSync(join(f.program, 'locked.md'), 'utf8'), `Series. ${f.program}\n`);
-  assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), `node_modules/\n${NEW}/\n`);
+  assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), `node_modules/\n${OLD}/\n${NEW}/\n`, 'the migration never removes a .gitignore line');
 });
 
 test('a checkout migrated after the primary one still has its paths to the primary rewritten', () => {

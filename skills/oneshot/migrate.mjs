@@ -12,7 +12,7 @@
 //   migrate.mjs <root>...
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const OLD = '.specs';
@@ -29,23 +29,22 @@ function git(root, args) {
   return { ok: r.status === 0, out: (r.stdout ?? '').trim() };
 }
 
-// .oner/ becomes ignored before anything moves into it: listed beside the
-// .specs/ line, or at the end of .gitignore. With `tracked` false, as for a
-// stage worktree whose branch must stay clean, the line goes to the shared
-// info/exclude instead. Returns false when git still does not ignore it.
-function ignoreNew(root, tracked) {
+// .oner/ becomes ignored before anything moves into it, through the shared
+// info/exclude, so no tracked file changes: listed beside its .specs/ line, or
+// at its end. Returns false when git still does not ignore it.
+function ignoreNew(root) {
   if (git(root, ['check-ignore', '-q', `${NEW}/`]).ok) return true;
   const common = git(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
-  const exclude = common.ok ? join(common.out, 'info', 'exclude') : null;
-  const files = tracked ? [join(root, '.gitignore'), exclude] : [exclude];
-  const holder = files.find((file) => file && lists(read(file), OLD));
-  if (files.some((file) => file && lists(read(file), NEW))) {
+  if (!common.ok) return false;
+  const exclude = join(common.out, 'info', 'exclude');
+  const text = read(exclude);
+  if (lists(text, NEW)) {
     // Listed already, and still not ignored: a negation overrides it.
-  } else if (holder) {
-    writeFileSync(holder, read(holder).split('\n').flatMap((l) => (line(OLD).test(l) ? [l, l.replace(OLD, NEW)] : [l])).join('\n'));
-  } else if (files[0]) {
-    const text = read(files[0]);
-    writeFileSync(files[0], `${text}${text && !text.endsWith('\n') ? '\n' : ''}${NEW}/\n`);
+  } else if (lists(text, OLD)) {
+    writeFileSync(exclude, text.split('\n').flatMap((l) => (line(OLD).test(l) ? [l, l.replace(OLD, NEW)] : [l])).join('\n'));
+  } else {
+    mkdirSync(dirname(exclude), { recursive: true });
+    writeFileSync(exclude, `${text}${text && !text.endsWith('\n') ? '\n' : ''}${NEW}/\n`);
   }
   return git(root, ['check-ignore', '-q', `${NEW}/`]).ok;
 }
@@ -120,7 +119,7 @@ function oneshotState(dir) {
 
 // Returns the entries it left in .specs/. Every root moves before any is
 // rewritten, so a path to a root later in the list is rewritten too.
-export function migrate(roots, { warn = (text) => process.stderr.write(`${text}\n`), tracked = true } = {}) {
+export function migrate(roots, { warn = (text) => process.stderr.write(`${text}\n`) } = {}) {
   const all = [...new Set(roots.filter(Boolean).map((root) => resolve(root)))];
   const left = [];
   const started = [];
@@ -133,7 +132,7 @@ export function migrate(roots, { warn = (text) => process.stderr.write(`${text}\
       // ignore line, and where it holds what a run leaves: a run log, a program, the asks.
       if (!git(root, ['check-ignore', '-q', `${OLD}/`]).ok && !(git(root, ['check-ignore', '-q', `${NEW}/`]).ok && oneshotState(from))) continue;
       mkdirSync(to, { recursive: true });
-      if (!ignoreNew(root, tracked)) {
+      if (!ignoreNew(root)) {
         warn(`Left ${from} in place: git does not ignore ${to}/.`);
         continue;
       }
@@ -163,10 +162,6 @@ export function migrate(roots, { warn = (text) => process.stderr.write(`${text}\
     const from = join(root, OLD);
     try {
       if (rewrite(join(root, NEW), targets, warn) || readdirSync(from).length) continue;
-      // The old line goes before the folder, so a run cut off between the two still finds the folder.
-      const file = join(root, '.gitignore');
-      const text = read(file);
-      if (tracked && lists(text, NEW) && lists(text, OLD)) writeFileSync(file, text.split('\n').filter((l) => !line(OLD).test(l)).join('\n'));
       rmdirSync(from);
     } catch (error) {
       warn(`Stopped moving ${from} to ${NEW}/: ${error.message}`);
