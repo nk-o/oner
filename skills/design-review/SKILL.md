@@ -29,15 +29,15 @@ Capture each changed screen at the width the user views it: the width they named
 screenshots at, else 1280 and the widest layout the product supports. Output that renders in
 both an editor and a front end, such as a block, an embed, or a widget, is captured in both.
 Open each capture and look at it beside a reference: the product's best neighboring screen,
-an external screen the user or `design-context` named, else the screen's own capture from
-before the change. A first screen with none of these is judged against the brief, and its line
-says so.
+an external screen the user or `design-context` named, else, for a change that keeps the
+screen's design, its own capture from before the change. A screen with none of these is
+judged against the brief, and its line says so.
 
 The look is done by a reader who did not build the change. Where the host has subagents, a
 fresh delegate gets the captures, the reference, and the task, and not the diff or the
 author's notes. Otherwise it is a separate pass whose only input is those three. A look already
-done on the same captures is reused. The reader is skeptical: a screen passes only when its line names nothing that reads worse than the
-reference.
+done on the same captures and reference is reused. The reader is skeptical: a screen passes
+only when its line names nothing that reads worse than the reference or breaks the brief.
 
 Write one line per screen: what reads well, what reads worse than the reference, and the
 capture's path. "No remarks", "passed", or "clean" about how a screen looks needs that line
@@ -102,8 +102,8 @@ once. Escalate a remaining material problem rather than reporting it passed.
 every page and component that renders the same cause, then fix it at the owner they share:
 the component, the block's stylesheet, or the token. A page-scoped override, such as a
 `body.page-id-*` selector, `!important`, or a per-page stylesheet, leaves the other pages
-broken, so fix the owner instead. When the list reaches pages outside the task's scope, the
-owner fix and the list go to the user, and the fix lands after they approve it.
+broken, so fix the owner instead. When the list reaches pages outside the task's scope, bring
+the owner fix and the list to the user before editing the owner.
 
 Keep three kinds of finding distinct:
 

@@ -87,8 +87,9 @@ the run log for a review.
   edit, or with cases taken from the boundary in **Base** when the lane picked none. Size it to
   the change. A one-line fix gets the one or two cases beside its reproduction. When the change
   is UI a user sees, run `design-review` on it: **Look first** on captures at the widths it
-  names, the rest on the same screenshots. Here all of them only report. Every row that did not hold and every defect the look shows is a finding for Resolve, not an edit made in this step. Paste both results
-  into the run log's **Checks**.
+  names, the rest on the rendered UI. Here all of them only report. Every row that did not
+  hold and every defect the review shows is a finding for Resolve, not an edit made in this
+  step. Paste both results into the run log's **Checks**.
 - **Cross the boundary if the change does.** When the change reaches a wire format, a stored
   column another service reads, a pinned library's internals, or a file another language
   parses, run `blast-radius` on that path and paste its result into the run log's **Checks**.

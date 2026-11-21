@@ -47,8 +47,8 @@ primary action has the same weight as two secondary ones", "three accent colors 
 neighbors use one". A cause is something you can point at, not an impression. Classify each:
 
 - **Local defect.** The target is incomplete or inconsistent. Fix it in place. A cause other
-  pages or components share goes to the user as its owner fix and the pages it reaches, per
-  **A defect is a class** in `design-review`.
+  pages or components share is fixed at its owner, per **A defect is a class** in
+  `design-review`, which says when the user approves it first.
 - **One-off.** A shared component or token already does this job. Use it.
 - **Missing token.** The system lacks a value several places need. Adding a token changes the
   system, so propose it.
@@ -78,7 +78,7 @@ Done when every planned cause is fixed or listed as a proposal.
 Capture the target again at the same widths and states as step 2, and look at each pair side
 by side. The change should be visible in the pair. If it is not, the edit did not address the
 cause. Run `design-review` on the changed surface and reuse these captures as its evidence.
-Check that `git diff` touches only the target and an owner fix the user approved.
+Check that `git diff` touches only the target and the owner fixes that rule allowed.
 
 Fix the failures in one batch and confirm once. Do not start a second pass in another
 direction unless the user asks for it.
