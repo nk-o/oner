@@ -11,7 +11,7 @@
 //
 //   migrate.mjs <root>...
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,7 +39,9 @@ function ignoreNew(root, tracked) {
   const exclude = common.ok ? join(common.out, 'info', 'exclude') : null;
   const files = tracked ? [join(root, '.gitignore'), exclude] : [exclude];
   const holder = files.find((file) => file && lists(read(file), OLD));
-  if (holder) {
+  if (files.some((file) => file && lists(read(file), NEW))) {
+    // Listed already, and still not ignored: a negation overrides it.
+  } else if (holder) {
     writeFileSync(holder, read(holder).split('\n').flatMap((l) => (line(OLD).test(l) ? [l, l.replace(OLD, NEW)] : [l])).join('\n'));
   } else if (files[0]) {
     const text = read(files[0]);
@@ -66,12 +68,16 @@ function moved(roots) {
   });
 }
 
+// A name ends where the path does: at a slash, a space, a quote, or punctuation
+// that ends a phrase, not at a character a longer name could hold.
+const ends = (text, at) => at === text.length || /[/\s'"`,;:)\]}>]/.test(text[at]) || (text[at] === '.' && !/[\w.+-]/.test(text[at + 1] ?? ''));
+
 function rewriteText(text, targets) {
   let next = text;
   for (const { prefix, names } of targets) {
-    next = next.replace(new RegExp(`${escape(prefix)}/${escape(OLD)}/([^/\\n]*)`, 'g'), (match, rest) => {
-      const name = names.find((n) => rest === n || (rest.startsWith(n) && !/[\w-]/.test(rest[n.length]) && !(rest[n.length] === '.' && /[\w-]/.test(rest[n.length + 1] ?? ''))));
-      return name ? `${prefix}/${NEW}/${rest}` : match;
+    next = next.replace(new RegExp(`${escape(prefix)}/${escape(OLD)}/`, 'g'), (match, offset, whole) => {
+      const at = offset + match.length;
+      return names.some((n) => whole.startsWith(n, at) && ends(whole, at + n.length)) ? `${prefix}/${NEW}/` : match;
     });
   }
   return next;
@@ -93,6 +99,11 @@ function rewrite(path, targets, warn) {
     const tmp = `${path}.${process.pid}.migrate.tmp`;
     writeFileSync(tmp, next);
     chmodSync(tmp, stat.mode & 0o7777);
+    // series.mjs may have saved the file since it was read; the next run rewrites that version.
+    if (!readFileSync(path).equals(buffer)) {
+      rmSync(tmp);
+      return 1;
+    }
     renameSync(tmp, path);
     return 0;
   } catch (error) {
@@ -101,20 +112,32 @@ function rewrite(path, targets, warn) {
   }
 }
 
-// Returns the entries it left in .specs/.
+function oneshotState(dir) {
+  const names = readdirSync(dir);
+  return !names.length || names.some((name) => name === 'requests.md' || ['oneshot.md', 'program.json', 'plan.md']
+    .some((file) => exists(join(dir, name, file))));
+}
+
+// Returns the entries it left in .specs/. Every root moves before any is
+// rewritten, so a path to a root later in the list is rewritten too.
 export function migrate(roots, { warn = (text) => process.stderr.write(`${text}\n`), tracked = true } = {}) {
   const all = [...new Set(roots.filter(Boolean).map((root) => resolve(root)))];
   const left = [];
+  const started = [];
   for (const root of all) {
     const from = join(root, OLD);
     const to = join(root, NEW);
     try {
       if (!lstatSync(from, { throwIfNoEntry: false })?.isDirectory() || git(root, ['ls-files', '--', OLD]).out) continue;
+      // An unignored .specs/ is state only where .oner/ is ignored, as after a pull of the renamed
+      // ignore line, and where it holds what a run leaves: a run log, a program, the asks.
+      if (!git(root, ['check-ignore', '-q', `${OLD}/`]).ok && !(git(root, ['check-ignore', '-q', `${NEW}/`]).ok && oneshotState(from))) continue;
       mkdirSync(to, { recursive: true });
       if (!ignoreNew(root, tracked)) {
         warn(`Left ${from} in place: git does not ignore ${to}/.`);
         continue;
       }
+      started.push(root);
       for (const name of readdirSync(from)) {
         const src = join(from, name);
         const dest = join(to, name);
@@ -131,13 +154,20 @@ export function migrate(roots, { warn = (text) => process.stderr.write(`${text}\
           warn(`Left ${src} in place: ${error.message}`);
         }
       }
-      const failed = rewrite(to, moved(all), warn);
-      if (!failed && !readdirSync(from).length) {
-        rmdirSync(from);
-        const file = join(root, '.gitignore');
-        const text = read(file);
-        if (tracked && lists(text, NEW) && lists(text, OLD)) writeFileSync(file, text.split('\n').filter((l) => !line(OLD).test(l)).join('\n'));
-      }
+    } catch (error) {
+      warn(`Stopped moving ${from} to ${NEW}/: ${error.message}`);
+    }
+  }
+  const targets = moved(all);
+  for (const root of started) {
+    const from = join(root, OLD);
+    try {
+      if (rewrite(join(root, NEW), targets, warn) || readdirSync(from).length) continue;
+      // The old line goes before the folder, so a run cut off between the two still finds the folder.
+      const file = join(root, '.gitignore');
+      const text = read(file);
+      if (tracked && lists(text, NEW) && lists(text, OLD)) writeFileSync(file, text.split('\n').filter((l) => !line(OLD).test(l)).join('\n'));
+      rmdirSync(from);
     } catch (error) {
       warn(`Stopped moving ${from} to ${NEW}/: ${error.message}`);
     }

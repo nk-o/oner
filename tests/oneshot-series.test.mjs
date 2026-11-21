@@ -1145,6 +1145,7 @@ test('a migration cut off halfway, or blocked by a name .oner/ holds, is finishe
   assert.equal(readFileSync(join(f.repo, OLD, 'requests.md'), 'utf8'), '- the old list\n');
   assert.equal(readFileSync(join(f.repo, NEW, 'requests.md'), 'utf8'), '- the new list\n');
   assert.match(warned.join('\n'), /requests\.md in place: .*already exists/);
+  assert.equal(warned.length, privileged ? 1 : 2);
   if (!privileged) assert.match(warned.join('\n'), /Could not rewrite .*locked\.md: EACCES/);
   assert.equal(readFileSync(join(f.repo, NEW, '002-search', 'oneshot.md'), 'utf8'),
     `Series. ${f.program} stage api\nAsks. ${join(f.repo, OLD, 'requests.md')}, kept\nNotes. ${old}.md\n`,
@@ -1174,6 +1175,15 @@ test('a checkout migrated after the primary one still has its paths to the prima
   migrate([f.repo]);
   migrate([other, f.repo]);
   assert.equal(readFileSync(join(other, NEW, '001-stage', 'oneshot.md'), 'utf8'), `Series. ${f.program} stage api\n`);
+
+  // In one call, with the stage's checkout first, as the hook and series.mjs pass them.
+  rmSync(join(other, NEW), { recursive: true });
+  mkdirSync(join(other, OLD, '001-stage'), { recursive: true });
+  writeFileSync(join(other, OLD, '001-stage', 'oneshot.md'), `Series. ${old} stage api\n`);
+  mkdirSync(join(f.repo, OLD));
+  renameSync(f.program, old);
+  migrate([other, f.repo]);
+  assert.equal(readFileSync(join(other, NEW, '001-stage', 'oneshot.md'), 'utf8'), `Series. ${f.program} stage api\n`);
 });
 
 test('a stage log from before the move is archived, and the stage branch stays clean', () => {
@@ -1189,10 +1199,14 @@ test('a stage log from before the move is archived, and the stage branch stays c
   assert.equal(execFileSync(git, ['-C', b.dir, 'status', '--porcelain'], { encoding: 'utf8' }), '');
 });
 
-test('a .specs/ folder that git tracks anything in is not state, and stays', () => {
+test('a .specs/ folder that git tracks anything in, or ignores with neither folder, is not state, and stays', () => {
   const f = fixture();
+  writeFileSync(join(f.repo, '.gitignore'), 'node_modules/\n');
   mkdirSync(join(f.repo, OLD, 'api'), { recursive: true });
   writeFileSync(join(f.repo, OLD, 'api', 'users.yaml'), 'openapi: 3.1.0\n');
+  const unignored = tree(f.repo);
+  assert.deepEqual(migrate([f.repo]), []);
+  assert.deepEqual(tree(f.repo), unignored, 'an unignored folder is left alone');
   f.g('add', OLD);
   f.g('commit', '-qm', 'Track API specs');
   writeFileSync(join(f.repo, '.gitignore'), `${NEW}/\n${OLD}/\n`);
@@ -1222,4 +1236,22 @@ test('the session that coordinated a series before the move is still kept going 
   const before = f.program.replace(`/${NEW}/`, `/${OLD}/`);
   writeFileSync(transcript, `<command-name>/oneshot</command-name>\n${JSON.stringify({ output: `series program: ${before}/program.json` })}\n`);
   assert.match(runHook(f.repo, 'Stop', transcript), /oneshot series in [^ ]*001-billing is open/);
+});
+
+test('every spelling of an old path on one line is rewritten, and only to an entry that went', () => {
+  const f = fixture();
+  beforeTheMove(f);
+  mkdirSync(join(f.repo, OLD, '001-billing+old'));
+  mkdirSync(join(f.repo, NEW, '001-billing+old'));
+  const home = process.env.HOME;
+  process.env.HOME = f.root;
+  try {
+    writeFileSync(join(f.repo, OLD, '001-billing', 'notes.md'),
+      `test -d ~/repo/${OLD}/001-billing && $HOME/repo/${OLD}/001-billing/release/accept.sh\nSee ~/repo/${OLD}/001-billing+old/plan.md.\n`);
+    migrate([f.repo], { warn: () => {} });
+  } finally {
+    process.env.HOME = home;
+  }
+  assert.equal(readFileSync(join(f.program, 'notes.md'), 'utf8'),
+    `test -d ~/repo/${NEW}/001-billing && $HOME/repo/${NEW}/001-billing/release/accept.sh\nSee ~/repo/${OLD}/001-billing+old/plan.md.\n`);
 });
