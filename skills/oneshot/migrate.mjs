@@ -11,7 +11,7 @@
 //
 //   migrate.mjs <root>...
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,21 +30,18 @@ function git(root, args) {
 }
 
 // .oner/ becomes ignored before anything moves into it, through the shared
-// info/exclude, so no tracked file changes: listed beside its .specs/ line, or
-// at its end. Returns false when git still does not ignore it.
+// info/exclude, so no tracked file changes. Returns false when git still does
+// not ignore it.
 function ignoreNew(root) {
   if (git(root, ['check-ignore', '-q', `${NEW}/`]).ok) return true;
-  const common = git(root, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
-  if (!common.ok) return false;
-  const exclude = join(common.out, 'info', 'exclude');
+  const path = git(root, ['rev-parse', '--git-path', 'info/exclude']);
+  if (!path.ok) return false;
+  const exclude = resolve(root, path.out);
   const text = read(exclude);
-  if (lists(text, NEW)) {
-    // Listed already, and still not ignored: a negation overrides it.
-  } else if (lists(text, OLD)) {
-    writeFileSync(exclude, text.split('\n').flatMap((l) => (line(OLD).test(l) ? [l, l.replace(OLD, NEW)] : [l])).join('\n'));
-  } else {
+  // A listed line that still does not ignore it is overridden by a negation.
+  if (!lists(text, NEW)) {
     mkdirSync(dirname(exclude), { recursive: true });
-    writeFileSync(exclude, `${text}${text && !text.endsWith('\n') ? '\n' : ''}${NEW}/\n`);
+    appendFileSync(exclude, `${text && !text.endsWith('\n') ? '\n' : ''}${NEW}/\n`);
   }
   return git(root, ['check-ignore', '-q', `${NEW}/`]).ok;
 }
@@ -128,9 +125,10 @@ export function migrate(roots, { warn = (text) => process.stderr.write(`${text}\
     const to = join(root, NEW);
     try {
       if (!lstatSync(from, { throwIfNoEntry: false })?.isDirectory() || git(root, ['ls-files', '--', OLD]).out) continue;
-      // An unignored .specs/ is state only where .oner/ is ignored, as after a pull of the renamed
-      // ignore line, and where it holds what a run leaves: a run log, a program, the asks.
-      if (!git(root, ['check-ignore', '-q', `${OLD}/`]).ok && !(git(root, ['check-ignore', '-q', `${NEW}/`]).ok && oneshotState(from))) continue;
+      // .specs/ is state only where it holds what a run leaves (a run log, a program, the asks) and
+      // git ignores it, or ignores .oner/, as after a pull of the renamed ignore line. Its
+      // .gitignore line outlives the move, so a folder made there later is not taken for state.
+      if (!oneshotState(from) || !(git(root, ['check-ignore', '-q', `${OLD}/`]).ok || git(root, ['check-ignore', '-q', `${NEW}/`]).ok)) continue;
       mkdirSync(to, { recursive: true });
       if (!ignoreNew(root)) {
         warn(`Left ${from} in place: git does not ignore ${to}/.`);

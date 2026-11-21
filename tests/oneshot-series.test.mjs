@@ -1125,6 +1125,10 @@ test('series.mjs moves the old state folder into .oner/ with its paths, and take
   const after = [tree(f.repo), readFileSync(exclude, 'utf8')];
   assert.deepEqual(migrate([f.repo]), []);
   assert.deepEqual([tree(f.repo), readFileSync(exclude, 'utf8')], after, 'a second run changes nothing');
+  mkdirSync(join(f.repo, OLD, 'api'), { recursive: true });
+  writeFileSync(join(f.repo, OLD, 'api', 'users.yaml'), 'openapi: 3.1.0\n');
+  assert.deepEqual(migrate([f.repo]), []);
+  assert.equal(readFileSync(join(f.repo, OLD, 'api', 'users.yaml'), 'utf8'), 'openapi: 3.1.0\n', 'a folder made under the still ignored old name later is not state');
   assert.equal(f.series(['next', '--program', old]).status, 0);
 });
 
