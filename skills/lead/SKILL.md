@@ -20,8 +20,13 @@ steps and add only what the tracker and the executors change. **Layers** in the
 
 ## 1. Take the plan
 
-Done when the plan is in the tracker and you have read it back, or in the program folder when
-the session has no tracker tool.
+Done when the series log is open and the plan is in the tracker and read back, or in the
+program folder when the session has no tracker tool.
+
+Open the series log before anything else: the run log of `oneshot` step 1, with `Lane. series`,
+**Requests**, and a **Lane** holding this skill's steps, so the host's start and compaction
+hooks find an open run from the first minute. No stage is built, by this session or a
+delegate, before `series.mjs next` printed its `start`.
 
 - **The user asks you to run a tracker project, milestone, or issue.** That request approves
   the plan written there. Read the owner issues, their blocked-by relations, and the decisions
@@ -35,7 +40,10 @@ the session has no tracker tool.
   on the project. The owner layer carries no path, commit, or code.
 
 With no tracker tool in the session, the plan stays in the program folder, and the rest runs
-as an oneshot series with no tracker writes and no `tracker.json`.
+as an oneshot series with no tracker writes and no `tracker.json`. A tracker tool that works
+but has no team or project for this repository is a question at the stop, with creating one
+as the recommendation when the user's other repositories use that tracker, and the plan waits
+in the program folder until it is answered.
 
 ## 2. The stop
 
@@ -59,7 +67,7 @@ and goes into the series log's **Gate**. **Away** never answers this stop.
 Done when `series.mjs next --program <folder>` accepts the program and prints its first
 actions.
 
-Open the program folder per steps 3 and 4 of `series.md`, with its series log `oneshot.md`.
+Open the program folder per steps 3 and 4 of `series.md`, which moves the series log into it.
 spec.md takes the outcomes, the owner issue ids, and the decisions document. plan.md holds one
 stage per pull request, from the tracker plan and the code. Then `program.json`:
 
@@ -96,14 +104,21 @@ each, so a tier is a starting point, not a ranking.
 
 - **`build`** runs a stage run. Take the session's own provider when it has a `build` row,
   else the first `build` row the host can start, else the session's own model with a line
-  under **Assumptions**.
+  under **Assumptions**. A stage whose main output is a screen a user sees runs on its
+  executor's `lead` tier model and effort.
 - **`lead`** is the coordinator: this session, or the session that takes the series over.
 - **`light`** only reads, such as a search, a summary, or a log. It never runs a stage, because
   both light models missed a required behavior when they wrote code.
 
-Start each delegate per **Delegating** in `AGENTS.md`. In T3 Code that is `delegate_task`,
-with the provider, model, and effort option that `orchestrator_capabilities` lists for the row,
-such as `claude-opus-5-5` for `opus`. A host without it reaches only its own provider.
+When the user's words assign kinds of work to executors or to this session ("visual work
+stays with you", "backend to another provider"), that assignment wins over the tiers for every
+stage and delegate it covers, and the stage map shows each stage's executor. An assignment to
+an executor that is not enabled, or that the host cannot start, is one line at the stop naming
+the executor used instead.
+
+Start each delegate per **Delegating** in `AGENTS.md`. Where the host starts other providers'
+delegates, such as T3 Code's `delegate_task`, pass the provider, model, and effort it lists for
+the row. A host without that reaches only its own provider.
 
 ## 5. Run the stages
 
@@ -128,10 +143,10 @@ Work step 5 of `series.md` as the coordinator, with these writes on top of its a
   stage's wait, already recorded: write its comments if they are missing and answer it with
   `resume --stage <id>`. Any other `ask -`, such as a lost login, is a wait of the whole program,
   follows **Waiting** in `series.md`, and writes to no owner issue.
-- **A secret only the user can give**, such as a token or an API key, blocks its stage alone.
-  In T3 Code it goes through `request_secret`. Elsewhere the stage waits with `wait input
-  "<the secret it needs>" --stage <id>`, and the reason goes on the sub-issue and in a
-  waits-on-you comment.
+- **A secret only the user can give** blocks its stage alone. Ask it per **Things only the
+  user can do are asked once** in `oneshot`. Where the stage waits on it, run `wait input "<the
+  secret it needs>" --stage <id>`, and the reason goes on the sub-issue and in a waits-on-you
+  comment.
 - **A stage `next` records as done.** Write the release on its sub-issue. Once every stage of
   an owner issue is done, post the shipped comment, what the user now gets, and move the issue
   to done.

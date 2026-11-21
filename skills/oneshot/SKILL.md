@@ -48,19 +48,36 @@ user objects, a list of decisions none of which blocks the rest (take each and l
 **Assumptions**), a report because a stage, a checkpoint, or a called skill just finished. A
 status note goes in the same message as the next tool call. The turns that do end are the
 gate's questions, a hard stop, a conflict with the spec or a gate decision that `implement` or
-`spec` stops on, a login or credential only the user can supply, a wait on background work
-this run started or on the pull request's events, and the final Report. In T3 Code, a secret
-the user must supply, such as a token or an API key, goes through `request_secret` rather than
-a question in chat, and the run goes on once it returns. A CLI login still needs the user. A
-server or watcher started in the background never ends, so stop it once the step that needed it
-is done. Before a turn that waits on the user, set `Status. waiting` in the run log, and back to
-`running` when the answer arrives. While it
-reads `running`, the host's lifecycle hook catches a turn that ends with steps still open in
-the log's **Lane**, and names them.
+`spec` stops on, what only the user can do, a wait on background work this run started or on
+the pull request's events, and the final Report. A server or watcher started in the background
+never ends, so stop it once the step that needed it is done. Before a turn that waits on the
+user or a delegate, set `Status. waiting` in the run log, and back to `running` when it
+returns. While it reads `running`, the host's lifecycle hook catches a turn that ends with
+steps still open in the log's **Lane**, and names them.
 
 **A called skill's ending is not the run's.** Its Report, its closing line, its offer, its
 "then stop", and its "leave pushing to the user" are for when the user runs it alone. Here its
 output goes where the lane step says, usually the run log, and the next step follows.
+
+**A message during the run.** Before acting on a message the user sends while a run or a
+series is open, copy each ask in it into the log's **Requests**, the series log's in a series,
+one `- [ ]` line per ask in the user's words, so a numbered or bulleted list becomes one line
+per item. An ask inside the current work joins it. An ask that needs its own pull request
+becomes a new stage per **Changing the plan** in `series.md`, or outside a series a line in
+`.specs/requests.md`. A question gets its answer in a status note. Tick each line with its
+commit, `declined: <reason>`, or `moved: <where>`. The report lists every line not ticked with
+a commit.
+
+**Standing consent.** Consent the user gives in words, such as "merge it yourself", goes into
+**Gate** verbatim and covers the actions it names for the rest of the run or series. When the
+host refuses an action it covers, ask once for the allow rule that would let it through, in a
+series with `series.mjs wait permission`, and treat the consent as given.
+
+**Things only the user can do are asked once.** Every action found that only the user can
+take, such as a login, a token, a form, or a browser step, goes into one message that lists
+them all, and the run waits once. A secret goes through the host's secret tool where it has
+one. The log records where each secret lives, such as a credential store item or an env file
+path, and never its value, so a later turn reuses it.
 
 **Everything after the gate is decided here, and not silently.** Each decision taken during
 the run goes into the run log's **Assumptions** as one line with its reason, and every one the
@@ -72,8 +89,8 @@ something, as `brainstorm`'s phase 2 does, and log the result under **Assumption
 **Away.** When the user says they are stepping away ("going to bed", "run until done", "I will
 read it in the morning"), the gate still posts its screen and does not wait: take the
 recommended option of every question, log each under **Assumptions**, and go on. The hard
-stops and a login only the user can supply still stop, and a series' release is never authorized
-this way. A secret in T3 Code still goes through `request_secret`, which waits for the user.
+stops and what only the user can do still stop, and a series' release is never authorized
+this way.
 
 **Three hard stops survive the gate.** Stop and ask, whatever else is running, when the choice
 in front of you changes a contract something outside this repository already depends on, drops
@@ -87,8 +104,8 @@ foreign key, a check or any other constraint on existing rows, an existing colum
 required, a rename, a type change, or a rewrite of rows does more than add.
 
 **A skipped step stays visible.** A lane step you decide not to run stays in the log's
-**Lane** as `skip: <reason>`, never dropped. The lane files exist to stop a run from reading a
-lane, then writing a bespoke plan that loses half of it.
+**Lane** as `- [x] <title> skip: <reason>`, never dropped. The lane files exist to stop a run
+from reading a lane, then writing a bespoke plan that loses half of it.
 
 **A run can end without a pull request.** When the lane itself ends the work (the fix lane
 cannot reproduce, the refactor or every perf change is reverted), skip the tail, set
@@ -107,8 +124,7 @@ yourself and let the review stage read it. Which one is your call. See **Delegat
 ## Delegating the work
 
 A delegate starts on a clean context, and its diff reaches a reader who did not write it. It
-costs a fresh read of the codebase. Whether to delegate is your call every time, and nothing
-here forbids it on small work or forces it on large work. Say in one line which way you went.
+costs a fresh read of the codebase. Say in one line which way you went.
 
 Usually, tasks in one stage whose file lists do not intersect get one delegate each, run at
 once. A task that runs alone is usually yours, because its delegate re-reads half the
@@ -159,8 +175,7 @@ writers in one checkout share its git index and break each other's builds.
 
 **Every host starts them per Delegating in `AGENTS.md`.** Codex uses the same two agents from
 `{{agents_dir}}/`, and a T3 Code `delegate_task` for one plan.md task opens with
-`{{agents_dir}}/oneshot-worker.md`'s body. Before a turn ends to wait on a `delegate_task`, set
-`Status. waiting` in the run log, and back to `running` when it returns.
+`{{agents_dir}}/oneshot-worker.md`'s body.
 
 **No subagents available changes how a step runs, not whether it runs.** Write the code
 yourself, then review it in a separate pass whose only input is the diff, and say so. `external-review`
@@ -308,15 +323,13 @@ line, before any task-specific plan and before reasoning about the task. A lane 
 ends by naming [`lanes/tail.md`](lanes/tail.md): its steps follow the lane's own, in the same
 list. Mirror the list in the host's todo tool when it has one. Then work the list: re-read each
 step's text in its file before you start it, because a compaction keeps the log and drops what
-you read, and tick its line when it is done. A step you do not run is ticked as
-`- [x] <title> skip: <reason>`. The tail's steps go in one by one, never as one line naming
-the file.
+you read, and tick its line when it is done. The tail's steps go in one by one, never as one
+line naming the file.
 
 When the task holds several requests (a numbered feedback list, one message with many asks,
 items the user raised earlier in the conversation and expects in this run), copy each into
-**Requests** in the same step, one `- [ ]` line in the user's words, and move in the lines of
-`.specs/requests.md` this run takes on, deleting them there. Tick each with the commit
-that did it, or `declined: <reason>` when the gate or a decision ruled it out. A compaction's
+**Requests** in the same step, and move in the lines of `.specs/requests.md` this run takes
+on, deleting them there. Write and tick them per **A message during the run**. A compaction's
 summary drops items; this list does not. Leave the section out when the task is one request.
 
 ## Report
@@ -348,8 +361,8 @@ A series reports per step 6 of [`lanes/series.md`](lanes/series.md).
 
 **After the report.** A message that adds to or corrects this run's work is another round of
 the same run while its pull request is open, and a new run once it has merged. Either way it
-goes through the tail, review included, before a merge. Add its items to **Requests**, set
-`Status. running`, and start the tail at **Clean the diff** on the new commits.
+goes through the tail, review included, before a merge. Copy its asks per **A message during
+the run**, set `Status. running`, and start the tail at **Clean the diff** on the new commits.
 
 A review lane adds the verdict table in the review's own numbers, with a ready-to-paste reply
 for every `WRONG` and `LATER`, because those are what the user sends back.
