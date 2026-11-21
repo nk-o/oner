@@ -161,7 +161,8 @@ font, color, theme, or reference is the default for every project.
 
 A treatment the user did not ask for and the system does not have, such as a gradient, a new
 color, a new decorative layer, or an animation, and every design proposal from a reviewer, goes
-to the user as a before and after capture pair. Build it after they pick it. An open-ended
+to the user as a capture of the current screen beside a capture of a throwaway mock. Build it
+into the product after they pick it. An open-ended
 "suggest something better" from the user goes to `prototype`.
 
 ## Look at what you built
@@ -174,4 +175,5 @@ involved, and reuse `break-ui` evidence for the same surface. A prototype has th
 interaction floor as a working screen.
 
 Report what rendered, which interactions and sizes were checked, and what remains unverified.
-Record only approved durable system changes in DESIGN.md through `design-context`.
+Record only approved durable system changes in DESIGN.md through `design-context`. Do not
+restart an exploration or verification workflow already running for this target.

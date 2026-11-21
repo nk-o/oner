@@ -5,7 +5,7 @@ review; they do not prescribe a framework or aesthetic.
 
 ## Composition
 
-- Squint at a capture from **Look first**, or blur it, and list its bands top to bottom: each
+- Squint at a capture at the width the user views, or blur it, and list its bands top to bottom: each
   a run of content or controls with empty space above and below, and the job it does. Two
   bands that serve one job, such as a search box and the filters that narrow the same list,
   are a finding.

@@ -28,19 +28,22 @@ For Figma, run `figma-design`'s structural audit on the changed frames and inspe
 Capture each changed screen at the width the user views it: the width they named or sent
 screenshots at, else 1280 and the widest layout the product supports. Output that renders in
 both an editor and a front end, such as a block, an embed, or a widget, is captured in both.
-Open each capture and look at it beside a reference: the product's best neighbouring screen,
-or an external screen the user or `design-context` named.
+Open each capture and look at it beside a reference: the product's best neighboring screen,
+an external screen the user or `design-context` named, else the screen's own capture from
+before the change. A first screen with none of these is judged against the brief, and its line
+says so.
 
 The look is done by a reader who did not build the change. Where the host has subagents, a
 fresh delegate gets the captures, the reference, and the task, and not the diff or the
-author's notes. Otherwise it is a separate pass whose only input is the captures. The reader
-is skeptical: a screen passes only when its line names nothing that reads worse than the
+author's notes. Otherwise it is a separate pass whose only input is those three. A look already
+done on the same captures is reused. The reader is skeptical: a screen passes only when its line names nothing that reads worse than the
 reference.
 
 Write one line per screen: what reads well, what reads worse than the reference, and the
 capture's path. "No remarks", "passed", or "clean" about how a screen looks needs that line
 for every screen it covers. A script that checks status codes, DOM presence, scroll width, or
-errors is reported by what it checked, never as a visual pass.
+errors is reported by what it checked, never as a visual pass. A screen that cannot be
+captured gets a line that says so, and nothing about how it looks is reported.
 
 Done when every changed screen has its line.
 
@@ -65,8 +68,9 @@ If browser or rendered access is unavailable, name the unverified checks.
   `design-context`. Frame: put the target beside a sibling screen at the same width. Content
   width, alignment, gutters, the surface content sits on, and the header's position match,
   unless the system gives the target its own frame for a stated reason.
-- **Composition.** After the look, on the screens it flagged or the change reshaped, run the
-  measurements in [Composition](references/interface-checks.md#composition).
+- **Composition.** After the look, run the measurements in
+  [Composition](references/interface-checks.md#composition) on each screen the look flagged,
+  the change reshaped, or the caller named.
 - **Text and layout.** Real copy wraps without hiding essential information. Containers adapt
   to content. Numbers align where comparison matters. Images reserve their space. Repeated
   elements stay consistent, and intentional differences have a content or interaction reason.
@@ -98,8 +102,8 @@ once. Escalate a remaining material problem rather than reporting it passed.
 every page and component that renders the same cause, then fix it at the owner they share:
 the component, the block's stylesheet, or the token. A page-scoped override, such as a
 `body.page-id-*` selector, `!important`, or a per-page stylesheet, leaves the other pages
-broken, so fix the owner instead. When a site and a plugin could both ship the fix, which
-repository ships it is the user's decision.
+broken, so fix the owner instead. When the list reaches pages outside the task's scope, the
+owner fix and the list go to the user, and the fix lands after they approve it.
 
 Keep three kinds of finding distinct:
 
