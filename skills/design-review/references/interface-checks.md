@@ -3,6 +3,20 @@
 Use the project's actual primitives and tokens. These checks supplement the task's visual
 review; they do not prescribe a framework or aesthetic.
 
+## Composition
+
+- Squint at a capture at the width the user views, or blur it, and list its bands top to bottom: each
+  a run of content or controls with empty space above and below, and the job it does. Two
+  bands that serve one job, such as a search box and the filters that narrow the same list,
+  are a finding.
+- Measure the gaps between neighbors in the first viewport on the rendered page. A gap between
+  groups smaller than twice the gap inside them, peers set at different gaps, and an edge that
+  lines up with no other edge are findings.
+- Measure a container's padding as the user sees it, from its edge to its first and last line
+  of text or control, less each line's half-leading and any margin a child adds. Top and
+  bottom that differ by more than 4px are a finding; fix the margin or line-height that adds
+  it.
+
 ## Forms and actions
 
 - A visible label names the field. Clicking it focuses the input. Placeholder text is an

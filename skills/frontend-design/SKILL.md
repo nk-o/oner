@@ -69,8 +69,8 @@ nothing more.
 - Motion explains change or feedback. Read `motion-design` when changing motion. Routine
   transitions may remain immediate when animation adds nothing.
 
-A missing DESIGN.md does not erase the existing identity. A local improvement does not
-authorize rebuilding neighboring screens or replacing the product's typography and palette.
+A local improvement does not authorize rebuilding neighboring screens or replacing the
+product's typography and palette.
 
 ## A new direction
 
@@ -159,16 +159,21 @@ These are prompts to inspect purpose, not universal bans:
 Keep a treatment when the accepted system or brief uses it for a concrete purpose. No named
 font, color, theme, or reference is the default for every project.
 
+A treatment the user did not ask for and the system does not have, such as a gradient, a new
+color, a new decorative layer, or an animation, and every design proposal from a reviewer, goes
+to the user as a capture of the current screen beside a capture of a throwaway mock. Build it
+into the product after they pick it. An open-ended
+"suggest something better" from the user goes to `prototype`.
+
 ## Look at what you built
 
 Build fully, render it with every fixture from **Before the first edit**, then run
-`design-review` on the rendered result before reporting visible UI done.
+`design-review` on the rendered result, its **Look first** included, before reporting visible
+UI done.
 Include an ordinary laptop height when viewport sizing, sticky chrome, or a large hero is
 involved, and reuse `break-ui` evidence for the same surface. A prototype has the same
 interaction floor as a working screen.
 
 Report what rendered, which interactions and sizes were checked, and what remains unverified.
-Record only approved durable system changes in DESIGN.md through `design-context`.
-For a report-only review or oneshot verification step, report failures without editing them.
-The caller's resolve step owns fixes. Do not restart an exploration or verification workflow
-already running for this target.
+Record only approved durable system changes in DESIGN.md through `design-context`. Do not
+restart an exploration or verification workflow already running for this target.

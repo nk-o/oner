@@ -51,10 +51,11 @@ full inventory. Distinguish accepted rules from observations and proposals. Do n
 repeated hardcoded value, a single screen's layout, or an accidental bug into a system rule.
 Record why a decision matters when the value alone cannot explain it.
 
-Each entry must change a future implementation choice. Do not turn the document into a
-markup inventory, an audit report, a list of every absent CSS property, or a transcript of
-the investigation. Omit unknown system rules and report verification limits in the chat.
-For a small interface, a short document is enough. Browser defaults are not intentional
+Each entry must change a future implementation choice. A correction becomes a general rule
+that would change a future screen, not a description of the screen it came from. What a given
+screen or setting holds and does belongs in the product's specs or principles. Audit
+findings, the investigation, and verification limits go in the chat. Omit unknown system
+rules. For a small interface, a short document is enough. Browser defaults are not intentional
 component rules unless the project's guidance adopts them.
 
 After a local UI edit, change the document only if the edit implements an approved durable

@@ -23,10 +23,34 @@ the consumers a changed token or shared component actually reaches. For a diff,
 read the previous and current versions. Separate introduced defects from pre-existing ones.
 For Figma, run `figma-design`'s structural audit on the changed frames and inspect screenshots.
 
+## Look first
+
+Capture each changed screen at the width the user views it: the width they named or sent
+screenshots at, else 1280 and the widest layout the product supports. Output that renders in
+both an editor and a front end, such as a block, an embed, or a widget, is captured in both.
+Open each capture and look at it beside a reference: the product's best neighboring screen,
+an external screen the user or `design-context` named, else, for a change that keeps the
+screen's design, its own capture from before the change. A screen with none of these is
+judged against the brief, and its line says so.
+
+The look is done by a reader who did not build the change. Where the host has subagents, a
+fresh delegate gets the captures, the reference, and the task, and not the diff or the
+author's notes. Otherwise it is a separate pass whose only input is those three. A look already
+done on the same captures and reference is reused. The reader is skeptical: a screen passes
+only when its line names nothing that reads worse than the reference or breaks the brief.
+
+Write one line per screen: what reads well, what reads worse than the reference, and the
+capture's path. "No remarks", "passed", or "clean" about how a screen looks needs that line
+for every screen it covers. A script that checks status codes, DOM presence, scroll width, or
+errors is reported by what it checked, never as a visual pass. A screen that cannot be
+captured gets a line that says so, and nothing about how it looks is reported.
+
+Done when every changed screen has its line.
+
 ## Check the result
 
-Use a desktop width and the narrowest supported width, realistic data and text lengths, and
-the states the task changes. Operate the actual controls, including keyboard focus and
+Use the widths from **Look first** and the narrowest supported width, realistic data and text
+lengths, and the states the task changes. Operate the actual controls, including keyboard focus and
 validation. Static mockups prove presentation only; Figma frames do not prove web behavior.
 If browser or rendered access is unavailable, name the unverified checks.
 
@@ -44,15 +68,9 @@ If browser or rendered access is unavailable, name the unverified checks.
   `design-context`. Frame: put the target beside a sibling screen at the same width. Content
   width, alignment, gutters, the surface content sits on, and the header's position match,
   unless the system gives the target its own frame for a stated reason.
-- **Composition.** Squint at a 1280 capture, or blur it, and list its bands top to bottom:
-  each a run of content or controls with empty space above and below, and the job it does.
-  Two bands that serve one job, such as a search box and the filters that narrow the same
-  list, are a finding. Measure the gaps between neighbors in the first viewport on the
-  rendered page. A gap between groups smaller than twice the gap inside them, peers set at
-  different gaps, and an edge that lines up with no other edge are findings. Measure a
-  container's padding as the user sees it, from its edge to its first and last line of text
-  or control, less each line's half-leading and any margin a child adds. Top and bottom that
-  differ by more than 4px are a finding; fix the margin or line-height that adds it.
+- **Composition.** After the look, run the measurements in
+  [Composition](references/interface-checks.md#composition) on each screen the look flagged,
+  the change reshaped, or the caller named.
 - **Text and layout.** Real copy wraps without hiding essential information. Containers adapt
   to content. Numbers align where comparison matters. Images reserve their space. Repeated
   elements stay consistent, and intentional differences have a content or interaction reason.
@@ -78,8 +96,14 @@ states is a design proposal. Reading the list first anchors the review on it.
 ## Report and stop
 
 Inspect one batch, fix the actual failures together when fixing is authorized, and confirm
-once. Do not start a second polish process after another skill completed the same checks.
-Escalate a remaining material problem rather than reporting it passed.
+once. Escalate a remaining material problem rather than reporting it passed.
+
+**A defect is a class.** Before fixing a defect the user reported or the look found, list
+every page and component that renders the same cause, then fix it at the owner they share:
+the component, the block's stylesheet, or the token. A page-scoped override, such as a
+`body.page-id-*` selector, `!important`, or a per-page stylesheet, leaves the other pages
+broken, so fix the owner instead. When the list reaches pages outside the task's scope, bring
+the owner fix and the list to the user before editing the owner.
 
 Keep three kinds of finding distinct:
 
@@ -90,7 +114,8 @@ Keep three kinds of finding distinct:
    Cite its owner and the consumer. A stale document is a conflict to resolve, not proof that
    the implementation is wrong.
 3. **Design proposal:** a different hierarchy or treatment could help the stated task. Explain
-   the tradeoff and label it a proposal. Preference is not a blocker.
+   the tradeoff and label it a proposal. It reaches the user per **Habits to question** in
+   `frontend-design`. Preference is not a blocker.
 
 Report the target, observed material findings, actual checks and widths, and what remains
 unverified. General correctness, security, and test coverage belong to `prod-review`.
