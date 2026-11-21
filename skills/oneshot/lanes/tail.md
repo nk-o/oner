@@ -183,11 +183,15 @@ the run log for a review.
   `running` when an event or a wake arrives. In a series stage, skip this step:
   the series takes the PR from here, per [`series.md`](series.md).
 - **Release.** This install's release setting is `{{oneshot_release}}`. The step runs in an
-  `oneshot-auto` run whatever the conditions below say. In any other run it runs only when all
-  of these hold, read from the run log: the setting is `production`; the lane is fix, feature,
-  refactor, or perf, so the pull request is this run's own; and the **Gate** `Outcome.` line
-  reads `nothing to settle`, `answered`, or `approved <path>`, in a feature as in a fix. Outside
-  `oneshot-auto`, `away` and `pull request only` never release. Otherwise tick it as
+  `oneshot-auto` run whatever the conditions below say. In any other run the lane must be fix,
+  feature, refactor, or perf, so the pull request is this run's own, and one of these must hold,
+  read from the run log: **Gate** quotes the user's standing consent to merge or release this
+  run, per **Standing consent** in the skill, and nothing the user said after it, such as an
+  answer that stops at the pull request, takes it back, whatever the `Outcome.` line reads; or
+  the setting
+  is `production` and the `Outcome.` line reads `nothing to settle`, `answered`, or `approved
+  <path>`, in a feature as in a fix. Without that consent, `away` and `pull request only` never
+  release outside `oneshot-auto`. Otherwise tick it as
   `skip: <the condition that failed>`. A series stage ticks it `skip:`, because the series
   releases every stage itself, and so does the plan lane.
 
@@ -199,8 +203,8 @@ the run log for a review.
   2. When a command prints the commit production runs, release as a one-stage series. Take the
      next free `NNN` in the primary checkout's `.oner/` (the first entry of `git worktree
      list`), and write there a `program.json` per step 4 of `series.md`. Its `authorization` is
-     the `Auto.` line in an `oneshot-auto` run, and otherwise `oneshot.release: production`,
-     the user's standing consent. `release` holds the facts, and the one stage has this run's
+     the `Auto.` line in an `oneshot-auto` run, the user's words from **Gate** where their
+     consent let the step run, and otherwise `oneshot.release: production`. `release` holds the facts, and the one stage has this run's
      branch as its `branch` and `migrations` set when the change carries one. Add a series log
      `oneshot.md` beside it with a `## Now` section, and write the folder's path into this
      run's log as `Program. <path>`. Pass `--program <path>` to every `series.mjs` call, because
