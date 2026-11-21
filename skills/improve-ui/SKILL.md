@@ -95,9 +95,9 @@ the product supports (320 when nothing says), 768, 1280, and 1920, in each theme
 ships. Add the states the surface has: empty, loading, each error through `--block`, and the
 worst realistic data from steps 1 and 2 of `break-ui`. Note each page error the CLI reports.
 
-Look first, measure second. Open every capture at full size, at least one width per surface. A
-contact sheet, a thumbnail grid, or a JSON of measurements is not a look. Then, before any
-defect check, run four passes:
+Run **Look first** from `design-review` on every surface, at least one width per surface, each
+capture opened at full size. A contact sheet, a thumbnail grid, or a JSON of measurements is
+not a look. Then, before any defect check, run four passes:
 
 - **Frame.** Put each surface beside a reference at the same width and theme. A different
   content width, alignment, gutter, surface, header position, or row anatomy is a finding, at
