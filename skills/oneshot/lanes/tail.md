@@ -70,8 +70,6 @@ the run log for a review.
   the merge happens (**Release**, a series `merge` action, or `pr-wait`'s merge), whenever
   **Checks** names another head or the default branch moved since.
 
-
-
   Then, where the lane took a pin, re-run it, and run `check` on every feature
   `list --affected <Base>` names, or `check --all` when it prints `unmapped` files. When the
   change adds, moves, or removes something a user reaches, update `features.json` in the same
@@ -85,11 +83,34 @@ the run log for a review.
   Then run `break-ui` on each screen and `break-api` on each endpoint, job, or command the
   change reaches that a user or a caller touches, with the cases the lane picked before the
   edit, or with cases taken from the boundary in **Base** when the lane picked none. Size it to
-  the change. A one-line fix gets the one or two cases beside its reproduction. When the change
-  is UI a user sees, run `design-review` on it: **Look first** on captures at the widths it
-  names, the rest on the rendered UI. Here all of them only report. Every row that did not
-  hold and every defect the review shows is a finding for Resolve, not an edit made in this
-  step. Paste both results into the run log's **Checks**.
+  the change. A one-line fix gets the one or two cases beside its reproduction.
+
+  **QA pass.** When the change reaches a screen a user sees, or a flow through one, a reader who
+  did not write the change runs the test plan: the cases the lane picked before the edit
+  (feature lane step 4, the fix lane's reproduction) and the acceptance criteria. Where the host
+  has subagents, the reader is a fresh delegate on the `light` tier of this session's executor
+  in `{{skills_dir}}/lead/executors.md`, else on the host's smallest model. Its brief holds only
+  the test plan, the screen's element list where plan.md has one, **Base** and the head, how to
+  start the app (the `verify-<app>` skill where the repository has one), the widths the user
+  named or sent screenshots at, the reference **Look first** in `design-review` names, and the
+  run folder's `media/` for its captures. Without subagents it is a separate pass whose only
+  inputs are those. It writes no tracked file. It runs the app at **Base**, in a scratch
+  worktree removed after, and at the head, each on its own copy of the data `verify-<app>`
+  **Seed** puts in, at the narrowest supported width and the width the user views. Where the
+  store cannot be copied, Base's cases run first and the seed is restored before the head's. It
+  drives each case as a user does (click, type, submit), carries out **Look first** on every
+  capture, and only then reads code, to name a suspected cause as `file:line` for each fail. It
+  returns `pass` or `fail` per case with the head's capture path and the Base path or `not on
+  Base`, then `Approve` or `Not approve` overall, with the head it ran on. A case or criterion
+  that fails on the head fails the verdict, whatever the base shows, and so does a defect the
+  head shows and the base does not. A defect both show outside the test plan is `pre-existing`:
+  one sentence in the run log, per **Editing** in `AGENTS.md`. A `Not approve` is a finding for
+  Resolve, and stands until the whole test plan, run again on the head after the fixes, returns
+  `Approve`. Then run the rest of `design-review` on the rendered UI with the same captures.
+
+  Here all of them only report. Every row that did not hold and every defect a review shows is
+  a finding for Resolve, not an edit made in this step. Paste every result into the run log's
+  **Checks**.
 - **Cross the boundary if the change does.** When the change reaches a wire format, a stored
   column another service reads, a pinned library's internals, or a file another language
   parses, run `blast-radius` on that path and paste its result into the run log's **Checks**.
@@ -148,13 +169,13 @@ the run log for a review.
   exceptions, each worth one more round on the newest fixes and no more. Round two's own fixes
   introduced a regression, or a `FIX` in security, access control, data loss, or concurrency is
   still open with an input that shows it. Record each round in the run log's **Review**.
-- **Ship.** Run `pr`, push the branch, and open the PR with `gh pr create`, naming
-  each screenshot and recording the body shows with `--attach`, as `pr` says. When
-  the branch already has a pull request, push to it and leave its description alone unless the
-  change made it wrong. In T3 Code, the call after `gh pr create` or the push is
-  `link_pull_request` with the pull request's full URL. When the run log names an issue, update
-  it for the open pull request per the `issue-tracker` skill. Do not merge, and do not run
-  `wt finish`.
+- **Ship.** A **QA pass** `Not approve` still standing holds this step. Run `pr`, push the
+  branch, and open the PR with `gh pr create`, naming each screenshot and recording the body
+  shows with `--attach`, as `pr` says. When the branch already has a pull request, push to it
+  and leave its description alone unless the change made it wrong. In T3 Code, the call after
+  `gh pr create` or the push is `link_pull_request` with the pull request's full URL. When the
+  run log names an issue, update it for the open pull request per the `issue-tracker` skill. Do
+  not merge, and do not run `wt finish`.
 - **Watch.** Run `pr-wait` on the pull request until it is ready. Each fix it pushes runs
   `green-repo` first, and a `DECIDE` from a comment follows the **Resolve** rule above. Before
   a turn that ends to wait for the Claude app's Auto-fix events or T3 Code's
