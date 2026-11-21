@@ -155,7 +155,8 @@ misses it. A mistake seen once, with nothing that would bring it back, gets the 
 Inside a task the second fix is a **Guard** line in the report, not part of the diff. `reflect`
 applies guards. One exception: a correction I make a second time has
 recurred already. When it is about how the product looks or reads, write it into the project's
-`DESIGN.md` in the change that applies it.
+`DESIGN.md` in the change that applies it, as a general rule for future screens,
+and what one screen holds or does goes to the product's specs.
 
 ## Verifying
 
