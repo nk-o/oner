@@ -186,7 +186,9 @@ the run log for a review.
   `oneshot-auto` run whatever the conditions below say. In any other run the lane must be fix,
   feature, refactor, or perf, so the pull request is this run's own, and one of these must hold,
   read from the run log: **Gate** quotes the user's standing consent to merge or release this
-  run, per **Standing consent** in the skill, whatever its `Outcome.` line reads; or the setting
+  run, per **Standing consent** in the skill, and nothing the user said after it, such as an
+  answer that stops at the pull request, takes it back, whatever the `Outcome.` line reads; or
+  the setting
   is `production` and the `Outcome.` line reads `nothing to settle`, `answered`, or `approved
   <path>`, in a feature as in a fix. Without that consent, `away` and `pull request only` never
   release outside `oneshot-auto`. Otherwise tick it as

@@ -115,8 +115,8 @@ cannot reproduce, the refactor or every perf change is reverted), skip the tail,
 
 **A run ends at a ready pull request, or in production.** This install's release setting is
 `{{oneshot_release}}`. With `production`, a run whose gate was settled goes on past **Watch**
-to the tail's **Release** step, which merges and checks production. That step names which
-gate outcomes count. In a series, a stage that reaches production ends that stage, not the
+to the tail's **Release** step, which merges and checks production, and so does a run whose
+**Gate** quotes the user's consent to merge it. That step names which gate outcomes count. In a series, a stage that reaches production ends that stage, not the
 run: the coordinator takes the actions `next` prints next, per step 5 of `series.md`, and
 does not end the turn with a report.
 
@@ -369,6 +369,8 @@ A series reports per step 6 of [`lanes/series.md`](lanes/series.md).
 the same run while its pull request is open, and a new run once it has merged. Either way it
 goes through the tail, review included, before a merge. Copy its asks per **A message during
 the run**, set `Status. running`, and start the tail at **Clean the diff** on the new commits.
+A message that only consents to the merge adds no commits: quote it in **Gate**, set `Status.
+running`, and run **Release** again.
 
 A review lane adds the verdict table in the review's own numbers, with a ready-to-paste reply
 for every `WRONG` and `LATER`, because those are what the user sends back.

@@ -87,7 +87,7 @@ the table.
 after that runs without asking: the spec, the implementation, the project's checks, verification
 in the running product, review by several models, fixes for what the review proves, the pull
 request, and a watch on it until checks and review bots are through. By default it does not
-merge. Set `oneshot.release` to `production` in `config.json` and a run also merges the pull
+merge unless you tell it to. Set `oneshot.release` to `production` in `config.json` and a run also merges the pull
 request once it is ready and checks production after the deploy: a fix, feature, refactor, or
 performance run whose gate had nothing to ask, got your answers, or follows a plan you approved.
 A review of an existing pull request never merges.
