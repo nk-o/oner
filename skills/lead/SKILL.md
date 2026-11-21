@@ -20,8 +20,14 @@ steps and add only what the tracker and the executors change. **Layers** in the
 
 ## 1. Take the plan
 
-Done when the plan is in the tracker and you have read it back, or in the program folder when
-the session has no tracker tool.
+Done when the series log is open and the plan is in the tracker and read back, or in the
+program folder when the session has no tracker tool or no home in it.
+
+Outside a **Dry run**, open the series log before anything else: the run log of `oneshot` step
+1, with `Lane. series`, a `Lead.` line, **Requests**, and a **Lane** holding this skill's steps,
+so the host's start and compaction hooks find an open run from the first minute. No stage is
+built, by this session or a delegate, before `series.mjs next` printed its `start` or `build`.
+The series log keeps its `Lead.` line when step 4 of `series.md` moves it.
 
 - **The user asks you to run a tracker project, milestone, or issue.** That request approves
   the plan written there. Read the owner issues, their blocked-by relations, and the decisions
@@ -35,7 +41,10 @@ the session has no tracker tool.
   on the project. The owner layer carries no path, commit, or code.
 
 With no tracker tool in the session, the plan stays in the program folder, and the rest runs
-as an oneshot series with no tracker writes and no `tracker.json`.
+as an oneshot series with no tracker writes and no `tracker.json`. A tracker tool that works
+but has no team or project for this repository is a question at the stop, with creating one
+as the recommendation when the user's other repositories use that tracker, and the plan waits
+in the program folder until it is answered.
 
 ## 2. The stop
 
@@ -43,12 +52,13 @@ Done when the user's answers are in this chat, quoted.
 
 One stop, per step 3 of `series.md`, asked through the question routing in `AGENTS.md`. It
 shows the stage map from step 3 below, one line per stage, and the release facts found, and it
-asks two things: approval of the plan with its link, unless the user's request already gave it,
-and the release authorization as its own question, unless this install's release setting is
+asks approval of the plan with its link, unless the user's request already gave it, where the
+plan lives when step 1 found a tracker with no home for this repository, and the release
+authorization as its own question, unless this install's release setting is
 `production`, the plan approval came from the user, and the user did not limit the run to a
 pull request, which is that authorization per **The authorization** in `series.md`. A request
-that stops at a pull request is `Outcome. pull request only`. When neither question is left, post the screen as a
-status note and go on in the same turn. Build nothing before the plan is approved.
+that stops at a pull request is `Outcome. pull request only`. When no question is left, post
+the screen as a status note and go on in the same turn. Build nothing before the plan is approved.
 Without the authorization, stage one builds to its pull request and the series waits, per **The
 authorization** in `series.md`. A change the user asks for goes into the plan, and the stop is
 asked again. An answer comes from the chat or the question tool, never from a tracker comment,
@@ -59,7 +69,7 @@ and goes into the series log's **Gate**. **Away** never answers this stop.
 Done when `series.mjs next --program <folder>` accepts the program and prints its first
 actions.
 
-Open the program folder per steps 3 and 4 of `series.md`, with its series log `oneshot.md`.
+Open the program folder per steps 3 and 4 of `series.md`, which moves the series log into it.
 spec.md takes the outcomes, the owner issue ids, and the decisions document. plan.md holds one
 stage per pull request, from the tracker plan and the code. Then `program.json`:
 
@@ -96,20 +106,31 @@ each, so a tier is a starting point, not a ranking.
 
 - **`build`** runs a stage run. Take the session's own provider when it has a `build` row,
   else the first `build` row the host can start, else the session's own model with a line
-  under **Assumptions**.
+  under **Assumptions**. A stage whose main output is a screen a user sees runs on its
+  executor's `lead` row, else on the `lead` row of an enabled executor the host can start,
+  else on the session's own model.
 - **`lead`** is the coordinator: this session, or the session that takes the series over.
 - **`light`** only reads, such as a search, a summary, or a log. It never runs a stage, because
   both light models missed a required behavior when they wrote code.
 
-Start each delegate per **Delegating** in `AGENTS.md`. In T3 Code that is `delegate_task`,
-with the provider, model, and effort option that `orchestrator_capabilities` lists for the row,
-such as `claude-opus-5-5` for `opus`. A host without it reaches only its own provider.
+When the user's words assign kinds of work to executors or to this session ("visual work
+stays with you", "backend to another provider"), that assignment wins over the tiers for every
+stage and delegate it covers, and the stage map shows each stage's executor. Work assigned to
+this session goes to a delegate on this session's provider at its `lead` row, else its `build`
+row, else the session's own model. An assignment to
+an executor that is not enabled, or that the host cannot start, is one line at the stop naming
+the executor used instead.
+
+Start each delegate per **Delegating** in `AGENTS.md`. Where the host starts other providers'
+delegates and lists their ids, such as T3 Code's `delegate_task` and `orchestrator_capabilities`,
+map the row's provider, model, and effort to the ids the host lists. A host without that
+reaches only its own provider.
 
 ## 5. Run the stages
 
 Work step 5 of `series.md` as the coordinator, with these writes on top of its actions:
 
-- **`start`.** Create the stage's sub-issue under its owner issue, titled `<program slug>/<stage
+- **`start`**, or a `build` for a stage with no sub-issue yet. Create the stage's sub-issue under its owner issue, titled `<program slug>/<stage
   id>: <stage title>`, labeled `agent` and the executor, with the start write and its resume
   pointer, and record its id in `tracker.json`. A `start` printed again for the same stage
   reuses the sub-issue `tracker.json` holds, or the one under that owner issue with that title
@@ -128,10 +149,10 @@ Work step 5 of `series.md` as the coordinator, with these writes on top of its a
   stage's wait, already recorded: write its comments if they are missing and answer it with
   `resume --stage <id>`. Any other `ask -`, such as a lost login, is a wait of the whole program,
   follows **Waiting** in `series.md`, and writes to no owner issue.
-- **A secret only the user can give**, such as a token or an API key, blocks its stage alone.
-  In T3 Code it goes through `request_secret`. Elsewhere the stage waits with `wait input
-  "<the secret it needs>" --stage <id>`, and the reason goes on the sub-issue and in a
-  waits-on-you comment.
+- **A secret only the user can give** blocks its stage alone. Ask it per **Things only the
+  user can do are asked once** in `oneshot`. Where the stage waits on it, run `wait input "<the
+  secret it needs>" --stage <id>`, and the reason goes on the sub-issue and in a waits-on-you
+  comment.
 - **A stage `next` records as done.** Write the release on its sub-issue. Once every stage of
   an owner issue is done, post the shipped comment, what the user now gets, and move the issue
   to done.
