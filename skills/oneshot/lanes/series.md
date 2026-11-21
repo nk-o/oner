@@ -147,14 +147,13 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    `series.mjs next`. A record it refuses names the field.
 5. **Run the stages.** Run `next`, take every action it prints, from the first line down, and
    run `next` again, until it prints `complete`. Read its whole output: a pipe through
-   `head`, `tail`, or `sed` drops the actions sorted last. Its `--wait` is the only wait, in
-   place of `sleep`, `gh pr checks --watch`, or a loop of your own. One session coordinates a
-   series. Another session that only needs its state runs `series.mjs report`, which changes
+   `head`, `tail`, or `sed` drops the actions sorted last. Its `--wait` is the only wait, per
+   **Waiting costs a pass over the whole context**. One session coordinates a series. Another session that only needs its state runs `series.mjs report`, which changes
    nothing.
 
    | Action | What you do |
    | --- | --- |
-   | `start` | Cut the branch from the updated default branch: `{{skills_dir}}/worktree/wt.sh new <branch>` where the repository has `.claude/worktree.json`, else `git switch -c <branch> origin/<base>`. In T3 Code the stage's `delegate_task` checkout is its worktree, and the delegate runs that `git switch` there, because a worktree made in the shell does not bind to a T3 thread. Open the stage run below there, and build it. |
+   | `start` | Cut the branch from the updated default branch: `{{skills_dir}}/worktree/wt.sh new <branch>` where the repository has `.claude/worktree.json`, else `git fetch origin` and `git switch -C <branch> origin/<base>`. Where the host gives the delegate its own checkout, such as T3 Code's `delegate_task`, the delegate runs that fetch and switch there, because a worktree made in the shell does not bind to the host's thread and a host-made checkout can carry a stale branch of that name. Open the stage run below there, and build it. |
    | `build` | Work the stage run until its pull request is open. |
    | `restart` | The branch was cut before a stage it needs was merged. Remove it and start again. |
    | `fix` | A fresh delegate works what `next` names in the stage's checkout by `pr-wait`'s **Handle an event**, and pushes. It does not wait. |
@@ -186,9 +185,10 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
 
    A fix for a stage after its delegate finished, a red check, review feedback,
    or a scope change goes to a fresh delegate with the whole scope, never as a second
-   message to the finished one. The coordinator writes no code on a stage branch. The one
-   commit it makes there is an `update` that merges without a conflict. Where the host has
-   no subagents, the coordinator builds the stage itself.
+   message to the finished one. The coordinator writes no code on a stage branch, and nothing
+   into a running delegate's checkout. A delegate gone stale is cancelled and replaced. The one
+   commit it makes on a stage branch is an `update` that merges without a conflict. Where the
+   host has no subagents, the coordinator builds the stages itself, one after another.
 
    **A commit after the review reopens it.** A stage branch that gains a commit after its
    review round, a fix or a merge of the default branch with conflicts resolved by hand, runs
@@ -229,9 +229,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    hard stops comes back unanswered in its summary, the rule that it removes what it
    creates for its checks, the rule that it writes the stage's production check, and the
    check that proves it: an open pull request whose checks are running. The coordinator puts a hard stop to the user, per
-   **Waiting**, and does not settle it for the delegate. Where the host has no subagents,
-   build them one after another. `next` prints no more `start` actions than `parallel` leaves
-   room for, and holds the rest until a stage's merge is approved. Merges, deploys, and
+   **Waiting**, and does not settle it for the delegate. `next` prints no more `start` actions
+   than `parallel` leaves room for, and holds the rest until a stage's merge is approved. Merges, deploys, and
    production checks go one stage at a time whatever else runs, and `next` holds the rest.
    A stage built beside another is
    brought up to date before its merge, so its checks run again on the new head. When the
@@ -275,15 +274,20 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
      other question lapses on the next pass.
 
    **Changing the plan.** A stage that grows while it is built is not split, per step 1.
-   When the user revises the program while it runs, pause it with
-   `wait decision`, rewrite `spec.md` and `plan.md` in the program folder, and show the user
-   the new stage map with one line per stage, as at the gate. Ask the approval and the
-   release of the new stages as one question, because a new stage can drop data or take
-   payments that the first authorization never named. Write the stages not started yet to a
-   file, in the shape of `program.json`'s `stages`, and run `series.mjs amend --stages <file>
-   --approval "<the user's answer, verbatim>"`, then `resume`. `amend` keeps every started
-   stage as it is and refuses a field only `series.mjs` writes. Release commands change the
-   same way, with `--release <file>`.
+   When the user revises the program while it runs, rewrite `spec.md` and `plan.md` in the
+   program folder, write the stages not started yet to a file, in the shape of
+   `program.json`'s `stages`, and run `series.mjs amend --stages <file> --approval "<the
+   user's words, verbatim>"`. When the user's own message asks for the new stage, that message
+   is the approval: amend without asking, and show the new stage map in a status note. Ask
+   first only when the change alters a started stage or a gate decision, drops data, touches
+   payments, or reaches one of `oneshot`'s hard stops, which the first authorization never
+   named: pause with `wait decision`, show the new stage map with one line per stage, as at
+   the gate, ask the approval and the release of the new stages as one question, and amend with
+   that answer, then `resume`. `amend` keeps every started stage as it is and refuses a field
+   only `series.mjs` writes, so an approved change to a started stage goes to a fresh delegate
+   with the whole scope, per step 5. A migration or a stored shape for a started stage goes
+   into a new stage instead, which declares `migrations` and `serial`. Release commands change the same way, with
+   `--release <file>`.
 
    **Work outside the series.** The repository keeps moving while a series runs. The user's
    own pull requests and side fixes land on the default branch, and `next` brings each stage
@@ -312,13 +316,20 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    the tools, `stages/` for every stage run, and `oneshot.md` for the rest. Keep a `## Now`
    section in that `oneshot.md`, rewritten at every stage transition and before every turn
    that waits:
-   - the stage in progress, its branch, worktree, pull request, and the action `next` last
-     printed;
+   - each stage in progress, its branch, worktree, pull request, and the action `next` last
+     printed, and its live delegate with the delegate's id on the host and the checkout's
+     head commit;
    - everything the series depends on outside the folder: a credential store item, an allow
      rule, an operator tool and the path it runs from, a local database or container;
    - what the next coordinator reads first, in order.
 
    No separate handoff file. A new coordinator, on any host, reads `## Now`, then runs `next`.
+   After a resume or in a new session, a `build` stage gets a fresh delegate with the same
+   brief when the host shows its delegate ended, or cannot show it and the checkout's head and
+   run log are unchanged since `## Now` was written. The stage run resumes from its own log per
+   **Resume before you open** in the skill. When the checkout changed and the host cannot show
+   its delegate, write the head and log state seen into `## Now`, and the next resume or
+   session that finds both unchanged since that write starts the fresh delegate.
    Where the host can start a new session, hand off after every stage that `next` records as
    done, never in the middle of one, so no coordinator carries more than one stage's context.
 6. **Report.** `series.mjs report` exits 0 only when every stage is done with its evidence.
