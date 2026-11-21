@@ -63,8 +63,8 @@ output goes where the lane step says, usually the run log, and the next step fol
 series is open, copy each ask in it into the log's **Requests**, the series log's in a series,
 one `- [ ]` line per ask in the user's words, so a numbered or bulleted list becomes one line
 per item. An ask inside the current work joins it. An ask that needs its own pull request
-becomes a new stage per **Changing the plan** in `series.md` when it belongs to the program's
-spec, and otherwise a line in `.specs/requests.md`. A question gets its answer in a status
+becomes a new stage per **Changing the plan** in `series.md` when it serves the program's
+outcomes, and otherwise a line in `.specs/requests.md`. A question gets its answer in a status
 note. Tick each line with its commit, `answered`, `declined: <reason>`, or `moved: <where>`.
 The report lists every line not ticked with a commit or `answered`.
 
@@ -72,8 +72,8 @@ The report lists every line not ticked with a commit or `answered`.
 **Gate** verbatim and covers the actions it names for the rest of the run or series. When the
 host refuses an action it covers, ask once for the allow rule that would let it through, in a
 series with `series.mjs wait permission`, and treat the consent as given. Consent to a series'
-release is written with `series.mjs resume --authorization "<their words>"`, per **The
-authorization** in `series.md`.
+release becomes its `authorization` per **The authorization** in `series.md`: in `program.json`
+when step 4 writes it, later only as the answer to that section's `wait input`.
 
 **Things only the user can do are asked once.** Every action found that only the user can
 take, such as a login, a token, a form, or a browser step, goes into one message that lists
@@ -240,7 +240,8 @@ a second folder for the same task. When the task the user typed is not that run,
 log's `Status. stopped: superseded`, say so in one line, and open a new folder. A log with an
 `Auto.` line was opened by `oneshot-auto`: read `{{skills_dir}}/oneshot-auto/SKILL.md` too,
 because its rules hold for the whole run. A log with a `Lead.` line was opened by `lead`, and
-its open steps are that skill's: read `{{skills_dir}}/lead/SKILL.md`. When
+its open steps are that skill's: read `{{skills_dir}}/lead/SKILL.md`, and take a series log
+with that line over per its **Taking a series over**. When
 the hook names an open series in this repository and the task is that series, read the `## Now`
 section of the series log in its program folder, then follow [`lanes/series.md`](lanes/series.md)
 from step 5, whichever agent ran it before.

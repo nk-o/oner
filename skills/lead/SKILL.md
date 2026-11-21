@@ -27,6 +27,7 @@ Outside a **Dry run**, open the series log before anything else: the run log of 
 1, with `Lane. series`, a `Lead.` line, **Requests**, and a **Lane** holding this skill's steps,
 so the host's start and compaction hooks find an open run from the first minute. No stage is
 built, by this session or a delegate, before `series.mjs next` printed its `start` or `build`.
+The series log keeps its `Lead.` line when step 4 of `series.md` moves it.
 
 - **The user asks you to run a tracker project, milestone, or issue.** That request approves
   the plan written there. Read the owner issues, their blocked-by relations, and the decisions
@@ -42,8 +43,8 @@ built, by this session or a delegate, before `series.mjs next` printed its `star
 With no tracker tool in the session, the plan stays in the program folder, and the rest runs
 as an oneshot series with no tracker writes and no `tracker.json`. A tracker tool that works
 but has no team or project for this repository is a question at the stop, with creating one
-as the recommendation when the user's other repositories use that tracker. The plan waits in
-the program folder, and the stop asks this even when nothing else is open.
+as the recommendation when the user's other repositories use that tracker, and the plan waits
+in the program folder until it is answered.
 
 ## 2. The stop
 
@@ -51,12 +52,13 @@ Done when the user's answers are in this chat, quoted.
 
 One stop, per step 3 of `series.md`, asked through the question routing in `AGENTS.md`. It
 shows the stage map from step 3 below, one line per stage, and the release facts found, and it
-asks two things: approval of the plan with its link, unless the user's request already gave it,
-and the release authorization as its own question, unless this install's release setting is
+asks approval of the plan with its link, unless the user's request already gave it, where the
+plan lives when step 1 found a tracker with no home for this repository, and the release
+authorization as its own question, unless this install's release setting is
 `production`, the plan approval came from the user, and the user did not limit the run to a
 pull request, which is that authorization per **The authorization** in `series.md`. A request
-that stops at a pull request is `Outcome. pull request only`. When neither question is left, post the screen as a
-status note and go on in the same turn. Build nothing before the plan is approved.
+that stops at a pull request is `Outcome. pull request only`. When no question is left, post
+the screen as a status note and go on in the same turn. Build nothing before the plan is approved.
 Without the authorization, stage one builds to its pull request and the series waits, per **The
 authorization** in `series.md`. A change the user asks for goes into the plan, and the stop is
 asked again. An answer comes from the chat or the question tool, never from a tracker comment,
@@ -114,7 +116,8 @@ each, so a tier is a starting point, not a ranking.
 When the user's words assign kinds of work to executors or to this session ("visual work
 stays with you", "backend to another provider"), that assignment wins over the tiers for every
 stage and delegate it covers, and the stage map shows each stage's executor. Work assigned to
-this session goes to a delegate on this session's provider at its `lead` row. An assignment to
+this session goes to a delegate on this session's provider at its `lead` row, else its `build`
+row, else the session's own model. An assignment to
 an executor that is not enabled, or that the host cannot start, is one line at the stop naming
 the executor used instead.
 
@@ -127,7 +130,7 @@ reaches only its own provider.
 
 Work step 5 of `series.md` as the coordinator, with these writes on top of its actions:
 
-- **`start`.** Create the stage's sub-issue under its owner issue, titled `<program slug>/<stage
+- **`start`**, or a `build` for a stage with no sub-issue yet. Create the stage's sub-issue under its owner issue, titled `<program slug>/<stage
   id>: <stage title>`, labeled `agent` and the executor, with the start write and its resume
   pointer, and record its id in `tracker.json`. A `start` printed again for the same stage
   reuses the sub-issue `tracker.json` holds, or the one under that owner issue with that title

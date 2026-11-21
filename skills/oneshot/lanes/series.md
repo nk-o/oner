@@ -285,7 +285,8 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    the gate, ask the approval and the release of the new stages as one question, and amend with
    that answer, then `resume`. `amend` keeps every started stage as it is and refuses a field
    only `series.mjs` writes, so an approved change to a started stage goes to a fresh delegate
-   with the whole scope, per step 5. Release commands change the same way, with
+   with the whole scope, per step 5. A migration or a stored shape for a started stage goes
+   into a new stage instead, which declares `migrations` and `serial`. Release commands change the same way, with
    `--release <file>`.
 
    **Work outside the series.** The repository keeps moving while a series runs. The user's
@@ -326,8 +327,9 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    After a resume or in a new session, a `build` stage gets a fresh delegate with the same
    brief when the host shows its delegate ended, or cannot show it and the checkout's head and
    run log are unchanged since `## Now` was written. The stage run resumes from its own log per
-   **Resume before you open** in the skill. A checkout that changed while its delegate is not
-   shown belongs to a live delegate, so it is checked again on the next pass.
+   **Resume before you open** in the skill. When the checkout changed and the host cannot show
+   its delegate, write the head and log state seen into `## Now`, and the next resume or
+   session that finds both unchanged since that write starts the fresh delegate.
    Where the host can start a new session, hand off after every stage that `next` records as
    done, never in the middle of one, so no coordinator carries more than one stage's context.
 6. **Report.** `series.mjs report` exits 0 only when every stage is done with its evidence.
