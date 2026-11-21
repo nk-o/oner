@@ -1115,6 +1115,7 @@ test('series.mjs moves the old state folder into .oner/ with its paths, and take
   assert.equal(existsSync(join(f.repo, OLD)), false);
   assert.deepEqual(f.record().release.accept, [join(f.program, 'release', 'accept.sh')]);
   assert.equal(readFileSync(join(f.program, 'release', 'accept.sh'), 'utf8'), `#!/bin/sh\ntest -d '${f.program}'\n`);
+  assert.equal(spawnSync(join(f.program, 'release', 'accept.sh')).status, 0, 'the rewritten check still runs');
   assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), `node_modules/\n${NEW}/\n`);
 
   const after = tree(f.repo);
@@ -1123,26 +1124,47 @@ test('series.mjs moves the old state folder into .oner/ with its paths, and take
   assert.equal(f.series(['next', '--program', old]).status, 0);
 });
 
-test('a migration cut off halfway is finished by the next run, and an entry .oner/ already holds stays where it is', () => {
+test('a migration cut off halfway is finished by the next run, and an entry it cannot move stays where it is', () => {
   const f = fixture();
   const old = beforeTheMove(f);
-  // The first run had replaced the ignore line and moved one entry when it stopped.
-  writeFileSync(join(f.repo, '.gitignore'), `node_modules/\n${NEW}/\n`);
+  // The first run had listed the new folder and moved one entry when it stopped.
+  writeFileSync(join(f.repo, '.gitignore'), `node_modules/\n${OLD}/\n${NEW}/\n`);
+  writeFileSync(join(old, 'notes.md.4242.migrate.tmp'), 'a rewrite cut off\n');
   mkdirSync(join(f.repo, OLD, '002-search'));
-  writeFileSync(join(f.repo, OLD, '002-search', 'oneshot.md'), `Series. ${old}\n`);
+  writeFileSync(join(f.repo, OLD, '002-search', 'oneshot.md'), `Series. ${old}\nAsks. ${join(f.repo, OLD, 'requests.md')}\n`);
   writeFileSync(join(f.repo, NEW, 'requests.md'), '- the new list\n');
   writeFileSync(join(f.repo, OLD, 'requests.md'), '- the old list\n');
+  mkdirSync(join(f.repo, OLD, '003-locked'));
+  writeFileSync(join(f.repo, OLD, '003-locked', 'oneshot.md'), `Series. ${old}\n`, { mode: 0o000 });
   symlinkSync('/nowhere', join(old, 'link'));
   const warned = [];
-  assert.deepEqual(migrate([f.repo], (line) => warned.push(line)), [join(f.repo, OLD, 'requests.md')]);
-  assert.deepEqual(readdirSync(join(f.repo, OLD)), ['requests.md']);
+  assert.deepEqual(migrate([f.repo], (line) => warned.push(line)).sort(), [join(f.repo, OLD, '003-locked'), join(f.repo, OLD, 'requests.md')]);
+  assert.deepEqual(readdirSync(join(f.repo, OLD)).sort(), ['003-locked', 'requests.md']);
   assert.equal(readFileSync(join(f.repo, OLD, 'requests.md'), 'utf8'), '- the old list\n');
   assert.equal(readFileSync(join(f.repo, NEW, 'requests.md'), 'utf8'), '- the new list\n');
-  assert.equal(warned.length, 1);
-  assert.match(warned[0], /requests\.md in place/);
-  assert.equal(readFileSync(join(f.repo, NEW, '002-search', 'oneshot.md'), 'utf8'), `Series. ${f.program}\n`);
-  assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), `node_modules/\n${NEW}/\n`);
+  assert.equal(warned.length, 2);
+  assert.match(warned.join('\n'), /requests\.md in place: .*already exists/);
+  assert.match(warned.join('\n'), /003-locked in place: EACCES/);
+  assert.equal(readFileSync(join(f.repo, NEW, '002-search', 'oneshot.md'), 'utf8'),
+    `Series. ${f.program}\nAsks. ${join(f.repo, OLD, 'requests.md')}\n`, 'a path to an entry left behind keeps pointing at it');
+  assert.equal(readFileSync(join(f.program, 'notes.md.4242.migrate.tmp'), 'utf8'), 'a rewrite cut off\n');
+  assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), `node_modules/\n${OLD}/\n${NEW}/\n`, 'the old folder stays ignored while it holds files');
   assert.equal(f.record().release.accept[0], join(f.program, 'release', 'accept.sh'));
+});
+
+test('a .specs/ folder that git tracks or does not ignore is not state, and stays', () => {
+  const f = fixture();
+  mkdirSync(join(f.repo, OLD, 'api'), { recursive: true });
+  writeFileSync(join(f.repo, OLD, 'api', 'users.yaml'), 'openapi: 3.1.0\n');
+  const before = tree(f.repo);
+  assert.deepEqual(migrate([f.repo]), []);
+  assert.deepEqual(tree(f.repo), before, 'an unignored folder is left alone');
+  f.g('add', OLD);
+  f.g('commit', '-qm', 'Track API specs');
+  writeFileSync(join(f.repo, '.gitignore'), `${NEW}/\n${OLD}/\n`);
+  migrate([f.repo]);
+  assert.equal(readFileSync(join(f.repo, OLD, 'api', 'users.yaml'), 'utf8'), 'openapi: 3.1.0\n');
+  assert.equal(f.g('status', '--porcelain', '--', OLD), '');
 });
 
 test('a new session moves the old state folder, and the ignore line where info/exclude holds it', () => {
@@ -1156,6 +1178,14 @@ test('a new session moves the old state folder, and the ignore line where info/e
   writeFileSync(transcript, '');
   assert.match(runHook(f.repo, 'SessionStart', transcript), /Asks still open[^\n]*\n- Compare the two tooltip offsets/);
   assert.equal(existsSync(join(f.repo, OLD)), false);
-  assert.equal(readFileSync(join(f.repo, '.git', 'info', 'exclude'), 'utf8'), `${NEW}/\n`);
+  assert.equal(readFileSync(join(f.repo, '.git', 'info', 'exclude'), 'utf8'), `${OLD}/\n${NEW}/\n`);
   assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), 'node_modules/\n');
+});
+
+test('the session that coordinated a series before the move is still kept going on it', () => {
+  const f = fixture();
+  const transcript = join(f.root, 'coordinator.jsonl');
+  const before = f.program.replace(`/${NEW}/`, `/${OLD}/`);
+  writeFileSync(transcript, `<command-name>/oneshot</command-name>\n${JSON.stringify({ output: `series program: ${before}/program.json` })}\n`);
+  assert.match(runHook(f.repo, 'Stop', transcript), /oneshot series in [^ ]*001-billing is open/);
 });

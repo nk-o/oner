@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, symlinkSync, utimesSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { afterEach, test } from 'node:test';
+import { OLD } from '../skills/oneshot/migrate.mjs';
 
 const wt = resolve('skills/worktree/wt.sh');
 const tidy = resolve('skills/dev-tidy/dev-tidy');
@@ -448,6 +449,12 @@ test('a merged worktree that still holds an open oneshot run or series stage is 
   const log = join(dir, '.oner/001-feature/oneshot.md');
   writeFileSync(log, 'Lane. feature\nBranch. feature\nStatus. waiting\n');
   assert.match(tidyRun(), /kept {6}worktree feature {2}\(open oneshot run\)/);
+  // A worktree no session has opened since the move still keeps its run in the old folder.
+  writeFileSync(join(f.repo, '.git/info/exclude'), `.oner/\n${OLD}/\n`);
+  mkdirSync(join(dir, OLD), { recursive: true });
+  renameSync(join(dir, '.oner/001-feature'), join(dir, OLD, '001-feature'));
+  assert.match(tidyRun(), /kept {6}worktree feature {2}\(open oneshot run\)/);
+  renameSync(join(dir, OLD, '001-feature'), join(dir, '.oner/001-feature'));
 
   writeFileSync(log, 'Lane. feature\nBranch. feature\nStatus. done\n');
   mkdirSync(join(f.repo, '.oner/002-limits'), { recursive: true });

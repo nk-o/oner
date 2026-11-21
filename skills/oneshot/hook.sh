@@ -89,8 +89,11 @@ asks_state="$root/.oner/.requests-stop-state-$(printf '%s' "$transcript" | { sha
 pstatus() { jq -r '.status // "running"' "$1/program.json" 2>/dev/null; }
 # Only the session that ran series.mjs has this line, so a session that merely
 # saw the reminder below is not taken for the one coordinating the series.
+# A transcript from before the move to .oner/ names the program by its old path.
 coordinates() {
-  [ -f "$transcript" ] && grep -qF "series program: $1/program.json" "$transcript" 2>/dev/null
+  [ -f "$transcript" ] || return 1
+  grep -qF "series program: $1/program.json" "$transcript" 2>/dev/null ||
+    grep -qF "series program: ${1%/.oner/*}/.specs/${1##*/.oner/}/program.json" "$transcript" 2>/dev/null
 }
 # The open programs this session coordinates, and those of them running.
 coordinated=""
