@@ -192,8 +192,8 @@ test('open asks come from each checkout and repo labels survive worktrees', asyn
   const git = (...args) => execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
   git('init', '-q');
   git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'x');
-  mkdirSync(join(repo, '.specs'));
-  writeFileSync(join(repo, '.specs', 'requests.md'), '- first ask\nnot a list line\n- second ask\n');
+  mkdirSync(join(repo, '.oner'));
+  writeFileSync(join(repo, '.oner', 'requests.md'), '- first ask\nnot a list line\n- second ask\n');
   assert.deepEqual(parseAsks('- a\n\ntext\n* b'), ['a', 'b']);
   const { items, unread } = await asksSource({ repos: async () => [repo] }).read({});
   assert.deepEqual(items.map((i) => i.title), ['first ask', 'second ask']);

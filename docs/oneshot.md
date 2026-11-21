@@ -62,7 +62,7 @@ are stepping away, the gate takes its own recommended answers and keeps going.
 
 ## The run log
 
-The run lives in `.specs/NNN-slug/oneshot.md`, so a stopped session can be picked up. Its **Lane**
+The run lives in `.oner/NNN-slug/oneshot.md`, so a stopped session can be picked up. Its **Lane**
 checklist holds every step of the lane and of the shared tail, ticked as the run goes.
 
 While its `Status.` line reads `running` or `waiting`, a hook reminds the agent each turn that the
@@ -104,7 +104,7 @@ migrate, the approved production checks, fix-forward pull requests within the sp
 finished worktrees. It does not cover work outside the spec, manual migrations or other writes to
 production, a new external reviewer, or dropping data the spec does not drop.
 
-The series lives in the primary checkout's `.specs/NNN-slug/`: the approved `spec.md` and
+The series lives in the primary checkout's `.oner/NNN-slug/`: the approved `spec.md` and
 `plan.md`, `program.json`, and each finished stage's run folder under `stages/`. Branch switches
 and removed worktrees do not touch it. `skills/oneshot/series.mjs` is the only writer of
 `program.json`. `series.mjs next` reads GitHub, git, and production, records a stage's step only

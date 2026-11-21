@@ -7,7 +7,7 @@ it opens carries the spec alone. The build is a later run: `implement` on the fo
 1. **Ground and gate.** Run `brainstorm` on the task. Its phase 1 is the analysis, its phase 2
    is the gate. Copy the decisions the user answered into the run log's **Gate**, the rest into
    **Assumptions**. A *Staged* exit is expected here and is not a limit on the run: record the map in the run log, and carry every stage into the spec below.
-2. **Spec.** Run `spec` in unattended mode at full depth, under `specs/` rather than `.specs/`,
+2. **Spec.** Run `spec` in unattended mode at full depth, under `specs/` rather than `.oner/`,
    with the number and slug the run log took. A plan nobody builds in this run exists for
    later by definition, which is the case spec's own Location rule keeps in the repository.
    plan.md carries every stage in dependency order. A stage whose decisions brainstorm deferred

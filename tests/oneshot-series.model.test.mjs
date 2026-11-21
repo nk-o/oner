@@ -34,7 +34,7 @@ function world() {
   g('init', '-q', '-b', 'main');
   g('config', 'user.email', 'fixture@example.test');
   g('config', 'user.name', 'Fixture');
-  writeFileSync(join(repo, '.gitignore'), '.specs/\n');
+  writeFileSync(join(repo, '.gitignore'), '.oner/\n');
   g('add', '.');
   g('commit', '-qm', 'Initialize fixture');
   g('remote', 'add', 'origin', join(root, 'origin.git'));
@@ -49,7 +49,7 @@ function world() {
   g('push', '-q', 'origin', 'main');
   writeFileSync(join(root, 'bin', 'gh'), FAKE_GH, { mode: 0o755 });
   const env = { ...process.env, PATH: `${join(root, 'bin')}:${process.env.PATH}`, GH_DIR: ghDir };
-  const program = join(repo, '.specs', '001-model');
+  const program = join(repo, '.oner', '001-model');
   mkdirSync(program, { recursive: true });
   const record = join(program, 'program.json');
   const prs = { a: 1, b: 2 };

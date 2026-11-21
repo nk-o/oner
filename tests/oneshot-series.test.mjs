@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, test } from 'node:test';
+import { NEW, OLD, migrate } from '../skills/oneshot/migrate.mjs';
 
 const seriesScript = resolve('skills/oneshot/series.mjs');
 const hook = resolve('skills/oneshot/hook.sh');
@@ -49,7 +50,7 @@ function fixture({ timeoutMinutes = 60, authorization = 'Yes, release every stag
   g('init', '-q', '-b', 'main');
   g('config', 'user.email', 'fixture@example.test');
   g('config', 'user.name', 'Fixture');
-  writeFileSync(join(repo, '.gitignore'), '.specs/\n');
+  writeFileSync(join(repo, '.gitignore'), '.oner/\n');
   writeFileSync(join(repo, 'app.txt'), 'v0\n');
   g('add', '.');
   g('commit', '-qm', 'Initialize fixture');
@@ -63,7 +64,7 @@ function fixture({ timeoutMinutes = 60, authorization = 'Yes, release every stag
   writeFileSync(ghLog, '');
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, GH_STATE: ghState, GH_LOG: ghLog };
 
-  const program = join(repo, '.specs', '001-billing');
+  const program = join(repo, '.oner', '001-billing');
   mkdirSync(program, { recursive: true });
   const record = () => JSON.parse(readFileSync(join(program, 'program.json'), 'utf8'));
   const writeRecord = (p) => writeFileSync(join(program, 'program.json'), JSON.stringify(p, null, 2));
@@ -105,8 +106,8 @@ function fixture({ timeoutMinutes = 60, authorization = 'Yes, release every stag
     writeFileSync(join(dir, `${branch}.txt`), `${branch}\n`);
     execFileSync(git, ['-C', dir, 'add', '.']);
     execFileSync(git, ['-C', dir, 'commit', '-qm', `Build ${branch}`]);
-    mkdirSync(join(dir, '.specs', '001-stage'), { recursive: true });
-    writeFileSync(join(dir, '.specs', '001-stage', 'oneshot.md'), `# ${branch}\n\nLane. feature\nBranch. ${branch}\nStatus. done\n`);
+    mkdirSync(join(dir, '.oner', '001-stage'), { recursive: true });
+    writeFileSync(join(dir, '.oner', '001-stage', 'oneshot.md'), `# ${branch}\n\nLane. feature\nBranch. ${branch}\nStatus. done\n`);
     return { dir, branch, head: execFileSync(git, ['-C', dir, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() };
   };
   let prNumber = 0;
@@ -704,7 +705,7 @@ test('an open stage\'s run folder is copied into the program folder on every pas
   const archived = join(f.program, 'stages', 'schema', '001-stage', 'oneshot.md');
   assert.ok(existsSync(archived));
   assert.deepEqual(f.stage('schema').logs, ['stages/schema/001-stage']);
-  writeFileSync(join(b.dir, '.specs', '001-stage', 'oneshot.md'), 'Status. running\nBranch. billing-schema\nStep two\n');
+  writeFileSync(join(b.dir, '.oner', '001-stage', 'oneshot.md'), 'Status. running\nBranch. billing-schema\nStep two\n');
   f.series(['next']);
   assert.match(readFileSync(archived, 'utf8'), /Step two/);
   assert.deepEqual(f.stage('schema').logs, ['stages/schema/001-stage']);
@@ -903,7 +904,7 @@ test('an ordinary run still ends at its open pull request', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });
   f.g('switch', '-q', '-c', 'feature');
-  const run = join(f.repo, '.specs', '002-feature');
+  const run = join(f.repo, '.oner', '002-feature');
   mkdirSync(run);
   const log = (status, box) => writeFileSync(join(run, 'oneshot.md'),
     `# feature\n\nLane. feature\nBranch. feature\nStatus. ${status}\n\n## Lane\n- [x] Build\n- [${box}] Ship\n`);
@@ -920,21 +921,21 @@ test('an ordinary run still ends at its open pull request', () => {
   assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript), '');
 });
 
-test('a skill session that ends its turn with asks left in .specs/requests.md goes on to the next one', () => {
+test('a skill session that ends its turn with asks left in .oner/requests.md goes on to the next one', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });
   const transcript = join(f.root, 'transcript.jsonl');
   writeFileSync(transcript, '<command-name>/oneshot</command-name>\n');
-  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Move plugin downloads to Ownkey\n');
-  assert.match(runHook(f.repo, 'Stop', transcript), /still open in \.specs\/requests\.md:\\n- Move plugin downloads to Ownkey/);
+  writeFileSync(join(f.repo, '.oner', 'requests.md'), '- Move plugin downloads to Ownkey\n');
+  assert.match(runHook(f.repo, 'Stop', transcript), /still open in \.oner\/requests\.md:\\n- Move plugin downloads to Ownkey/);
   assert.equal(runHook(f.repo, 'Stop', transcript), '');
   runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' });
   assert.match(runHook(f.repo, 'Stop', transcript), /Move plugin downloads to Ownkey/);
-  writeFileSync(join(f.repo, '.specs', 'requests.md'), '\n');
+  writeFileSync(join(f.repo, '.oner', 'requests.md'), '\n');
   runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' });
   assert.equal(runHook(f.repo, 'Stop', transcript), '');
 
-  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Retire EDD\n');
+  writeFileSync(join(f.repo, '.oner', 'requests.md'), '- Retire EDD\n');
   assert.match(runHook(f.repo, 'Stop', transcript), /Retire EDD/);
   const other = join(f.root, 'other.jsonl');
   writeFileSync(other, '');
@@ -948,7 +949,7 @@ test('the open-asks reminder stays quiet while the series this session coordinat
   writeFileSync(transcript, `<command-name>/oneshot</command-name>\nseries program: ${join(f.program, 'program.json')}\n`);
   const record = JSON.parse(readFileSync(join(f.program, 'program.json'), 'utf8'));
   writeFileSync(join(f.program, 'program.json'), JSON.stringify({ ...record, status: 'waiting' }));
-  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Retire EDD\n');
+  writeFileSync(join(f.repo, '.oner', 'requests.md'), '- Retire EDD\n');
   assert.equal(runHook(f.repo, 'Stop', transcript), '');
 });
 
@@ -956,7 +957,7 @@ test('the reminder names a run log past 16 KB and stays quiet below it', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });
   f.g('switch', '-q', '-c', 'feature');
-  const run = join(f.repo, '.specs', '002-feature');
+  const run = join(f.repo, '.oner', '002-feature');
   mkdirSync(run);
   const transcript = join(f.root, 'transcript.jsonl');
   writeFileSync(transcript, '<command-name>/oneshot</command-name>\n');
@@ -969,16 +970,16 @@ test('the reminder names a run log past 16 KB and stays quiet below it', () => {
   assert.match(runHook(f.repo, 'UserPromptSubmit', transcript), /run log is 20 KB, past 16 KB/);
 });
 
-test('a new or compacted session hears the open asks in .specs/requests.md, and only then', () => {
+test('a new or compacted session hears the open asks in .oner/requests.md, and only then', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });
   const transcript = join(f.root, 'transcript.jsonl');
   writeFileSync(transcript, '');
   assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
-  writeFileSync(join(f.repo, '.specs', 'requests.md'), '- Compare the two tooltip offsets\n');
+  writeFileSync(join(f.repo, '.oner', 'requests.md'), '- Compare the two tooltip offsets\n');
   assert.match(runHook(f.repo, 'SessionStart', transcript), /Asks still open[^\n]*\n- Compare the two tooltip offsets/);
   assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' }), '');
-  writeFileSync(join(f.repo, '.specs', 'requests.md'), '');
+  writeFileSync(join(f.repo, '.oner', 'requests.md'), '');
   assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
 });
 
@@ -986,7 +987,7 @@ test('a run marked done with open lines, or with an open request, is not let go'
   const f = fixture();
   rmSync(f.program, { recursive: true });
   f.g('switch', '-q', '-c', 'feature');
-  const run = join(f.repo, '.specs', '002-feature');
+  const run = join(f.repo, '.oner', '002-feature');
   mkdirSync(run);
   const transcript = join(f.root, 'transcript.jsonl');
   writeFileSync(transcript, '<command-name>/oneshot</command-name>\n');
@@ -1027,7 +1028,7 @@ test('the hook keeps the coordinator going until the series is done, once per st
   assert.equal(runHook(b.dir, 'Stop', reporter), '', 'a session that only read the report is not the coordinator');
 
   // A stage run waiting on the user holds the series with it.
-  writeFileSync(join(b.dir, '.specs', '001-stage', 'oneshot.md'), `# s\n\nLane. feature\nBranch. ${b.branch}\nStatus. waiting\n\n## Lane\n- [ ] Ship\n`);
+  writeFileSync(join(b.dir, '.oner', '001-stage', 'oneshot.md'), `# s\n\nLane. feature\nBranch. ${b.branch}\nStatus. waiting\n\n## Lane\n- [ ] Ship\n`);
   runHook(b.dir, 'UserPromptSubmit', transcript, { prompt: 'continue' });
   assert.equal(runHook(b.dir, 'Stop', transcript), '');
 
@@ -1054,7 +1055,7 @@ test('the hook keeps a lead coordinator going, and a new session continues a lea
   assert.match(runHook(b.dir, 'Stop', transcript), /oneshot series in .*001-billing is open/);
   const planner = join(f.root, 'planner.jsonl');
   writeFileSync(planner, `${JSON.stringify({ text: 'Base directory for this skill: /home/u/.claude/skills/lead' })}\n`);
-  writeFileSync(join(b.dir, '.specs', '001-stage', 'oneshot.md'), `# s\n\nLane. feature\nBranch. ${b.branch}\nStatus. running\n\n## Lane\n- [ ] Ship\n`);
+  writeFileSync(join(b.dir, '.oner', '001-stage', 'oneshot.md'), `# s\n\nLane. feature\nBranch. ${b.branch}\nStatus. running\n\n## Lane\n- [ ] Ship\n`);
   assert.equal(runHook(b.dir, 'Stop', planner), '', 'a lead session that drives no series is not sent to a stage run');
   const bystander = join(f.root, 'bystander.jsonl');
   writeFileSync(bystander, '');
@@ -1065,7 +1066,7 @@ test('the hook keeps a lead coordinator going, and a new session continues a lea
 
 test('the hook names every open series in the repository, not only the first', () => {
   const f = fixture();
-  const other = join(f.repo, '.specs', '002-search');
+  const other = join(f.repo, '.oner', '002-search');
   mkdirSync(other);
   writeFileSync(join(other, 'program.json'), readFileSync(join(f.program, 'program.json')));
   const bystander = join(f.root, 'bystander.jsonl');
@@ -1081,4 +1082,184 @@ test('the hook names every open series in the repository, not only the first', (
   const stop = runHook(f.repo, 'Stop', transcript);
   assert.match(stop, /oneshot series in [^ ]*002-search is open/);
   assert.doesNotMatch(stop, /001-billing/);
+});
+
+// Every file under `dir` but .git, with its contents, to show a run changed nothing.
+function tree(dir) {
+  return readdirSync(dir, { recursive: true }).filter((name) => !name.startsWith('.git/')).sort()
+    .map((name) => { try { return [name, readFileSync(join(dir, name), 'utf8')]; } catch { return [name]; } });
+}
+
+// The repository as a run from before the move left it: the program under the
+// old folder, its accept check called by an absolute path there, and the old ignore line.
+function beforeTheMove(f) {
+  const old = join(f.repo, OLD, '001-billing');
+  mkdirSync(join(f.repo, OLD));
+  renameSync(f.program, old);
+  mkdirSync(join(old, 'release'));
+  writeFileSync(join(old, 'release', 'accept.sh'), `#!/bin/sh\ntest -d '${old}'\n`, { mode: 0o755 });
+  const p = JSON.parse(readFileSync(join(old, 'program.json'), 'utf8'));
+  p.release.accept = [join(old, 'release', 'accept.sh')];
+  writeFileSync(join(old, 'program.json'), JSON.stringify(p, null, 2));
+  writeFileSync(join(f.repo, '.gitignore'), `node_modules/\n${OLD}/\n`);
+  f.g('commit', '-qam', 'Ignore the old state folder');
+  return old;
+}
+
+test('series.mjs moves the old state folder into .oner/ with its paths, and takes a --program path from before the move', () => {
+  const f = fixture();
+  const old = beforeTheMove(f);
+  const r = f.series(['next', '--program', old]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, new RegExp(`^series program: ${f.program}/program\\.json`));
+  assert.deepEqual(kinds(r, 'schema'), ['start']);
+  assert.equal(existsSync(join(f.repo, OLD)), false);
+  assert.deepEqual(f.record().release.accept, [join(f.program, 'release', 'accept.sh')]);
+  assert.equal(readFileSync(join(f.program, 'release', 'accept.sh'), 'utf8'), `#!/bin/sh\ntest -d '${f.program}'\n`);
+  assert.equal(spawnSync(join(f.program, 'release', 'accept.sh')).status, 0, 'the rewritten check still runs');
+  assert.equal(f.g('status', '--porcelain', '--', '.gitignore'), '', 'the tracked .gitignore stays as it was');
+  assert.equal(spawnSync(git, ['-C', f.repo, 'check-ignore', '-q', `${NEW}/`]).status, 0);
+  const exclude = join(f.repo, '.git', 'info', 'exclude');
+  assert.match(readFileSync(exclude, 'utf8'), new RegExp(`^${NEW.replace('.', '\\.')}/$`, 'm'));
+
+  const after = [tree(f.repo), readFileSync(exclude, 'utf8')];
+  assert.deepEqual(migrate([f.repo]), []);
+  assert.deepEqual([tree(f.repo), readFileSync(exclude, 'utf8')], after, 'a second run changes nothing');
+  mkdirSync(join(f.repo, OLD, 'api'), { recursive: true });
+  writeFileSync(join(f.repo, OLD, 'api', 'users.yaml'), 'openapi: 3.1.0\n');
+  assert.deepEqual(migrate([f.repo]), []);
+  assert.equal(readFileSync(join(f.repo, OLD, 'api', 'users.yaml'), 'utf8'), 'openapi: 3.1.0\n', 'a folder made under the still ignored old name later is not state');
+  assert.equal(f.series(['next', '--program', old]).status, 0);
+});
+
+test('a migration cut off halfway, or blocked by a name .oner/ holds, is finished by a later run', () => {
+  const f = fixture();
+  const old = beforeTheMove(f);
+  // The first run had listed the new folder and moved one entry when it stopped.
+  writeFileSync(join(f.repo, '.gitignore'), `node_modules/\n${OLD}/\n${NEW}/\n`);
+  writeFileSync(join(old, 'notes.md.4242.migrate.tmp'), 'a rewrite cut off\n');
+  mkdirSync(join(f.repo, NEW, '002-search'));
+  writeFileSync(join(f.repo, NEW, '002-search', 'oneshot.md'),
+    `Series. ${old} stage api\nAsks. ${join(f.repo, OLD, 'requests.md')}, kept\nNotes. ${old}.md\n`);
+  writeFileSync(join(f.repo, NEW, 'requests.md'), '- the new list\n');
+  writeFileSync(join(f.repo, OLD, 'requests.md'), '- the old list\n');
+  symlinkSync('/nowhere', join(old, 'link'));
+  const locked = join(old, 'locked.md');
+  writeFileSync(locked, `Series. ${old}\n`, { mode: 0o000 });
+  const privileged = process.getuid?.() === 0;
+  const warned = [];
+  assert.deepEqual(migrate([f.repo], { warn: (line) => warned.push(line) }), [join(f.repo, OLD, 'requests.md')]);
+  assert.deepEqual(readdirSync(join(f.repo, OLD)), ['requests.md']);
+  assert.equal(readFileSync(join(f.repo, OLD, 'requests.md'), 'utf8'), '- the old list\n');
+  assert.equal(readFileSync(join(f.repo, NEW, 'requests.md'), 'utf8'), '- the new list\n');
+  assert.match(warned.join('\n'), /requests\.md in place: .*already exists/);
+  assert.equal(warned.length, privileged ? 1 : 2);
+  if (!privileged) assert.match(warned.join('\n'), /Could not rewrite .*locked\.md: EACCES/);
+  assert.equal(readFileSync(join(f.repo, NEW, '002-search', 'oneshot.md'), 'utf8'),
+    `Series. ${f.program} stage api\nAsks. ${join(f.repo, OLD, 'requests.md')}, kept\nNotes. ${old}.md\n`,
+    'a path names .oner/ only where its entry went');
+  assert.equal(readFileSync(join(f.program, 'notes.md.4242.migrate.tmp'), 'utf8'), 'a rewrite cut off\n');
+  assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), `node_modules/\n${OLD}/\n${NEW}/\n`, 'the old folder stays ignored while it holds files');
+  assert.equal(f.record().release.accept[0], join(f.program, 'release', 'accept.sh'));
+
+  // Once the user merges the two lists and the file is readable again, the next run finishes.
+  rmSync(join(f.repo, NEW, 'requests.md'));
+  chmodSync(join(f.program, 'locked.md'), 0o644);
+  assert.deepEqual(migrate([f.repo], { warn: (line) => assert.fail(line) }), []);
+  assert.equal(existsSync(join(f.repo, OLD)), false);
+  assert.match(readFileSync(join(f.repo, NEW, '002-search', 'oneshot.md'), 'utf8'), new RegExp(`Asks\\. ${join(f.repo, NEW, 'requests.md')}, kept`));
+  assert.equal(readFileSync(join(f.program, 'locked.md'), 'utf8'), `Series. ${f.program}\n`);
+  assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), `node_modules/\n${OLD}/\n${NEW}/\n`, 'the migration never removes a .gitignore line');
+});
+
+test('a checkout migrated after the primary one still has its paths to the primary rewritten', () => {
+  const f = fixture();
+  const old = beforeTheMove(f);
+  const other = join(f.root, 'other');
+  mkdirSync(join(other, OLD, '001-stage'), { recursive: true });
+  execFileSync(git, ['-C', other, 'init', '-q']);
+  writeFileSync(join(other, '.gitignore'), `${OLD}/\n`);
+  writeFileSync(join(other, OLD, '001-stage', 'oneshot.md'), `Series. ${old} stage api\n`);
+  migrate([f.repo]);
+  migrate([other, f.repo]);
+  assert.equal(readFileSync(join(other, NEW, '001-stage', 'oneshot.md'), 'utf8'), `Series. ${f.program} stage api\n`);
+
+  // In one call, with the stage's checkout first, as the hook and series.mjs pass them.
+  rmSync(join(other, NEW), { recursive: true });
+  mkdirSync(join(other, OLD, '001-stage'), { recursive: true });
+  writeFileSync(join(other, OLD, '001-stage', 'oneshot.md'), `Series. ${old} stage api\n`);
+  mkdirSync(join(f.repo, OLD));
+  renameSync(f.program, old);
+  migrate([other, f.repo]);
+  assert.equal(readFileSync(join(other, NEW, '001-stage', 'oneshot.md'), 'utf8'), `Series. ${f.program} stage api\n`);
+});
+
+test('a stage log from before the move is archived, and the stage branch stays clean', () => {
+  const f = fixture();
+  const b = f.build('schema');
+  mkdirSync(join(b.dir, OLD));
+  renameSync(join(b.dir, NEW, '001-stage'), join(b.dir, OLD, '001-stage'));
+  rmSync(join(b.dir, NEW), { recursive: true });
+  f.openPr(b.branch, b.head);
+  f.series(['next']);
+  assert.deepEqual(f.stage('schema').logs, ['stages/schema/001-stage']);
+  assert.equal(existsSync(join(f.program, 'stages', 'schema', '001-stage', 'oneshot.md')), true);
+  assert.equal(execFileSync(git, ['-C', b.dir, 'status', '--porcelain'], { encoding: 'utf8' }), '');
+});
+
+test('a .specs/ folder that git tracks anything in, or ignores with neither folder, is not state, and stays', () => {
+  const f = fixture();
+  writeFileSync(join(f.repo, '.gitignore'), 'node_modules/\n');
+  mkdirSync(join(f.repo, OLD, 'api'), { recursive: true });
+  writeFileSync(join(f.repo, OLD, 'api', 'users.yaml'), 'openapi: 3.1.0\n');
+  const unignored = tree(f.repo);
+  assert.deepEqual(migrate([f.repo]), []);
+  assert.deepEqual(tree(f.repo), unignored, 'an unignored folder is left alone');
+  f.g('add', OLD);
+  f.g('commit', '-qm', 'Track API specs');
+  writeFileSync(join(f.repo, '.gitignore'), `${NEW}/\n${OLD}/\n`);
+  const before = tree(f.repo);
+  assert.deepEqual(migrate([f.repo]), []);
+  assert.deepEqual(tree(f.repo), before);
+});
+
+test('a new session moves the old state folder, and the ignore line where info/exclude holds it', () => {
+  const f = fixture();
+  rmSync(join(f.repo, NEW), { recursive: true });
+  mkdirSync(join(f.repo, OLD));
+  writeFileSync(join(f.repo, OLD, 'requests.md'), '- Compare the two tooltip offsets\n');
+  writeFileSync(join(f.repo, '.gitignore'), 'node_modules/\n');
+  writeFileSync(join(f.repo, '.git', 'info', 'exclude'), `${OLD}/\n`);
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, '');
+  assert.match(runHook(f.repo, 'SessionStart', transcript), /Asks still open[^\n]*\n- Compare the two tooltip offsets/);
+  assert.equal(existsSync(join(f.repo, OLD)), false);
+  assert.equal(readFileSync(join(f.repo, '.git', 'info', 'exclude'), 'utf8'), `${OLD}/\n${NEW}/\n`);
+  assert.equal(readFileSync(join(f.repo, '.gitignore'), 'utf8'), 'node_modules/\n');
+});
+
+test('the session that coordinated a series before the move is still kept going on it', () => {
+  const f = fixture();
+  const transcript = join(f.root, 'coordinator.jsonl');
+  const before = f.program.replace(`/${NEW}/`, `/${OLD}/`);
+  writeFileSync(transcript, `<command-name>/oneshot</command-name>\n${JSON.stringify({ output: `series program: ${before}/program.json` })}\n`);
+  assert.match(runHook(f.repo, 'Stop', transcript), /oneshot series in [^ ]*001-billing is open/);
+});
+
+test('every spelling of an old path on one line is rewritten, and only to an entry that went', () => {
+  const f = fixture();
+  beforeTheMove(f);
+  mkdirSync(join(f.repo, OLD, '001-billing+old'));
+  mkdirSync(join(f.repo, NEW, '001-billing+old'));
+  const home = process.env.HOME;
+  process.env.HOME = f.root;
+  try {
+    writeFileSync(join(f.repo, OLD, '001-billing', 'notes.md'),
+      `test -d ~/repo/${OLD}/001-billing && $HOME/repo/${OLD}/001-billing/release/accept.sh\nSee ~/repo/${OLD}/001-billing+old/plan.md.\n`);
+    migrate([f.repo], { warn: () => {} });
+  } finally {
+    process.env.HOME = home;
+  }
+  assert.equal(readFileSync(join(f.program, 'notes.md'), 'utf8'),
+    `test -d ~/repo/${NEW}/001-billing && $HOME/repo/${NEW}/001-billing/release/accept.sh\nSee ~/repo/${OLD}/001-billing+old/plan.md.\n`);
 });

@@ -31,7 +31,7 @@ They split on what they produce, so any agent can pick up an interrupted session
   always done one at a time.
 
 Where the spec goes depends on whether it should outlive the branch. A spec written only to build
-the feature goes in `.specs/`, which git ignores, so nothing needs cleaning up after the feature
+the feature goes in `.oner/`, which git ignores, so nothing needs cleaning up after the feature
 ships. That is the default. A spec the repository should keep goes in `specs/` and is committed
 with the feature, so it is reviewed in the pull request.
 

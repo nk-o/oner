@@ -259,12 +259,12 @@ usually one small script that imports what the app ships and calls the function 
 - A skill I name wins over the table. A one-line edit, a question about how something works, and
   work already under way in the chat go the ordinary way.
 - An ask of mine that this turn will not finish ("after that, look at X", the rest of a list)
-  goes into `.specs/requests.md` at the repository root, one short line in my words, because a
+  goes into `.oner/requests.md` at the repository root, one short line in my words, because a
   compaction can drop it from the chat. A report on one of those asks is a status note: the turn
   goes on to the next line, and ends only at a question that needs me or when the file is empty.
   Nothing else goes in the file. Delete a line once it is
-  done or I drop it, and the file once it is empty. `.specs/` stays in `.gitignore`. Once work
-  you ran in this checkout has merged, delete its folder under `.specs/`, except an oneshot
+  done or I drop it, and the file once it is empty. `.oner/` stays in `.gitignore`. Once work
+  you ran in this checkout has merged, delete its folder under `.oner/`, except an oneshot
   series' folder, which stays until the series is done.
 
 ## Reviewing
@@ -291,7 +291,7 @@ usually one small script that imports what the app ships and calls the function 
   customer records even with names removed, real store, order or license ids, real keys. A
   fixture is synthetic, and a check run on real data reports pass or fail without those
   numbers. Product names and public list prices are fine. The data stays in the tracker or in
-  ignored files such as `.specs/`.
+  ignored files such as `.oner/`.
 - One concern per pull request: one feature, one fix, or one cleanup, at whatever size it
   takes. A second change a user would notice, found on the way, is a follow-up.
 - Run `gh pr merge` as a command of its own, with no `cd`, pipe, `&&` or `;` around it, and

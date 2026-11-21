@@ -11,7 +11,7 @@ argument-hint: "[feature name; defaults to the current discussion]"
 
 Existing specs in this repo:
 
-!`r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; out=$( { ls -1 "$r/.specs" 2>/dev/null | sed 's|$|  (this branch)|'; ls -1 "$r/specs" 2>/dev/null | sed 's|$|  (kept)|'; } | sort ); echo "${out:-(none yet)}"`
+!`r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; out=$( { ls -1 "$r/.oner" 2>/dev/null | sed 's|$|  (this branch)|'; ls -1 "$r/specs" 2>/dev/null | sed 's|$|  (kept)|'; } | sort ); echo "${out:-(none yet)}"`
 
 # Spec: write the files
 
@@ -27,7 +27,7 @@ Both files are written in English. Both checkpoints are written in the user's la
 
 One question picks the folder. Is this spec still worth reading after the branch merges?
 
-- **No, it exists to build the branch in front of you.** `.specs/NNN-slug/`, which git ignores.
+- **No, it exists to build the branch in front of you.** `.oner/NNN-slug/`, which git ignores.
   /implement reads it, no commit ever contains it, and it goes away with the worktree. This is
   the default.
 - **Yes, the repo should keep it.** `specs/NNN-slug/`, committed with the feature, so it lands
@@ -48,12 +48,12 @@ collides. The slug is a short kebab-case feature name.
   cases need prose the checkboxes cannot carry. A spec in `specs/` is always full, because the
   contract is what the folder is for.
 
-Before the first write into `.specs/`, check that `.gitignore` carries a `.specs/` line. Add the
+Before the first write into `.oner/`, check that `.gitignore` carries a `.oner/` line. Add the
 bare line when it is missing, with no comment naming a skill above it, and say so in the
 checkpoint. Otherwise the throwaway folder shows up as untracked in every status. `specs/` is never ignored. Changing your mind later is one move:
 
 ```
-mv .specs/NNN-slug specs/NNN-slug
+mv .oner/NNN-slug specs/NNN-slug
 ```
 
 When the target folder already carries a plan.md (re-planning after an interruption or after the code
@@ -65,7 +65,7 @@ spec.md: reconfirm its Done when instead.
 
 When `oneshot` runs this skill, the decisions were already settled at its gate and the run
 does not stop again. The folder is the one the run log opened, with its number and slug: under
-`.specs/` for a feature, under `specs/` for a plan lane. Take no number of your own. Both
+`.oner/` for a feature, under `specs/` for a plan lane. Take no number of your own. Both
 checkpoints stay, and both become status notes with no question after them, posted in the same
 message as the next tool call. Step 2's closing stop does not apply either, since `oneshot` goes
 straight on from there, to `implement` or to the pull request.

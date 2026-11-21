@@ -22,7 +22,7 @@ does it, is not documentation. It is the code read aloud.
 
 The help center is the only home of published docs. The repository keeps no copy of them.
 
-A run works in `.specs/NNN-docs-<slug>/` in the product's repository, numbered and ignored the
+A run works in `.oner/NNN-docs-<slug>/` in the product's repository, numbered and ignored the
 way the `spec` skill's Location section says. Nothing in the folder is committed. A folder whose
 `run.md` reads `Status. running` or `waiting` is a run in progress: continue from its first
 open checklist line instead of opening a second one.

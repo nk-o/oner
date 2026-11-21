@@ -22,7 +22,7 @@ name before the sweep which slices or kinds it leaves out, and report them as no
 
 ## 1. Baseline
 
-- Resume before you start. When the branch carries `.specs/deslop-*/ledger.md`, that ledger
+- Resume before you start. When the branch carries `.oner/deslop-*/ledger.md`, that ledger
   is the pass: take its first slice or candidate without a verdict and go on from there, on
   the same branch and pull request.
 - Leave out of scope what nobody writes by hand: generated files, vendored code, lockfiles,
@@ -32,8 +32,8 @@ name before the sweep which slices or kinds it leaves out, and report them as no
   pass with the failing check named, because a cleanup on red cannot show it kept behavior.
 - Count the lines in scope, split into code and tests, for the report.
 - Split the scope into slices: a package, an app, or a top-level directory, cut further until
-  one subagent can read every file in a slice. Write them into `.specs/deslop-<date>/ledger.md`,
-  with the `.specs/` line in `.gitignore` per `spec`'s Depth section, one row per slice.
+  one subagent can read every file in a slice. Write them into `.oner/deslop-<date>/ledger.md`,
+  with the `.oner/` line in `.gitignore` per `spec`'s Depth section, one row per slice.
 
 Done when the checks are green, the counts are written down, and every file in scope belongs
 to exactly one slice in the ledger.

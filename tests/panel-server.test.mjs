@@ -28,7 +28,7 @@ before(async () => {
   repo = join(home, 'oner');
   cpSync(source, repo, {
     recursive: true,
-    filter: (p) => !/\/(\.git|\.claude|\.specs|tests|docs|local|config\.json|\.build-state\.json|\.update-check\.json|\.local-clone-[^/]+)(\/|$)/.test(p.slice(source.length)) && !/\.panel-stats/.test(p),
+    filter: (p) => !/\/(\.git|\.claude|\.oner|tests|docs|local|config\.json|\.build-state\.json|\.update-check\.json|\.local-clone-[^/]+)(\/|$)/.test(p.slice(source.length)) && !/\.panel-stats/.test(p),
   });
   execFileSync('git', ['-C', repo, 'init', '-q']);
   execFileSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'x']);

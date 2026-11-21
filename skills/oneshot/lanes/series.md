@@ -108,7 +108,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    migration, so a deploy can run while the previous release is live, and no stage relies on
    a down migration. Then move the run folder to the primary checkout, the first entry of
    `git worktree list`, so a branch switch or a removed stage worktree never touches it:
-   `<primary>/.specs/NNN-slug/`, taking the next free number there when its own is taken.
+   `<primary>/.oner/NNN-slug/`, taking the next free number there when its own is taken.
    Write `program.json` into it, and set the log's `Status. series`, which tells the run-log
    hook that `program.json` now holds the state. The log keeps **Gate** and **Assumptions**
    for the whole series.
@@ -199,7 +199,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    shape its plan names is settled by the approved spec, even one that does more than add, and
    gets the tail's **Migration checks**; one its plan does not name is a hard stop there,
    additive or not. It has its own
-   `.specs/NNN-slug/oneshot.md`, with `Lane. feature` and one more line,
+   `.oner/NNN-slug/oneshot.md`, with `Lane. feature` and one more line,
    `Series. <program folder> stage <id>`. Copy the program's spec.md into its folder, and
    write its plan.md from the program plan's `Planned at.` line, its Done when, its
    Decisions, and this stage's tasks alone, so its `implement` builds this stage, ticks only

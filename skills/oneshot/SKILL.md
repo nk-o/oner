@@ -64,7 +64,7 @@ series is open, copy each ask in it into the log's **Requests**, the series log'
 one `- [ ]` line per ask in the user's words, so a numbered or bulleted list becomes one line
 per item. An ask inside the current work joins it. An ask that needs its own pull request
 becomes a new stage per **Changing the plan** in `series.md` when it serves the program's
-outcomes, and otherwise a line in `.specs/requests.md`. A question gets its answer in a status
+outcomes, and otherwise a line in `.oner/requests.md`. A question gets its answer in a status
 note. Tick each line with its commit, `answered`, `declined: <reason>`, or `moved: <where>`.
 The report lists every line not ticked with a commit or `answered`.
 
@@ -218,7 +218,7 @@ and go on with the rest of the lane.
 
 Say which lane you picked in one line before doing anything else. A feature that needs several
 pull requests becomes a series inside the feature lane, per its step 1. A task that names a
-`.specs/` folder whose plan.md carries a `Source. improve-code` line, or `Source. improve` from
+`.oner/` folder whose plan.md carries a `Source. improve-code` line, or `Source. improve` from
 before that skill's rename, takes the lane its `Lane.` line names, per **An improve-code plan**
 in step 1.
 
@@ -232,7 +232,7 @@ request to bring up to date is `stale-pr`, and a machine that needs cleaning is 
 
 The investigation lane writes nothing, so it skips this step.
 
-**Resume before you open.** When this branch already carries `.specs/*/oneshot.md` with
+**Resume before you open.** When this branch already carries `.oner/*/oneshot.md` with
 `Status. running` or `Status. waiting`, that run is the task: read the log, take the first open
 line in its **Lane**, and re-read that step in the lane file the `Lane.` line names. A log with
 a `Program.` line is in its **Release** step: continue that program with `--program`. Never open
@@ -255,11 +255,11 @@ A worktree the app already created counts, adopt it per `AGENTS.md`. In T3 Code,
 `git switch -c <slug>` here in every case. A worktree made in the shell does not bind to the T3
 thread, and T3 already gave the thread its own worktree when the user chose one.
 
-Add the `.specs/` line to `.gitignore` per `spec`'s Depth section before writing the run log,
+Add the `.oner/` line to `.gitignore` per `spec`'s Depth section before writing the run log,
 because `implement` refuses to start on a tree where the run log sits untracked.
 
-Then take the next free `NNN` the way `spec` does, counting `.specs/` and `specs/` together, and
-create `.specs/NNN-slug/oneshot.md`, always in the ignored `.specs/`. Every later step reuses
+Then take the next free `NNN` the way `spec` does, counting `.oner/` and `specs/` together, and
+create `.oner/NNN-slug/oneshot.md`, always in the ignored `.oner/`. Every later step reuses
 that number and slug, `spec` included. A kept spec puts `spec.md` and `plan.md` under
 `specs/NNN-slug/` while the log stays here. A second number means two folders and a plan
 nothing reads.
@@ -298,7 +298,7 @@ screenshot path, the output of the run that settled it>
 
 **An improve-code plan.** `improve-code` wrote the folder in the primary checkout, which this run's
 worktree does not carry. Move its files into the run folder and delete the source folder. In the
-primary checkout's `.specs/improve-code.md`, renamed from `.specs/improve.md` when only that one
+primary checkout's `.oner/improve-code.md`, renamed from `.oner/improve.md` when only that one
 exists, put this branch on each **Planned** line that names the
 folder, so the next pass knows the rows are being built. When the run ends `stopped`, take
 those lines out of **Planned**, so the next pass can raise the rows again. The plan's
@@ -334,7 +334,7 @@ line naming the file.
 
 When the task holds several requests (a numbered feedback list, one message with many asks,
 items the user raised earlier in the conversation and expects in this run), copy each into
-**Requests** in the same step, and move in the lines of `.specs/requests.md` this run takes
+**Requests** in the same step, and move in the lines of `.oner/requests.md` this run takes
 on, deleting them there. Write and tick them per **A message during the run**. A compaction's
 summary drops items; this list does not. Leave the section out when the task is one request.
 

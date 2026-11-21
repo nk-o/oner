@@ -3,7 +3,7 @@ name: implement
 description: >-
   Executes an approved spec end to end, working through its plan.md task by task until every
   checkbox is ticked and every acceptance criterion is verified in the running product. Reads
-  throwaway specs from .specs/ and kept ones from specs/. Use when the user asks to implement,
+  throwaway specs from .oner/ and kept ones from specs/. Use when the user asks to implement,
   build, or continue a spec, or names a spec folder. Needs an approved plan.md; without one, run
   /spec first.
 argument-hint: "[spec folder; defaults to the only one with unchecked tasks]"
@@ -11,12 +11,12 @@ argument-hint: "[spec folder; defaults to the only one with unchecked tasks]"
 
 Specs with unchecked tasks in this repo:
 
-!`r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; out=$(grep -rl --include=plan.md -- "- \[ \]" "$r/.specs" "$r/specs" 2>/dev/null); echo "${out:-(none)}"`
+!`r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; out=$(grep -rl --include=plan.md -- "- \[ \]" "$r/.oner" "$r/specs" 2>/dev/null); echo "${out:-(none)}"`
 
 # Implement: execute the plan
 
 Spec folder: $ARGUMENTS. When omitted: if exactly one spec above has unchecked tasks, take
-it; otherwise ask which one. A folder under `.specs/` exists only to build this branch. Git
+it; otherwise ask which one. A folder under `.oner/` exists only to build this branch. Git
 ignores it, so its plan.md never enters a commit and needs no cleanup once the feature ships.
 A folder under `specs/` is committed, so edits to it belong in a stage commit like any file.
 
@@ -28,7 +28,7 @@ one-time step.
 ## Preflight
 
 - The working tree must be clean; if it is not, stop and ask. One expected leftover: the
-  `.gitignore` line /spec adds for `.specs/` folds into the first stage commit instead of
+  `.gitignore` line /spec adds for `.oner/` folds into the first stage commit instead of
   blocking the run.
 - When plan.md has a `Planned at.` line, run `git diff --stat <sha>..HEAD -- <every file the
   unchecked tasks name>`. When it lists a file, read what changed before the first edit. A task
@@ -75,7 +75,7 @@ with `{{agents_dir}}/oneshot-worker.md`'s body.
 
 When `oneshot` runs this skill, the third Deviations rule no longer stops. Silence in the plan
 is decided here, recorded as one line with its reason and its evidence under **Assumptions**
-in the run log (`.specs/NNN-slug/oneshot.md`, the file the hook names), and reported at the
+in the run log (`.oner/NNN-slug/oneshot.md`, the file the hook names), and reported at the
 end when the user might overturn it. That log is the one place assumptions live, so plan.md
 gets no copy.
 
