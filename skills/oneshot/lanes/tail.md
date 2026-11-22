@@ -212,14 +212,14 @@ the run log for a review.
      `series.mjs` finds by its `Branch.` line. Then follow `series.md` from step 5. Leave the
      `cleanup` action for the worktree this session runs in. Before any turn that waits, set
      this log's `Status. waiting` as well as running `series.mjs wait`.
-  3. When nothing tells which commit production runs, merge per **Merge** in `pr-wait` with the
-     repository's merge method, check the result, and run only the **Deploy** paragraph of
-     **After a merge** in `pr-wait`, because its production check cannot tell this deploy from
+  3. When nothing tells which commit production runs, follow [Merge](../../pr-wait/references/release.md#merge-only-when-the-task-says-so)
+     with the repository's merge method, check the result, and run only the **Deploy** paragraph of
+     [After a merge](../../pr-wait/references/release.md#after-a-merge), because its production check cannot tell this deploy from
      the last one and its clean up would delete this run log. Log `Attention. Production not
      verified: <why>` under **Assumptions**, with the deploy's result beside it.
 
   Tick **Release** once `series.mjs report --program <path>` exits 0, or once step 3's deploy
   watch exits 0. A deploy still pending leaves **Release** open, and a failed one goes to
-  **A broken release** in `pr-wait`.
+  **A broken release** in the [release reference](../../pr-wait/references/release.md#after-a-merge).
   The hard stops still stop here.
 - **Report** per the skill's Report section.
