@@ -31,12 +31,20 @@ act on, and 3 means still pending, so the turn ends there and waits for the next
 **In T3 Code**, where `watch_pull_request` exists (`mcp__t3-code__watch_pull_request` in Claude
 Code), T3 is the watcher, and it forbids polling: no Monitor, `sleep`, loop, `gh --watch`, or
 `/loop`. Once the push is done, call `link_pull_request` with the pull request's full URL when
-the thread does not link it yet, then `watch_pull_request`. Run `pr-wait.mjs request <pr>`, then
-end the turn. T3 wakes you on failed and passed checks, new comments and reviews, and conflicts.
-The watch stays on after a wake, so call it once. On each wake, and after each push, run
-`pr-wait.mjs <pr> --once`. Exit 0 is ready, 1 prints what to act on, and 3 means still pending,
-so the turn ends there. Before you hand the pull request back, ready or not, call
-`unwatch_pull_request`.
+the thread does not link it yet. After each push, run `pr-wait.mjs request <pr-url>` to request the
+configured bot reviews. Run `pr-wait.mjs <pr-url> --once` before starting a watch, after each push
+and review request, and on each wake. T3 records checks that already passed as part of the
+watch's initial state and sends no wake for them.
+
+- Exit 0. Continue at **Ready** in this turn. If it reports `no checks` and the repository
+  expects PR CI on this head, wait for those checks to report. For a repository without PR
+  CI, use the local gate under **Ready**.
+- Exit 1. Handle what the command reports. Recheck readiness after acting on it.
+- Exit 3, or expected CI has yet to report. Call `watch_pull_request` if it is not already
+  active, then end the turn. T3 wakes you on check results, comments, reviews, and conflicts.
+  The watch stays active after a wake.
+
+Before handing the pull request back, stop any active watch with `unwatch_pull_request`.
 
 **Everywhere else**, the watcher is `pr-wait.mjs <pr>`. Claude Code runs it with Monitor, so
 each line wakes you. A host without one runs it as a single foreground command with the
@@ -93,9 +101,9 @@ Never reopen a thread you already answered to argue it better.
 Ready is the watcher's exit 0: gating checks green on the head, the waited-on bots finished on
 it, no thread ending on someone else's comment, no conflict. Ready is not merged.
 
-A repository whose CI does not run on pull requests has no gating checks, so ready says nothing
-about the code. No file in `.github/workflows` triggering on `pull_request` is how you tell. There,
-`green-repo` is the gate, and it has to have passed on the newest head.
+When the PR has no CI, confirm that from the repository's workflow triggers and required check
+settings, including checks from other providers. In that case `green-repo` is the gate and
+must have passed on the newest head.
 
 ## Merge, only when the task says so
 
