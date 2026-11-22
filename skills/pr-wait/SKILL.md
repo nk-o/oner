@@ -29,11 +29,18 @@ same rules. If it needs no action and the PR is still pending, keep its watch ac
 
 Confirm the current head has passing gating checks, completed applicable bot reviews, no
 thread awaiting your answer, and no conflict. Check for required reviews before merging.
-Determine which CI applies from workflow triggers and filters and the base branch's
-required check settings, including checks from other providers. Use the required checks
-when configured, otherwise use the PR's CI checks apart from review bot checks. If no
-PR CI applies, require `green-repo` to have passed on the current head. If expected
-checks have not reported, readiness is still pending.
+Identify pre-merge gates from the repository's release policy and the base branch's
+required checks. Honor branch-required checks in all cases. Require `green-repo`
+on the current head when no PR CI applies or the repository uses a local gate in
+its place. With no required checks and no local-only policy, use the applicable CI
+checks from all providers, accounting for workflow triggers and filters. Apply the
+bot rules separately. A preview deployment gates a merge only when the branch,
+repository policy, or user explicitly requires it. Production deployment checks
+belong to [Release](references/release.md).
+
+Name the check or review that blocks readiness. On GitHub, a combined commit status
+of `pending` with `statuses: []` means no commit statuses were reported. Use named
+checks and explicit requirements to determine what is pending.
 
 Stop watching when you hand the PR back. Report the PR, verified head, and any blocker.
 
