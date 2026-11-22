@@ -21,9 +21,9 @@ Use the tools from T3 Code's namespace, whichever model provider runs the sessio
    status, checks, and discussion. A wait-mode bot with no activity or request does not gate.
 4. If ready, proceed in this turn. Before waiting, name the outstanding gate and the
    event T3 can receive for it. Watch for an applicable non-placeholder pending
-   check, a check whose run is queued or in progress on this head, or an outstanding
-   review the task requires. If a required check is missing and you cannot establish
-   that it will run, hand back the PR with that check named as the blocker.
+   check, an expected check with an active run or confirmed trigger on this head, or
+   an outstanding review the task requires. If a gating check is missing and you
+   cannot establish that it will run, hand back the PR with that check named as the blocker.
    Call `watch_pull_request` with the PR URL if a watch is not yet
    active and end the turn. Use `until: "checks"` for a handoff after checks or
    `until: "merged"` if you are to see the merge through. T3 records checks that already
