@@ -16,8 +16,9 @@ feedback before waiting.
 - With `watch_pull_request`, read [T3 Code](references/t3-code.md).
 - Otherwise, with `mcp__ccd_pr__set_monitor`, read [Claude Code Desktop](references/claude-desktop.md).
 - Otherwise, run `{{skills_dir}}/pr-wait/pr-wait.mjs <pr>`. Use Monitor where available,
-  or run it as one foreground command. Restart it after a push, after acting on exit 1, or
-  after a resume. An existing process with the lock already owns that watch.
+  or run one foreground command with the host's longest timeout. Restart after a push, after
+  acting on exit 1, or after a resume. An existing process with the lock already owns that watch.
+  Use `pr-feedback` to collect any existing GitHub feedback before starting the script.
 
 The script's header defines its exit codes. The installed `bots.json` comes from
 `reviewBots` in Oner's config. For a PR with existing feedback, use the [event rules](references/events.md)
@@ -26,7 +27,7 @@ same rules. If it needs no action and the PR is still pending, keep its watch ac
 
 ## Ready
 
-Confirm the current head has passing gating checks, completed configured bot reviews, no
+Confirm the current head has passing gating checks, completed applicable bot reviews, no
 thread awaiting your answer, and no conflict. Check for required reviews before merging.
 Determine which CI applies from workflow triggers and filters and the base branch's
 required check settings, including checks from other providers. Use the required checks

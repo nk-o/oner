@@ -7,8 +7,8 @@ Act on the latest head. Apply the **CI** and **Comments** rules in
   GitHub without that tool. Start the one rerun allowed by those rules with `ci_rerun` in
   T3 Code or `gh run rerun <run-id> --failed` on GitHub.
 - For a conflict, fetch the upstream base, merge it into the PR branch, run `green-repo`,
-  commit, and push. Keep the intent of both sides. Ask if resolution needs a product
-  decision. A branch that is merely behind waits for an authorized merge.
+  commit, and push without rewriting branch history. Keep the intent of both sides. Ask if
+  resolution needs a product decision. A branch that is merely behind waits for an authorized merge.
 - For new comments and reviews, verify the findings against the code. Fix each `FIX`, run
   the checks, commit, and push. Reply only in the relevant threads. State what changed and
   the commit, or cite the line that addresses the finding. Resolve a bot's thread after
