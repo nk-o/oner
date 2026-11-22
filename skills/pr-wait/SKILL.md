@@ -36,11 +36,12 @@ configured bot reviews. Run `pr-wait.mjs <pr-url> --once` before starting a watc
 and review request, and on each wake. T3 records checks that already passed as part of the
 watch's initial state and sends no wake for them.
 
-- Exit 0. Continue at **Ready** in this turn. If it reports `no checks` and the repository
-  expects PR CI on this head, wait for those checks to report. For a repository without PR
-  CI, use the local gate under **Ready**.
+Identify the gating checks expected for this head under **Ready** before the readiness read.
+
+- Exit 0. Continue at **Ready** in this turn if all expected gating checks have reported.
+  If no PR CI applies, use the local gate under **Ready**.
 - Exit 1. Handle what the command reports. Recheck readiness after acting on it.
-- Exit 3, or expected CI has yet to report. Call `watch_pull_request` if it is not already
+- Exit 3, or a gating check has yet to report. Call `watch_pull_request` if it is not already
   active, then end the turn. T3 wakes you on check results, comments, reviews, and conflicts.
   The watch stays active after a wake.
 
@@ -101,9 +102,9 @@ Never reopen a thread you already answered to argue it better.
 Ready is the watcher's exit 0: gating checks green on the head, the waited-on bots finished on
 it, no thread ending on someone else's comment, no conflict. Ready is not merged.
 
-When the PR has no CI, confirm that from the repository's workflow triggers and required check
-settings, including checks from other providers. In that case `green-repo` is the gate and
-must have passed on the newest head.
+Determine which CI applies to this PR from the workflow triggers, branch and path filters, and
+required check settings, including checks from other providers. If no PR CI applies,
+`green-repo` is the gate and must have passed on the newest head.
 
 ## Merge, only when the task says so
 
