@@ -184,8 +184,8 @@ get `isolation: "worktree"` and follow `implement`'s steps, with `install` from
 writers in one checkout share its git index and break each other's builds.
 
 **Every host starts them per Delegating in `AGENTS.md`.** Codex uses the same agents from
-`{{agents_dir}}/`, and a T3 Code `delegate_task` for one plan.md task opens with
-`{{agents_dir}}/oneshot-worker.md`'s body. Before a turn ends to wait on a `delegate_task`, set
+`{{agents_dir}}/`, and a T3 Code `delegate_task` for one plan.md task opens with the body of
+the `oneshot-worker` definition there. Before a turn ends to wait on a `delegate_task`, set
 `Status. waiting` in the run log, and back to `running` when it returns.
 
 **No subagents available changes how a step runs, not whether it runs.** Write the code

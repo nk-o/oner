@@ -59,7 +59,7 @@ That worktree starts from the default branch with tracked files only: commit wha
 holds before they start, put that commit's sha and the install command in each brief, and
 apply each returned diff with `git -C <worktree> diff --cached | git apply` before the stage's
 Verify step. Each starts per **Delegating** in `AGENTS.md`, and a T3 Code `delegate_task` opens
-with `{{agents_dir}}/oneshot-worker.md`'s body.
+with the body of the `oneshot-worker` definition in `{{agents_dir}}/`.
 
 ## Deviations
 
