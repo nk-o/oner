@@ -19,9 +19,9 @@ the run log for a review.
   when it also fails on **Base**; log how you showed that. Then commit what Clean the diff,
   Green, and the lane's own steps left uncommitted, so the review, the first shortstat, and the
   **Round 2 base** below all start from a commit.
-- **Verify against the running product.** Every check in this step only reports. A row that
-  did not hold and a defect a review shows are findings for Resolve, not edits made here, and
-  every result goes into the run log's **Checks**. Verify what the gate promised, on the
+- **Verify against the running product.** No check in this step fixes what it finds, except a
+  migration below that does not apply. A row that did not hold and a defect a review shows are
+  findings for Resolve, and every result goes into the run log's **Checks**. Verify what the gate promised, on the
   surface a user would touch, not on a proxy: the acceptance criteria for a feature, the
   reproduction from step 1 for a fix, the measurement for a perf change, the failing input each `FIX` named for a
   review. When the repository has a project skill named `verify-<app>` under
@@ -141,8 +141,9 @@ the run log for a review.
   Both voices are in before Resolve starts. One that lands after the fixes read code the other
   has already changed, so its list arrives carrying findings that are gone and its agreement
   with the first is no longer independent. Wait for it. When it arrives late anyway, rule on its
-  findings against HEAD with `resolve-review`, where one the fixes already closed is `STALE`,
-  and count them toward round two rather than running it again.
+  findings against HEAD with `resolve-review`, where a defect HEAD no longer has is `STALE`.
+  They are not a review of the fix commits, so **Round two** still decides on those by its own
+  rule.
 
   The wait ends when the script exits, because the script stops each external voice at its
   deadline. A voice listed as `timeout` is an incomplete review, never a clean one: its
@@ -156,7 +157,8 @@ the run log for a review.
   pauses. Its own
   `prod-review` of the fixes runs only for a fix past a few lines when round two below will
   skip. Re-run
-  `green-repo` after the fixes, then commit them.
+  `green-repo` after the fixes, then commit them. When a **QA pass** `Not approve` was among the
+  findings, run the QA pass again on the committed head, within its cap.
 
   Put `git diff <Base>...HEAD --shortstat` into the run log's **Review** before the fixes and
   again after their commit, write `Round 2 base. <the sha HEAD was at before the fixes>` beside
@@ -172,9 +174,13 @@ the run log for a review.
   exceptions, each worth one more round on the newest fixes and no more. Round two's own fixes
   introduced a regression, or a `FIX` in security, access control, data loss, or concurrency is
   still open with an input that shows it. Record each round in the run log's **Review**.
-- **Ship.** A **QA pass** `Not approve` still standing opens the pull request as a draft that
-  names the failing cases, and **Watch** and **Release** tick as `skip: QA not approved`, so the
-  report lists it as what waits on the user. Run `pr`, push the
+- **Ship.** A **QA pass** `Not approve` still standing opens the pull request as a draft, or
+  turns the open one into a draft with `gh pr ready --undo`, with the failing cases in its body.
+  **Watch** and **Release** tick as `skip: QA not approved`, so the report lists it as what waits
+  on the user. In a series stage, the stage run returns it unanswered in its summary, and the
+  coordinator runs `series.mjs wait review --stage <id>` per **Waiting** in `series.md`. A
+  draft is marked ready with `gh pr ready` before any merge, once the user accepts it or a
+  later round's QA pass returns `Approve`. Run `pr`, push the
   branch, and open the PR with `gh pr create`, naming each screenshot and recording the body
   shows with `--attach`, as `pr` says. When the branch already has a pull request, push to it
   and leave its description alone unless the change made it wrong. In T3 Code, the call after
