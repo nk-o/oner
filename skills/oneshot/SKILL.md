@@ -94,7 +94,10 @@ something, as `brainstorm`'s phase 2 does, and log the result under **Assumption
 
 **Away.** When the user says they are stepping away ("going to bed", "run until done", "I will
 read it in the morning"), the gate still posts its screen and does not wait: take the
-recommended option of every question, log each under **Assumptions**, and go on. The hard
+recommended option of every question, log each under **Assumptions**, and go on. Where an
+option would turn off, gate, narrow, or drop a behavior that already works, take leaving it as
+it is and report the rest per **Everything after the gate**, or stop when the request cannot be
+met that way. The hard
 stops and what only the user can do still stop, and a series' release is never authorized
 this way.
 

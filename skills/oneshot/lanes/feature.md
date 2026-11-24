@@ -29,12 +29,11 @@ is your call, per **Delegating the work**.
    refactor lane opens with, and the Verify step in [`tail.md`](tail.md) re-runs it. When the
    change touches a page that is live, the pin also lists the requests that page sends to other
    services from a fresh browser profile, such as the analytics collection request and the
-   payment script, captured on production, recording each request and aborting it so the
-   capture counts no visit. A dev server often loads none of them and their loss shows no
-   error, so Verify compares them on a preview deployment of the head where the repository
-   has one, the release's production checks compare them after the deploy, and a run that ends
-   at the pull request names them in the report as not compared. A pin that
-   ships as a test gets its own commit before the build, because `implement` starts only on a
+   payment script, captured on production, aborting only the requests that report a visit so
+   the capture counts none. A dev server often loads none of them and their loss shows no
+   error, so Verify does not re-run this part. The release's production checks compare it after
+   the deploy, and a run whose release does not names it in the report as not compared. A pin
+   that ships as a test gets its own commit before the build, because `implement` starts only on a
    clean tree. A scratch pin lives in the run folder, which git ignores. In the same step, pick
    the worst cases for each surface the feature adds or changes, per steps 1 and 2 of
    `break-ui` for a screen or `break-api` for an endpoint, job, or command, and the properties
@@ -51,7 +50,7 @@ is your call, per **Delegating the work**.
    reads. With no such screen, `skip: no UI`.
 6. **Build.** Run `implement` in unattended mode on that folder. Silence in the plan is
    decided here and logged under **Assumptions** in the run log; a conflict with the spec and
-   the hard stops still stop. Delegate or not per **Delegating the work**, and review
+   what the skill's contract stops on still stop. Delegate or not per **Delegating the work**, and review
    every diff you did not write before its checkbox is ticked. When the plan adds or reshapes
    UI a user sees, load `frontend-design` before the first UI edit, and tell a delegate that
    writes UI to load it too. The run log is what the report
