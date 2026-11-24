@@ -20,7 +20,7 @@ the run log for a review.
   Green, and the lane's own steps left uncommitted, so the review, the first shortstat, and the
   **Round 2 base** below all start from a commit.
 - **Verify against the running product.** No check in this step fixes what it finds, except a
-  migration below that does not apply. A row that did not hold and a defect a review shows are
+  migration below that does not apply or takes a used version number. A row that did not hold and a defect a review shows are
   findings for Resolve, and every result goes into the run log's **Checks**. Verify what the gate promised, on the
   surface a user would touch, not on a proxy: the acceptance criteria for a feature, the
   reproduction from step 1 for a fix, the measurement for a perf change, the failing input each `FIX` named for a
@@ -107,9 +107,7 @@ the run log for a review.
   that fails on the head fails the verdict, whatever the base shows, and so does a defect the
   head shows and the base does not. A defect both show outside the test plan is `pre-existing`:
   one sentence in the run log, per **Editing** in `AGENTS.md`. A `Not approve` is a finding for
-  Resolve, and stands until the whole test plan, run again on the head after the fixes, returns
-  `Approve`, at most two runs after the first. A `Not approve` still standing after those goes
-  to **Ship**. Then run the rest of `design-review` on the rendered UI with the same captures.
+  Resolve, which runs the whole test plan once more on the head after its fixes. Then run the rest of `design-review` on the rendered UI with the same captures.
 - **Cross the boundary if the change does.** When the change reaches a wire format, a stored
   column another service reads, a pinned library's internals, or a file another language
   parses, run `blast-radius` on that path and paste its result into the run log's **Checks**.
@@ -127,7 +125,7 @@ the run log for a review.
      **Delegating** in `AGENTS.md`. The turn holds until it returns, so no fix starts under it,
      and then waits on the script for the rest. Its brief carries the run log's
      **Assumptions** and the results Verify and the step above already have (`break-ui`,
-     `break-api`, `model-check`, `blast-radius`), so it reads them instead of running them a
+     `break-api`, `model-check`, `blast-radius`), each with the head it ran on, so it reads them instead of running them a
      second time. Where the host has no subagents, `prod-review` runs
      inline, returns an **Attention** line for each assumption it would have decided
      differently or whose evidence is thin, and runs first,
@@ -158,7 +156,7 @@ the run log for a review.
   `prod-review` of the fixes runs only for a fix past a few lines when round two below will
   skip. Re-run
   `green-repo` after the fixes, then commit them. When a **QA pass** `Not approve` was among the
-  findings, run the QA pass again on the committed head, within its cap.
+  findings, run the QA pass once more on the committed head. That is its last run.
 
   Put `git diff <Base>...HEAD --shortstat` into the run log's **Review** before the fixes and
   again after their commit, write `Round 2 base. <the sha HEAD was at before the fixes>` beside
@@ -174,13 +172,11 @@ the run log for a review.
   exceptions, each worth one more round on the newest fixes and no more. Round two's own fixes
   introduced a regression, or a `FIX` in security, access control, data loss, or concurrency is
   still open with an input that shows it. Record each round in the run log's **Review**.
-- **Ship.** A **QA pass** `Not approve` still standing opens the pull request as a draft, or
-  turns the open one into a draft with `gh pr ready --undo`, with the failing cases in its body.
-  **Watch** and **Release** tick as `skip: QA not approved`, so the report lists it as what waits
-  on the user. In a series stage, the stage run returns it unanswered in its summary, and the
-  coordinator runs `series.mjs wait review --stage <id>` per **Waiting** in `series.md`. A
-  draft is marked ready with `gh pr ready` before any merge, once the user accepts it or a
-  later round's QA pass returns `Approve`. Run `pr`, push the
+- **Ship.** When the QA pass's last run still returns `Not approve`, push the branch, open no
+  pull request, set `Status. stopped: QA not approved`, and report the failing cases with their
+  captures. In a series stage, the stage run returns them unanswered in its summary, and the
+  coordinator runs `series.mjs wait review "<the failing cases>" --stage <id>` per **Waiting**
+  in `series.md`. Otherwise run `pr`, push the
   branch, and open the PR with `gh pr create`, naming each screenshot and recording the body
   shows with `--attach`, as `pr` says. When the branch already has a pull request, push to it
   and leave its description alone unless the change made it wrong. In T3 Code, the call after
