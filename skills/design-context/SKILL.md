@@ -25,6 +25,13 @@ the task and reuse it across prototypes, code, and Figma.
 3. Record the task's purpose, audience when known, main action, content, important states,
    constraints, and what may vary. Use the request and existing documentation for product
    intent. Do not invent an audience or a brand from CSS.
+4. When the task reworks an existing element, such as a customer card or a popover, search the
+   code for its markup and its name before the first edit, and find its duplicates on other
+   screens. A duplicate is the same element in the same role. A place that shows the same data
+   in another role, such as a row in a list, is not one. The duplicates move onto one shared
+   component as part of the request, not as a follow-up. A difference a duplicate needs, such
+   as a field or an action only it has, stays as a variant of that component. A duplicate left
+   apart names its reason in the report.
 
 The current request wins over saved guidance. `DESIGN.md` governs durable visual decisions;
 the existing implementation supplies evidence and available components. If they disagree,

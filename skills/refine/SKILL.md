@@ -12,12 +12,13 @@ description: >-
 # Refine
 
 Refinement changes how an existing surface reads without changing what it is. The diff stays
-inside the named target and inside the product's system. A change of structure or identity is
+inside the target set in step 1 and inside the product's system. A change of structure or identity is
 a redesign, and a redesign is the user's decision.
 
 ## 1. Set the target and the direction
 
-The target is what the user named. Everything outside it stays as it is. Read
+The target is what the user named, plus its duplicates per step 4 of `design-context`.
+Everything outside those stays as it is. Read
 `design-context` for the applicable `DESIGN.md`, tokens, shared components, and the two or
 three neighboring screens the target should match.
 
@@ -35,7 +36,8 @@ When the words fit two directions, choose by the causes step 2 finds and name th
 the report. When the user asks for two, run them in this order: clarify, distill, quieter or
 bolder, polish.
 
-Done when you can name the target, the direction, and the neighbors you compare against.
+Done when you can name the target and its duplicates, the direction, and the neighbors you
+compare against.
 
 ## 2. Find why it reads that way
 
@@ -78,7 +80,8 @@ Done when every planned cause is fixed or listed as a proposal.
 Capture the target again at the same widths and states as step 2, and look at each pair side
 by side. The change should be visible in the pair. If it is not, the edit did not address the
 cause. Run `design-review` on the changed surface and reuse these captures as its evidence.
-Check that `git diff` touches only the target and the owner fixes that rule allowed.
+Check that `git diff` touches only the target, its duplicates, and the owner fixes that rule
+allowed.
 
 Fix the failures in one batch and confirm once. Do not start a second pass in another
 direction unless the user asks for it.

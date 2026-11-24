@@ -27,7 +27,7 @@ construction and verification. Choose the job before designing:
 
 ## Before the first edit
 
-A new or reshaped screen gets these three steps in every job above, with or without
+A new or reshaped screen gets these four steps in every job above, with or without
 prototypes. Skipping prototypes skips the comparison, not the design.
 
 1. Capture the screen where the user meets this task, in the running app with realistic data.
@@ -40,10 +40,12 @@ prototypes. Skipping prototypes skips the comparison, not the design.
 3. Pick the fixtures per steps 1 and 2 of `break-ui`: the typical case, the most items a real
    account reaches, the longest values, and empty. Read the element list against each. A
    structure that holds only for three short rows changes now, before any code.
+4. When the change reworks an existing element, take its duplicates from step 4 of
+   `design-context` and capture each one beside step 1's. They are part of this change.
 
-Done when the capture is saved and the place, the element list, and the fixtures are written
-down. In a spec run they go into the plan task that builds the screen. Build that list and
-nothing more.
+Done when the captures are saved and the place, the element list, the fixtures, and any
+duplicates are written down. In a spec run they go into the plan task that builds the screen.
+Build that list and nothing more.
 
 ## Inside a product
 

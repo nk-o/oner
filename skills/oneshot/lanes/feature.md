@@ -43,11 +43,13 @@ is your call, per **Delegating the work**.
    changes a screen a user already sees, save that screen now into the run folder's `media/`,
    at the viewport and with the data the Verify step will use, as the pull request's Before.
 5. **Design the screen.** When the plan adds or reshapes a screen a user sees, load
-   `frontend-design` and run its **Before the first edit** on each one, with step 4's capture
-   and worst cases. A user who declined prototypes declined the comparison, so this step
-   still runs and settles the one recommended design. Write each screen's place, element
-   list, and fixtures into the plan.md task that builds it, because that is what a delegate
-   reads. With no such screen, `skip: no UI`.
+   `frontend-design` and run its **Before the first edit** on each one, with the capture and
+   worst cases from this lane's step 4. A user who declined prototypes declined the
+   comparison, so this step still runs and settles the one recommended design. Write each screen's place, element
+   list, fixtures, and duplicates into the plan.md task that builds it, with the duplicates'
+   files in its file list, because that is what a delegate reads. Each duplicate's screen then
+   gets what step 4 gives a changed screen: a pin and worst cases in **Checks** and a Before in
+   `media/`. With no such screen, `skip: no UI`.
 6. **Build.** Run `implement` in unattended mode on that folder. Silence in the plan is
    decided here and logged under **Assumptions** in the run log; a conflict with the spec and
    what the skill's contract stops on still stop. Delegate or not per **Delegating the work**, and review
