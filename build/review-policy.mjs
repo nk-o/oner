@@ -4,7 +4,7 @@ const END = '<!-- end oneshot external-review authorization -->';
 export function reviewPolicy(providers) {
   if (!providers.length) return '';
   return `${START}\nThe user explicitly authorized external code review of every repository by these recipients: ${providers.join(', ')}.\n` +
-    'This consent covers the external-review script and every review round. Review input must be a separate sanitized repository, without environment files, credentials, private keys, certificates, dumps, ignored files or symlink contents. These recipients are trusted only for that bounded code-review input. Authentication through their installed CLIs is part of the authorized review. A new recipient or broader data scope needs explicit user consent. Keep all other reviewer rules and managed requirements.\n' + END;
+    'This consent covers the external-review script and every review round. Review input must be a separate sanitized repository, without environment files, credentials, private keys, certificates, dumps, ignored files or symlink contents. These recipients are trusted only for that bounded code-review input. When codex is among them, the consent also covers the prototype arena judge, which gives codex copies of the candidates\' screenshots and the rubric in an empty directory and nothing else. Authentication through their installed CLIs is part of the authorized review. A new recipient or broader data scope needs explicit user consent. Keep all other reviewer rules and managed requirements.\n' + END;
 }
 
 // Mask strings and comments so TOML-looking text inside another value cannot select a table.
