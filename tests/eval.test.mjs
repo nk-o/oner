@@ -11,17 +11,19 @@ const repo = resolve('.');
 const root = mkdtempSync(join(realpathSync(tmpdir()), 'eval-'));
 after(() => rmSync(root, { recursive: true, force: true }));
 
-test('chunks stay under the hook limit and rejoin to the instructions', () => {
-  const text = ['# Rules', 'a'.repeat(5000), 'b'.repeat(5000), 'c'.repeat(20000), 'end'].join('\n\n');
+test('chunks break at section headings, stay under the hook limit, and rejoin', () => {
+  const section = (name, size) => `## ${name}\n\n${'x'.repeat(size)}\n\n`;
+  const text = 'Intro\n\n' + section('A', 5000) + section('B', 5000) + section('C', 20000) + section('D', 100);
   const chunks = chunkInstructions(text);
   assert.equal(chunks.join(''), text);
-  assert.ok(chunks.length >= 5);
   for (const c of chunks) assert.ok(c.length <= CHUNK_LIMIT, `chunk of ${c.length}`);
+  assert.ok(chunks[1].startsWith('## B'), 'a section that fits is never split');
+  assert.ok(chunks.at(-1).endsWith(section('D', 100)));
 });
 
 test('the eval plugin carries skills, the instructions as hooks, and the cases', () => {
   const dir = join(root, 'plugin');
-  writeEvalPlugin(repo, validateConfig({}, repo), dir);
+  writeEvalPlugin(repo, validateConfig({ skills: { disabled: ['oneshot'] } }, repo), dir);
 
   const hooks = JSON.parse(readFileSync(join(dir, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const commands = (event) => hooks[event].flatMap((e) => e.hooks.map((h) => h.command));
@@ -34,9 +36,12 @@ test('the eval plugin carries skills, the instructions as hooks, and the cases',
     assert.ok(commands(event).includes('"${CLAUDE_PLUGIN_ROOT}/skills/oneshot/hook.sh"'), `${event} runs the oneshot hook`);
   }
   assert.ok(!Object.values(hooks).flat().some((e) => e.hooks.some((h) => /build\.mjs|update-check|devservers/.test(h.command))));
-  const instructions = context.map((f) => readFileSync(join(dir, 'context', f), 'utf8')).join('');
-  assert.match(instructions, /^These rules are installed for Claude Code\./);
+  const parts = context.map((f) => readFileSync(join(dir, 'context', f), 'utf8'));
+  parts.forEach((p, i) => assert.ok(p.startsWith(`Part ${i + 1} of ${parts.length} of the session rules.`)));
+  const instructions = parts.join('');
+  assert.match(instructions, /These rules are installed for Claude Code\./);
   assert.match(instructions, /## Whole tasks/);
+  assert.ok(!instructions.includes('~/'), 'paths are absolute, because the eval runs under another HOME');
 
   const oneshot = readFileSync(join(dir, 'skills', 'oneshot', 'SKILL.md'), 'utf8');
   assert.ok(oneshot.includes(join(dir, 'skills')), 'skill paths point into the plugin');
@@ -45,6 +50,13 @@ test('the eval plugin carries skills, the instructions as hooks, and the cases',
   }
   assert.equal(JSON.parse(readFileSync(join(dir, '.claude-plugin', 'plugin.json'), 'utf8')).name, 'oner');
   assert.ok(walk(join(dir, 'evals')).some((f) => f.rel.endsWith('prompt.md')));
+});
+
+test('no file_exists grader uses brackets, which the eval glob treats as literal', () => {
+  for (const f of walk(join(repo, 'evals')).filter((f) => /\/graders\/.+\.md$/.test(f.rel))) {
+    const head = readFileSync(f.abs, 'utf8').split('---')[1];
+    if (/^type: file_exists$/m.test(head)) assert.doesNotMatch(head.match(/^path: (.*)$/m)[1], /[[\]]/, f.rel);
+  }
 });
 
 test('toolPath skips the xcrun git and version-manager shims', () => {

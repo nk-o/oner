@@ -10,31 +10,36 @@ export const CHUNK_LIMIT = 8000;
 export function chunkInstructions(text, limit = CHUNK_LIMIT) {
   const chunks = [];
   let cur = '';
-  for (const para of text.split(/(?<=\n\n)/)) {
-    if (cur && cur.length + para.length > limit) {
+  const push = (piece) => {
+    if (cur && cur.length + piece.length > limit) {
       chunks.push(cur);
       cur = '';
     }
-    for (let i = 0; i < para.length; i += limit) {
-      const piece = para.slice(i, i + limit);
-      if (cur && cur.length + piece.length > limit) {
-        chunks.push(cur);
-        cur = '';
-      }
-      cur += piece;
+    cur += piece;
+  };
+  for (const section of text.split(/(?=^## )/m)) {
+    if (section.length <= limit) {
+      push(section);
+      continue;
+    }
+    for (const para of section.split(/(?<=\n\n)/)) {
+      for (let i = 0; i < para.length; i += limit) push(para.slice(i, i + limit));
     }
   }
   if (cur) chunks.push(cur);
   return chunks;
 }
 
-export function writeEvalPlugin(repo, config, dir) {
+export function writeEvalPlugin(repo, config, dir, { local } = {}) {
   const hooks = runHooks(repo);
-  for (const [rel, { data, mode }] of renderTarget(repo, config, 'claude', dir)) {
+  const all = { ...config, disabledSkills: [] };
+  for (const [rel, { data, mode }] of renderTarget(repo, all, 'claude', dir, { absolute: true, local })) {
     if (rel === 'CLAUDE.md') {
-      const context = chunkInstructions(data.toString('utf8')).map((chunk, i) => {
+      const chunks = chunkInstructions(data.toString('utf8'));
+      const context = chunks.map((chunk, i) => {
         const name = `${String(i + 1).padStart(2, '0')}.md`;
-        write(join(dir, 'context', name), chunk);
+        // Hook outputs reach the session in completion order, not config order.
+        write(join(dir, 'context', name), `Part ${i + 1} of ${chunks.length} of the session rules. Read the parts in number order as one document.\n\n${chunk}`);
         return { hooks: [{ type: 'command', command: `cat "\${CLAUDE_PLUGIN_ROOT}/context/${name}"` }] };
       });
       hooks.SessionStart = [...context, ...(hooks.SessionStart ?? [])];

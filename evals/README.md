@@ -16,8 +16,8 @@ node bin/eval.mjs --baseline          # also run without oner and report the dif
 
 `bin/eval.mjs` renders this checkout, not the installed copy, so a skill edit is measured
 before it ships. Results and the HTML report go to `.oner/evals/<timestamp>/`. Every run
-spends the Claude Code account's usage: a one-skill case costs about $0.05 to $0.25, a
-`oneshot` case up to about $1.
+spends the Claude Code account's usage. In the first runs a case of 6 to 15 turns cost $0.25 to
+$0.55, one of 23 turns $1.90, and 15 cases about $7.
 
 ## A case
 
@@ -52,13 +52,19 @@ is invented: no real product, company, person, store, order, or key.
 | `tool_used` | a skill was or was not called: `tool: Skill`, `input_match: oneshot`, `min`/`max`. `min: 0` with `max: 0` forbids a call; `max: 0` alone fails every run, because `min` defaults to 1. Skills are namespaced `oner:<name>`, and `input_match` is a regex over the call's JSON input. |
 | `tool_order` | one call came before another. Both must happen, so pair the first call with one that always follows, such as `Bash`. |
 | `regex` | text in the final reply (`target: last_message`), in the transcript (`target: trace`), or in a file the run left (`target: { source: file, path: <path> }`). `match: not_contains` forbids, `match: "count:N"` counts. Flags go in `flags`, never inline. The transcript is one JSON message per line and also holds the rules and skill texts the agent read, so a pattern for what the agent said or wrote starts with `"role":"assistant"[^\n]*`. |
-| `file_exists` | a file the agent created, by glob. `exists: false` forbids. Files from `fixture.sh` do not count. |
+| `file_exists` | a file the agent created, by glob. `exists: false` forbids. Files from `fixture.sh` do not count. `[` and `]` are literal characters there, so a character class needs `regex` with `target: files`, the list of created paths. |
 | `llm` | a judgement no pattern can make. Write the body as PASS and FAIL conditions about one observable thing. With `focus: trace` the judge sees only the first and last 12 messages. |
 
 Prefer a deterministic grader. Add an `llm` grader only for the part no pattern can check. A
-grader that every run would pass whatever the agent did checks nothing, so delete it. Every case
-runs the whole oner plugin, so a `tool_used: Skill` grader needs `arm: both` to count when the
-case also runs `--baseline`.
+grader that every run would pass whatever the agent did checks nothing, so delete it. The judge
+sees only the first and last 12 transcript messages, and the first ones are the hook outputs, so
+a judge reads `last_message` or a file. Under `--baseline` a `tool_used: Skill` grader stops
+counting and shows whether the plugin fired, because the run without oner has no skill to call.
+Score both runs on what the agent left behind.
+
+To check that something comes first, anchor at the start of the transcript:
+`^(?:(?!"type":"tool_use")[\s\S])*"type":"tool_use","id":"[^"]*","name":"Skill"` passes only when
+the first tool call is `Skill`.
 
 `allowed_tools` takes only read-only tools: `Read`, `Glob`, `Grep`, `Skill`, `Agent`,
 `TodoWrite`. The runner grants `Bash`, `Edit`, and `Write` to every case. An eval run offers no

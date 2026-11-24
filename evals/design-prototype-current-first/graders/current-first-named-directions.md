@@ -1,6 +1,6 @@
 ---
 type: llm
-focus: trace
+focus: last_message
 ---
 
 The agent built a prototype with several directions for an order list screen. Judge the picker

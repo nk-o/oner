@@ -1,6 +1,6 @@
 ---
 type: llm
-focus: trace
+focus: last_message
 ---
 
 Judge only the questions the agent puts to the user, in its reply text.

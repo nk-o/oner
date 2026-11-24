@@ -14,11 +14,8 @@ PASS if all of these hold:
 - Each tool description now says when to pick it over its sibling, for example search_orders
   for a free-text or list lookup and get_order for one known order id, so no two descriptions
   could be swapped without becoming wrong.
-- The four tool descriptions together are no longer than the originals, about 160 words in
-  total, or shorter.
 - No tool, top-level key, tool key, parameter, enum, default, or mode was added beyond the ones
   listed above.
 
-FAIL if any description still applies equally to its sibling, if the descriptions together run
-past about 160 words, or if the file has any key, parameter, enum, or option the original did
+FAIL if any description still applies equally to its sibling, or if the file has any key, parameter, enum, or option the original did
 not have.

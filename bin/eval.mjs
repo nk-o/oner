@@ -11,7 +11,9 @@ const USAGE = `Usage: node bin/eval.mjs [--case <glob>] [--tag <tag>] [--runs <n
 
 Renders this checkout's skills, agents, and AGENTS.md into a temporary Claude Code
 plugin and runs \`claude plugin eval\` on evals/. Results and the HTML report go to
-.oner/evals/<timestamp>/ and are never published.
+.oner/evals/<timestamp>/ and are never published. The settings and local/ come
+from this checkout, else from the primary checkout, and every skill is on. It exits 1
+when a case scores below 1.
 
   --case <glob>  Only the cases whose name matches, such as 'route-*'
   --tag <tag>    Only the cases with this tag
@@ -53,7 +55,7 @@ const configRepo = existsSync(join(repo, 'config.json')) || !primary ? repo : pr
 const tmp = mkdtempSync(join(tmpdir(), 'oner-eval-'));
 const plugin = join(tmp, 'oner');
 try {
-  writeEvalPlugin(repo, loadConfig(configRepo), plugin);
+  writeEvalPlugin(repo, loadConfig(configRepo), plugin, { local: join(configRepo, 'local') });
 } catch (err) {
   rmSync(tmp, { recursive: true, force: true });
   if (!(err instanceof BuildError)) throw err;
@@ -70,7 +72,6 @@ const result = spawnSync('claude', [
   '--allow-tools', 'Bash', 'Edit', 'Write',
   '--runs', runs,
   '--ablation', baseline ? 'with-without' : 'none',
-  '--threshold', '0',
   '--output-dir', out,
   '--report', join(out, 'report.html'),
   '--json', join(out, 'result.json'),
