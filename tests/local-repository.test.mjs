@@ -191,7 +191,14 @@ test('an automatic build reports a skipped agent every time until the conflict i
   } }, f.repo);
   config.targets.codex = { enabled: true, explicit: false, dir: codexDir };
   assert.match(build(f.repo, config, { auto: false }).join('\n'), /codex: skipped: these already exist/);
-  assert.match(build(f.repo, config, { auto: true }).join('\n'), /codex: skipped: these already exist/);
+  const settings = join(targets.claude.dir, 'settings.json');
+  const own = JSON.parse(readFileSync(settings, 'utf8'));
+  own.permissions.allow.push('Bash(npm test:*)');
+  writeFileSync(settings, JSON.stringify(own));
+  const retry = build(f.repo, config, { auto: true });
+  assert.equal(retry.length, 1);
+  assert.match(retry[0], /^codex: skipped: these already exist/);
+  assert.ok(JSON.parse(readFileSync(settings, 'utf8')).permissions.allow.includes('Bash(npm test:*)'));
   rmSync(foreign);
   assert.match(build(f.repo, config, { auto: true }).join('\n'), /codex: .*written/);
   assert.deepEqual(build(f.repo, config, { auto: true }), []);

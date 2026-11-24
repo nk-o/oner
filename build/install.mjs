@@ -27,15 +27,16 @@ import { syncLocal } from './local.mjs';
 
 const MANIFEST = '.agent-config-manifest.json';
 // Gitignored, in the checkout, keyed by home directory: which dirs this checkout
-// installed into for that user, and the input hash they were built from. --auto
-// does nothing without an entry, so a worktree of this repository, or a run under
-// another HOME, cannot overwrite what the main checkout installed.
+// installed into for that user, the input hash they were built from, and the
+// agents the last build skipped. --auto does nothing without an entry, so a
+// worktree of this repository, or a run under another HOME, cannot overwrite
+// what the main checkout installed.
 const STATE = '.build-state.json';
 
 // Builds every target in config and returns one report line per target that
 // changed. With auto, nothing happens unless this checkout has built before and
-// its inputs changed since, or the last build skipped a target, so the skip is
-// reported again each session until it is fixed.
+// its inputs changed since. With unchanged inputs, auto retries only the agents
+// the last build skipped, so the skip is reported again until it is fixed.
 export function build(repo, config, { auto }) {
   const statePath = join(repo, STATE);
   const allState = readJson(statePath) ?? {};
@@ -43,6 +44,7 @@ export function build(repo, config, { auto }) {
   const local = auto ? null : syncLocal(repo, config.localRepository);
   const hash = hashInputs(repo);
   if (auto && (!state || (state.hash === hash && !state.skipped?.length))) return [];
+  const retryOnly = auto && state.hash === hash ? new Set(state.skipped) : null;
 
   const ctx = { repo, roots: rootCommits(repo) };
   const lines = local?.line ? [local.line] : [];
@@ -51,6 +53,10 @@ export function build(repo, config, { auto }) {
     const target = config.targets[name];
     const say = (line) => line && lines.push(`${name}: ${line}`);
     const prevDir = state?.targets?.[name];
+    if (retryOnly && !retryOnly.has(name)) {
+      if (prevDir) next.targets[name] = prevDir;
+      continue;
+    }
     if (!target.enabled) {
       if (prevDir && prevDir !== target.dir) say(uninstallIfMine(ctx, spec, prevDir, 'disabled'));
       say(uninstallIfMine(ctx, spec, target.dir, 'disabled') ?? (auto ? null : `off (${target.dir})`));
@@ -111,7 +117,8 @@ function install(ctx, spec, dir, auto, config) {
   if (foreign.length) {
     throw new TargetError(
       `these already exist in ${dir} and this build did not write them:\n` +
-        foreign.map((rel) => `  ${rel}`).join('\n') +
+        foreign.slice(0, 5).map((rel) => `  ${rel}`).join('\n') +
+        (foreign.length > 5 ? `\n  and ${foreign.length - 5} more` : '') +
         '\nMove personal rules into local/AGENTS.md and personal skills into local/skills/, then build again.',
     );
   }

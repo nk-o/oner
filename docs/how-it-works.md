@@ -35,8 +35,9 @@ Each agent's directory holds `.agent-config-manifest.json`, which lists every fi
 wrote there and every hook or settings key it owns. The build deletes only files on that list, so
 your own skills and anything the agent puts there stay. `enabled: false` for an agent removes what
 the build put there, and a new `dir` moves it. `.build-state.json` records which directories the
-checkout installed into for each home directory. A worktree of this repository has no such file,
-so it never rebuilds over the main checkout's install.
+checkout installed into for each home directory, and which agents the last build skipped, so
+the hooks retry a skipped agent and report it until it installs. A worktree of this repository
+has no such file, so it never rebuilds over the main checkout's install.
 
 The Cursor CLI reads no user-level rules file, so its `sessionStart` hook passes the rules in as
 context. Past Cursor's 10,000-character limit, it passes a pointer to them instead. OpenCode and
