@@ -308,7 +308,8 @@ usually one small script that imports what the app ships and calls the function 
   numbers. Product names and public list prices are fine. The data stays in the tracker or in
   ignored files such as `.oner/`.
 - One concern per pull request: one feature, one fix, or one cleanup, at whatever size it
-  takes. A second change a user would notice, found on the way, is a follow-up.
+  takes. A second change a user would notice, found on the way, is a follow-up. Duplicates of a
+  reworked element, per step 4 of `design-context`, belong to the change.
 - Run `gh pr merge` as a command of its own, with no `cd`, pipe, `&&` or `;` around it, and
   check the result in a second call. Only the bare command matches the allow rule.
 - Use the pr-wait skill to wait on a pull request's checks and review, to merge one once it is

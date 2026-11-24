@@ -46,8 +46,10 @@ is your call, per **Delegating the work**.
    `frontend-design` and run its **Before the first edit** on each one, with the capture and
    worst cases from this lane's step 4. A user who declined prototypes declined the
    comparison, so this step still runs and settles the one recommended design. Write each screen's place, element
-   list, fixtures, and copies into the plan.md task that builds it, with the copies' files in
-   its file list, because that is what a delegate reads. With no such screen, `skip: no UI`.
+   list, fixtures, and duplicates into the plan.md task that builds it, with the duplicates'
+   files in its file list, because that is what a delegate reads. Each duplicate's screen then
+   gets what step 4 gives a changed screen: a pin and worst cases in **Checks** and a Before in
+   `media/`. With no such screen, `skip: no UI`.
 6. **Build.** Run `implement` in unattended mode on that folder. Silence in the plan is
    decided here and logged under **Assumptions** in the run log; a conflict with the spec and
    what the skill's contract stops on still stop. Delegate or not per **Delegating the work**, and review

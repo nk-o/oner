@@ -66,10 +66,9 @@ If browser or rendered access is unavailable, name the unverified checks.
 - **System consistency.** Tokens, components, terminology, and meaningful states match the
   product. A local change does not introduce a second visual language. A new surface built in
   an older UI layer while the platform has a current one is a system conflict, per
-  `design-context`. The same element looks and acts the same on every screen it appears on,
-  such as a customer card on a ticket and on the customer's own page, unless a difference has
-  a content or interaction reason. Frame: put the target beside each of those screens, else a
-  sibling screen, at the same width. Content width, alignment, gutters, the surface content sits on, and the header's
+  `design-context`. Each duplicate of the target, per step 4 of `design-context`, looks and acts
+  the same as the target apart from the variants that step keeps. Frame: put the target beside
+  each duplicate's screen, else a sibling screen, at the same width. Content width, alignment, gutters, the surface content sits on, and the header's
   position match, unless the system gives the target its own frame for a stated reason.
 - **Composition.** After the look, run the measurements in
   [Composition](references/interface-checks.md#composition) on each screen the look flagged,
