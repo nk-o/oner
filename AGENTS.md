@@ -231,8 +231,8 @@ usually one small script that imports what the app ships and calls the function 
   (`mcp__t3-code__delegate_task` in Claude Code), every host sends a background delegate
   through it. Each parallel writer goes through it too, started together with the others, with
   `isolation: "worktree"`, because T3 binds no worktree made another way. It takes no
-  `subagent_type`, so a delegate with an agent definition has that body, below the
-  frontmatter, open its task text.
+  `subagent_type`, so a delegate with an agent definition has that body open its task text.
+  The body is the text below the frontmatter, or a Codex definition's `developer_instructions`.
 - A `lead` stage run takes its provider and model from `{{skills_dir}}/lead/executors.md`,
   which lists only the executors I enabled, per step 4 of the `lead` skill. Other delegates keep
   the session's provider and the model their own rules give.

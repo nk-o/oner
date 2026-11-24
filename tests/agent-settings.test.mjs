@@ -150,8 +150,9 @@ test('the settings page puts every skill under a stage, so none falls into Other
 });
 
 test('no text names an agent file by extension, since each agent host stores it differently', () => {
-  const texts = ['AGENTS.md', ...walk(resolve('skills')).map((f) => f.abs), ...walk(resolve('agents')).map((f) => f.abs)]
-    .filter((f) => /\.(md|sh|mjs)$/.test(f));
-  const hits = texts.flatMap((f) => [...readFileSync(f, 'utf8').matchAll(/\{\{agents_dir\}\}\/[\w.-]+\.(?:md|toml)/g)].map((m) => `${f}: ${m[0]}`));
+  const names = walk(resolve('agents')).map((f) => f.rel.replace(/\.md$/, ''));
+  const file = new RegExp(`\\b(?:${names.join('|')})\\.(?:agent\\.)?(?:md|toml)\\b`, 'g');
+  const texts = [resolve('AGENTS.md'), ...walk(resolve('skills')).map((f) => f.abs)];
+  const hits = texts.flatMap((f) => [...readFileSync(f, 'utf8').matchAll(file)].map((m) => `${f}: ${m[0]}`));
   assert.deepEqual(hits, []);
 });
