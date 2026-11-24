@@ -131,10 +131,6 @@ changed a decision.
 - Reuse before you write. Before new code, look for what already does the job, in this order:
   a helper or pattern in this codebase, the standard library or platform, a dependency already
   installed. Use what you find the way the surrounding code does.
-- One thing, one implementation. When a change reworks how something looks or behaves, such
-  as a customer card, a status badge, or a date format, find every place that renders it, by
-  its data, its name, and its markup, before the first edit. They all move onto one shared
-  implementation in the same change. A place left different names its reason in the report.
 - Subtract before you add. In the code the change touches, remove dead code, redundant
   guards, and wrappers, pass-throughs, or globals with one caller first, then build on the
   smaller base. One stays only when it lowers the reading cost somewhere else.

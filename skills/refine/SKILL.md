@@ -17,7 +17,8 @@ a redesign, and a redesign is the user's decision.
 
 ## 1. Set the target and the direction
 
-The target is what the user named. Everything outside it stays as it is. Read
+The target is what the user named, plus its copies per step 4 of `design-context`. Everything
+outside those stays as it is. Read
 `design-context` for the applicable `DESIGN.md`, tokens, shared components, and the two or
 three neighboring screens the target should match.
 
@@ -78,7 +79,8 @@ Done when every planned cause is fixed or listed as a proposal.
 Capture the target again at the same widths and states as step 2, and look at each pair side
 by side. The change should be visible in the pair. If it is not, the edit did not address the
 cause. Run `design-review` on the changed surface and reuse these captures as its evidence.
-Check that `git diff` touches only the target and the owner fixes that rule allowed.
+Check that `git diff` touches only the target, its copies, and the owner fixes that rule
+allowed.
 
 Fix the failures in one batch and confirm once. Do not start a second pass in another
 direction unless the user asks for it.

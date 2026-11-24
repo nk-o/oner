@@ -40,13 +40,11 @@ prototypes. Skipping prototypes skips the comparison, not the design.
 3. Pick the fixtures per steps 1 and 2 of `break-ui`: the typical case, the most items a real
    account reaches, the longest values, and empty. Read the element list against each. A
    structure that holds only for three short rows changes now, before any code.
-4. List every other place that shows the same thing, per **One thing, one implementation** in
-   `AGENTS.md`. Search the code for the entity's data, its component, and its copy, and open
-   each screen the search finds. Capture each one beside step 1's. The change reaches all of
-   them through one shared component, so they are part of this change.
+4. When the change reworks an element other screens already show, take its copies from step 4
+   of `design-context` and capture each one beside step 1's. They are part of this change.
 
-Done when the captures are saved and the place, the element list, the fixtures, and the other
-places are written down. In a spec run they go into the plan task that builds the screen.
+Done when the captures are saved and the place, the element list, the fixtures, and any copies
+are written down. In a spec run they go into the plan task that builds the screen.
 Build that list and nothing more.
 
 ## Inside a product
