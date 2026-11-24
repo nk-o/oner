@@ -42,8 +42,8 @@ const decode = (s) =>
 const words = (s) => decode(s).toLowerCase().match(/[a-z0-9%$#@.:/+-]+/g)?.map((w) => w.replace(/[.:]+$/, '')).filter((w) => w && w !== '-') ?? [];
 const plain = (md) =>
   md
-    // Inline code shows its angle brackets as text, so they must not read as tags below.
-    .replace(/`([^`]*)`/g, (m, code) => code.replace(/[<>]/g, ' '))
+    // Keep inline code paths through fragment cleanup so words() can compare the visible text.
+    .replace(/`([^`]*)`/g, (m, code) => code.replace(/[<>]/g, ' ').replaceAll('/', '&#47;'))
     .replace(/^\s*(\d+\.|-)\s+/gm, ' ')
     // A changelog item's tag shows as an icon, not as text.
     .replace(/^\s*\[(new|feature|improved|changed|fixed|removed)\]\s/gm, ' ')
@@ -81,13 +81,13 @@ for (const { slug, parts, gone } of checks) {
     bad++;
     continue;
   }
-  const html = await (await fetch(url)).text();
+  const html = (await (await fetch(url)).text()).replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ');
   // Poise puts the body in data-slot="article-content", apart from the title, the sidebar, and the
   // links to the next article that follow it.
-  const start = html.indexOf('data-slot="article-content"');
+  const start = html.search(/<[a-z][\w-]*\b[^>]*\sdata-slot="article-content"(?=[\s/>])/i);
   const end = start === -1 ? -1 : html.indexOf('<nav', start);
   const page = start === -1 ? html : html.slice(start, end === -1 ? undefined : end);
-  const got = words(page.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ')).join(' ');
+  const got = words(page.replace(/<[^>]+>/g, ' ')).join(' ');
   const missing = [];
   const images = [];
   const links = [];
