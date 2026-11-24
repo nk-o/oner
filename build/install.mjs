@@ -456,11 +456,8 @@ function hookId(event, entry) {
 }
 
 // Keys the build owns entry by entry, so the user's own entries beside them stay.
-// A list entry, such as permissions.allow, is owned rule by rule.
 const BY_ENTRY = new Set(['env', 'permissions']);
 
-// Removes owned keys and hook entries recorded in oldOwned and the legacy hook
-// commands, then adds the template's. Returns the new settings and what is owned.
 function mergeEntries(own, value) {
   const out = { ...own };
   for (const [entry, v] of Object.entries(value)) {
@@ -471,6 +468,8 @@ function mergeEntries(own, value) {
   return out;
 }
 
+// Removes owned keys and hook entries recorded in oldOwned and the legacy hook
+// commands, then adds the template's. Returns the new settings and what is owned.
 export function mergeSettings(settings, template, oldOwned, legacyCommands) {
   const out = structuredClone(settings);
   if (out.hooks !== undefined && !isObject(out.hooks)) throw new TargetError('settings.json "hooks" is not an object');
