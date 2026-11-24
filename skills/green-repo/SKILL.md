@@ -40,8 +40,9 @@ description: >-
 
 ## Unattended
 
-When `oneshot` runs this skill, step 5 no longer stops. Take the fix that matches how this
-project already resolves that class of failure, record it as one line with its reason under
-**Assumptions** in the run log, and carry on. The hard stops in `oneshot`'s contract still
-stop. Step 7 is unchanged: a failure you cannot fix at all is still reported, not worked
-around.
+When `oneshot` runs this skill, a failure that also fails on the run log's **Base** is
+pre-existing: report it and leave it, per the tail's **Green** step. Step 5 no longer stops.
+Take the fix that matches how this project already resolves that class of failure, record it
+as one line with its reason under **Assumptions** in the run log, and carry on. The hard stops
+in `oneshot`'s contract still stop. Step 7 is unchanged: a failure you cannot fix at all is
+still reported, not worked around.

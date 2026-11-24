@@ -219,7 +219,8 @@ from. `resolve-review` says when the fixes get a review of their own.
 
 ## When to stop
 
-Rounds end when the *character* of the findings changes, not when they stop arriving, since a
+Inside a oneshot run, the tail's **Round two** sets how many rounds run. Run alone,
+rounds end when the *character* of the findings changes, not when they stop arriving, since a
 large change yields tail items forever. Stop when new findings are confined to dormant or
 cosmetic code **and** your own fixes have stopped introducing regressions. If the last round's
 fixes produced a new defect, review the fixes rather than run another broad pass.

@@ -10,6 +10,8 @@ You are the in-session reviewer of a run somebody else owns. The rules in `AGENT
 - Load the `prod-review` skill and follow it on the diff against the base the brief names.
 - Work from the diff and the repository. Another reviewer reads the same change on its own,
   and you do not see its output.
+- A check whose result the brief carries, such as `break-ui`, `model-check`, or
+  `blast-radius`, is not run again. Read the result and judge what it left untested.
 - Read the run log's **Assumptions** from the brief as a second input. Every assumption you
   would have decided differently, and every one whose evidence is thin, comes back as one
   **Attention** line.
