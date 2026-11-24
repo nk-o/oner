@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: skill-commit-subject
+description: >-
+  commit-message SKILL.md "Subject": `<type>(<scope>): <imperative summary>` from the listed types,
+  "Under 50 characters when possible, hard cap 72", "No trailing period", and AGENTS.md "Use the
+  commit-message skill before every commit". The staged change renames one function inside one
+  file. Mining pattern commit-message 1 (subjects over 50 characters, skill skipped).
+context:
+  scaffold_script: fixture.sh

@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: skill-changelog-user-visible
+description: >-
+  changelog SKILL.md "3. Decide what survives": a changed border "goes into the line of the feature
+  it belongs to, or nowhere", "Drop refactors", and "A bug introduced and fixed inside the range
+  ... never existed for the reader". Since v1.2.0 the history holds recurring invoices, a softer
+  card border, an internal store split, and a duplicate-invoice bug that recurring invoices
+  introduced and a later commit fixed. Mining patterns changelog 1 (cosmetic or stale lines) and
+  changelog 6 (in-range bug correctly omitted).
+context:
+  scaffold_script: fixture.sh

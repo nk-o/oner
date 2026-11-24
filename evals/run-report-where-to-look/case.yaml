@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: run-report-where-to-look
+description: >-
+  The final report of a change a user sees says where to look at the result and how to open
+  it. Rule: oneshot SKILL.md Report ("The outcome and the link ... and the run log's path") and
+  AGENTS.md Talking to me ("It opens with the outcome and its link"). Mining pattern O2 (report
+  does not say where to look or how to open the result).
+context:
+  scaffold_script: fixture.sh

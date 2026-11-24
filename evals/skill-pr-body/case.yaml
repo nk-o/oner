@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: skill-pr-body
+description: >-
+  pr SKILL.md "Title ... at most 72 characters", "Open with two to five sentences of prose, no
+  heading above them", "Cut what they can: which files changed ... and any retelling of the
+  diff", "no checklists you ticked yourself", plus AGENTS.md "No dash as a sentence break" and
+  "Use the pr skill before opening a pull request". The branch has two commits fixing a blank
+  search query. Mining patterns pr 1 (long titles, skill skipped) and pr 4 (body retells the
+  diff, over 2,500 characters, dash breaks).
+context:
+  scaffold_script: fixture.sh

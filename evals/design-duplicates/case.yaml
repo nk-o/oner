@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: design-duplicates
+description: >-
+  design-context SKILL.md step 4 "find its duplicates on other screens ... The duplicates move onto
+  one shared component as part of the request, not as a follow-up". The help-article callout is
+  rendered in site/article.html and again in the editor preview editor/preview.html with the same
+  inline rule, so both lose the old look. Mining pattern C1 (duplicates on other surfaces missed).
+context:
+  scaffold_script: fixture.sh

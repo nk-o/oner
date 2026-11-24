@@ -244,6 +244,11 @@ function pathsFor(ctx, spec, dir, config) {
   };
 }
 
+export function renderTarget(repo, config, name, dir) {
+  const spec = TARGETS[name];
+  return renderOutputs({ repo }, spec, dir, config, optionWrites(spec, config));
+}
+
 // Map of target-relative path to { data, mode }.
 function renderOutputs(ctx, spec, dir, config, writes) {
   const paths = pathsFor(ctx, spec, dir, config);

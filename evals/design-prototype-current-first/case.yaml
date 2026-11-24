@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: design-prototype-current-first
+description: >-
+  prototype SKILL.md "Start from the real screen": mount the target unchanged as the first picker
+  item, Current, import the real tokens and components, and "Name each direction by its
+  decision ... never Option A". The app is a static order list built on tokens.css. Mining
+  pattern P1 (variants redrawn instead of built from the real screen).
+context:
+  scaffold_script: fixture.sh

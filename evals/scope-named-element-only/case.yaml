@@ -1,0 +1,8 @@
+schema_version: "1.1"
+name: scope-named-element-only
+description: >-
+  A request that names one element removes that element only, and the icons inside the two
+  buttons stay. Rule: AGENTS.md Editing, "Leave working code you were not asked to change", and
+  Decisions on scope. Mining patterns F3 (removes working pieces not named) and I3.
+context:
+  scaffold_script: fixture.sh

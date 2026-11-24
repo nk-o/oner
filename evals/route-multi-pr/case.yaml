@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: route-multi-pr
+description: >-
+  Work that needs several pull requests (a new shared package plus a change in each of three
+  plugins that live in separate repositories and release separately) routes to lead, not to a
+  lower row of the table. Rule: AGENTS.md, Whole tasks, route table row "Work that needs several
+  pull requests ... | `lead`" and "The first row that matches wins". Mining pattern R4.
+context:
+  scaffold_script: fixture.sh

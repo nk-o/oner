@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: skill-commit-two-changes
+description: >-
+  commit-message SKILL.md "Terse and exact, why over what" with one subject per commit, and
+  AGENTS.md "One concern per pull request". The staged diff holds two unrelated edits, a rounding
+  fix in the cart total and a larger default page size in search, so the subject does not join
+  them and the agent proposes a split or names the second change in the body. Mining pattern
+  commit-message 3 (two changes joined in one subject).
+context:
+  scaffold_script: fixture.sh

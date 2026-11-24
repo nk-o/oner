@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: route-how-question
+description: >-
+  A question about how something works gets an answer and starts no flow, writes nothing, and
+  points at the code by file:line. Rule: AGENTS.md, Whole tasks, route table row "A question
+  about how something works ... | an answer ... Nothing is written" and "An answer and a
+  one-line edit start no flow"; the file:line comes from Verifying, rung 2, and
+  skills/oneshot/lanes/investigation.md step 3 ("then the trace with `file:line`"). Mining
+  pattern R3.
+context:
+  scaffold_script: fixture.sh

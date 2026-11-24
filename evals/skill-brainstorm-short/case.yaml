@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: skill-brainstorm-short
+description: >-
+  brainstorm SKILL.md "this skill writes nothing into the repository", "Open with the answer, one
+  line naming the approach you recommend and why", and "Length follows the decision", plus the
+  user's words asking for a short task without a spec or plan. Mining pattern brainstorm B2 (a
+  short task asked for, a spec and plan written instead).
+context:
+  scaffold_script: fixture.sh

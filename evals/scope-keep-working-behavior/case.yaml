@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: scope-keep-working-behavior
+description: >-
+  Fixing the broken purchase event leaves the working page_view event as it is: sent on load,
+  with no consent gate the request did not ask for. Rule: oneshot SKILL.md, "Everything after
+  the gate is decided here, and not silently" (gating a behavior that already works waits on
+  the user), and AGENTS.md Decisions on scope. Mining pattern O7 (working analytics gated).
+context:
+  scaffold_script: fixture.sh

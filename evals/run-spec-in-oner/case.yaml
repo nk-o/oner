@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: run-spec-in-oner
+description: >-
+  A plan that exists only to build the branch in front of the user goes under the ignored
+  .oner/ folder, never under specs/, and .gitignore gains the .oner/ line. Rule: spec SKILL.md
+  Location (".oner/NNN-slug/ ... the default"; specs/ only when the repo should keep it) and
+  Depth ("check that .gitignore carries a .oner/ line"). The prompt states the spec is not
+  worth keeping, which the user's words settle per AGENTS.md Decisions. Mining pattern SP1
+  (spec.md/plan.md committed in the PR).
+context:
+  scaffold_script: fixture.sh
