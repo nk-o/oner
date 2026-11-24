@@ -34,14 +34,15 @@ const STATE = '.build-state.json';
 
 // Builds every target in config and returns one report line per target that
 // changed. With auto, nothing happens unless this checkout has built before and
-// its inputs changed since.
+// its inputs changed since, or the last build skipped a target, so the skip is
+// reported again each session until it is fixed.
 export function build(repo, config, { auto }) {
   const statePath = join(repo, STATE);
   const allState = readJson(statePath) ?? {};
   const state = allState[homedir()];
   const local = auto ? null : syncLocal(repo, config.localRepository);
   const hash = hashInputs(repo);
-  if (auto && (!state || state.hash === hash)) return [];
+  if (auto && (!state || (state.hash === hash && !state.skipped?.length))) return [];
 
   const ctx = { repo, roots: rootCommits(repo) };
   const lines = local?.line ? [local.line] : [];
@@ -64,6 +65,7 @@ export function build(repo, config, { auto }) {
       // it; a problem in the sources stops the build for every agent.
       if (!(err instanceof TargetError) || target.explicit || spec.alwaysOn) throw err;
       say(`skipped: ${err.message.replace(/\.?$/, '.')} Fix that and the next build installs it.`);
+      (next.skipped ??= []).push(name);
       if (prevDir) next.targets[name] = prevDir;
       continue;
     }
