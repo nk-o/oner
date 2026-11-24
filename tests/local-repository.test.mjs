@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
@@ -199,6 +199,7 @@ test('an automatic build reports a skipped agent every time until the conflict i
   assert.equal(retry.length, 1);
   assert.match(retry[0], /^codex: skipped: these already exist/);
   assert.ok(JSON.parse(readFileSync(settings, 'utf8')).permissions.allow.includes('Bash(npm test:*)'));
+  assert.equal(JSON.parse(readFileSync(join(f.repo, '.build-state.json'), 'utf8'))[homedir()].targets.claude, targets.claude.dir);
   rmSync(foreign);
   assert.match(build(f.repo, config, { auto: true }).join('\n'), /codex: .*written/);
   assert.deepEqual(build(f.repo, config, { auto: true }), []);
