@@ -13,8 +13,8 @@
   might overturn, and no **Guard** line came up, the report is that one line.
 - Otherwise add one line for each of these that exists: the proof the outcome rests on, as the
   output it printed; each decision I might overturn; what waits on me, a pull request that is
-  not ready included; each **Guard** line, because `reflect` reads them from the report. I can
-  read the diff, so do not walk me through it.
+  not ready included; each **Guard** line, which also goes to `.oner/guards.md` per **Mistakes
+  that recur**. I can read the diff, so do not walk me through it.
 - Where another rule here sends something other than a **Guard** line to the report, such as
   a skipped check, a kept workaround, a settled decision, or an unrelated problem, it goes to
   the run log when there is one. It enters the report only when it changes what I should do.
@@ -158,8 +158,9 @@ next agent cannot repeat it. The second fix goes to the first of these that can 
 
 A rule that only a reviewer remembers is not on the list, because at volume the reviewer
 misses it. A mistake seen once, with nothing that would bring it back, gets the first fix only.
-Inside a task the second fix is a **Guard** line in the report, not part of the diff. `reflect`
-applies guards. One exception: a correction I make a second time has
+Inside a task the second fix is a **Guard** line in the report, not part of the diff, and the
+same line, dated, is appended to `.oner/guards.md` in the repository's primary checkout, so it
+outlasts the chat. `reflect` applies guards and deletes each line it settles. One exception: a correction I make a second time has
 recurred already. When it is about how the product looks or reads, write it into the project's
 `DESIGN.md` in the change that applies it, as a general rule for future screens,
 and what one screen holds or does goes to the product's specs.

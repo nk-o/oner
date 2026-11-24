@@ -4,8 +4,8 @@ description: >-
   Mines the session just finished for lessons a future run would act on differently, and
   routes each one to a rule in the project (a type, a lint rule, a check), a skill edit, an
   AGENTS.md line, or a memory note, applying nothing until the user approves the list. Use
-  after a run that went wrong, took too long, or taught something, and when the user says
-  "reflect" or "capture what we learned". Not after a session that went as its skill
+  after a run that went wrong, took too long, or taught something, when the user says
+  "reflect" or "capture what we learned", and on the Guard lines waiting in .oner/guards.md. Not after a session that went as its skill
   describes.
 ---
 
@@ -14,10 +14,13 @@ description: >-
 A one-off is not a lesson. A lesson is a rule a future agent would act on differently, and it
 stays true once paths, versions, and file names have changed.
 
-## 1. Find the transcript
+## 1. Find the transcript and the ledger
 
 On Claude Code the transcript is `~/.claude/projects/*/${CLAUDE_SESSION_ID}.jsonl`. Elsewhere,
 or when no file matches, write a digest of the session to a temp file and use that instead.
+`.oner/guards.md` in the repository's primary checkout holds the **Guard** lines of earlier
+reports. Each line is a lesson with its route written in it, so it goes straight to step 3
+beside what the reader returns.
 
 ## 2. One reader on a fresh context
 
@@ -78,4 +81,5 @@ overwrites the installed copies. An edit outside `local/` goes on its own branch
 the format of the auto-memory directory the session names. A new skill only when no existing
 file is a home for the rule and the pattern recurs.
 
-Report one line per change, and one line per rejected lesson with its reason.
+Delete each ledger line that was applied or rejected, and the file once it is empty. Report
+one line per change, and one line per rejected lesson with its reason.

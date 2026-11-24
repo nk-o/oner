@@ -983,6 +983,19 @@ test('a new or compacted session hears the open asks in .oner/requests.md, and o
   assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
 });
 
+test('a new session hears how many Guard lines wait in the primary checkout, and only then', () => {
+  const f = fixture();
+  rmSync(f.program, { recursive: true });
+  const transcript = join(f.root, 'transcript.jsonl');
+  writeFileSync(transcript, '');
+  assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
+  writeFileSync(join(f.repo, '.oner', 'guards.md'), '- 2026-11-24 Check the price after a tab returns\n\n- 2026-11-24 Compare live third-party requests\n');
+  assert.match(runHook(f.repo, 'SessionStart', transcript), /^2 Guard lines from earlier reports wait in .*\.oner\/guards\.md\./);
+  assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' }), '');
+  writeFileSync(join(f.repo, '.oner', 'guards.md'), '\n');
+  assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
+});
+
 test('a run marked done with open lines, or with an open request, is not let go', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });

@@ -365,7 +365,8 @@ is not a second copy of it. Its length follows the result, per **Talking to me**
   waits on, a question, a login, a check that could not run, a tracker update that failed. A
   skipped step, an **Attention** line, a `LATER` finding, or a kept workaround goes here only
   when it changes what the user should do, and otherwise stays in the log.
-- **Guard** lines, one each, because `reflect` reads them from the report.
+- **Guard** lines, one each, also appended to `.oner/guards.md` per **Mistakes that recur** in
+  `AGENTS.md`, because `reflect` reads them from there.
 
 A result that is easier seen than read gets a page, per **Talking to me**. No preamble, no
 recap of the diff, no walk through the steps in order.
