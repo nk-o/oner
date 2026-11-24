@@ -19,9 +19,11 @@ the run log for a review.
   when it also fails on **Base**; log how you showed that. Then commit what Clean the diff,
   Green, and the lane's own steps left uncommitted, so the review, the first shortstat, and the
   **Round 2 base** below all start from a commit.
-- **Verify against the running product.** What the gate promised, on the surface a user would
-  touch, not on a proxy: the acceptance criteria for a feature, the reproduction from step 1
-  for a fix, the measurement for a perf change, the failing input each `FIX` named for a
+- **Verify against the running product.** No check in this step fixes what it finds, except a
+  migration below that does not apply or takes a used version number. A row that did not hold and a defect a review shows are
+  findings for Resolve, and every result goes into the run log's **Checks**. Verify what the gate promised, on the
+  surface a user would touch, not on a proxy: the acceptance criteria for a feature, the
+  reproduction from step 1 for a fix, the measurement for a perf change, the failing input each `FIX` named for a
   review. When the repository has a project skill named `verify-<app>` under
   `.claude/skills/`, drive the surface through its CLI with `--out` set to the run folder's
   `media/`, and add a command it lacks to the CLI rather than writing a one-off script. Without
@@ -105,12 +107,7 @@ the run log for a review.
   that fails on the head fails the verdict, whatever the base shows, and so does a defect the
   head shows and the base does not. A defect both show outside the test plan is `pre-existing`:
   one sentence in the run log, per **Editing** in `AGENTS.md`. A `Not approve` is a finding for
-  Resolve, and stands until the whole test plan, run again on the head after the fixes, returns
-  `Approve`. Then run the rest of `design-review` on the rendered UI with the same captures.
-
-  Here all of them only report. Every row that did not hold and every defect a review shows is
-  a finding for Resolve, not an edit made in this step. Paste every result into the run log's
-  **Checks**.
+  Resolve, which runs the whole test plan once more on the head after its fixes. Then run the rest of `design-review` on the rendered UI with the same captures.
 - **Cross the boundary if the change does.** When the change reaches a wire format, a stored
   column another service reads, a pinned library's internals, or a file another language
   parses, run `blast-radius` on that path and paste its result into the run log's **Checks**.
@@ -127,8 +124,9 @@ the run log for a review.
      has subagents, started once the script is running and run in the foreground per
      **Delegating** in `AGENTS.md`. The turn holds until it returns, so no fix starts under it,
      and then waits on the script for the rest. Its brief carries the run log's
-     **Assumptions**, and the `blast-radius` result when the step above ran, so its step 6
-     does not run it a second time. Where the host has no subagents, `prod-review` runs
+     **Assumptions** and the results Verify and the step above already have (`break-ui`,
+     `break-api`, `model-check`, `blast-radius`), each with the head it ran on, so it reads them instead of running them a
+     second time. Where the host has no subagents, `prod-review` runs
      inline, returns an **Attention** line for each assumption it would have decided
      differently or whose evidence is thin, and runs first,
      ahead of `external-review`, because a reviewer that has already read the other cannot
@@ -140,8 +138,10 @@ the run log for a review.
 
   Both voices are in before Resolve starts. One that lands after the fixes read code the other
   has already changed, so its list arrives carrying findings that are gone and its agreement
-  with the first is no longer independent. Wait for it. When it arrives late anyway, scope it
-  with `--base` on the fix commits and count it as round two.
+  with the first is no longer independent. Wait for it. When it arrives late anyway, rule on its
+  findings against HEAD with `resolve-review`, where a defect HEAD no longer has is `STALE`.
+  They are not a review of the fix commits, so **Round two** still decides on those by its own
+  rule.
 
   The wait ends when the script exits, because the script stops each external voice at its
   deadline. A voice listed as `timeout` is an incomplete review, never a clean one: its
@@ -155,7 +155,8 @@ the run log for a review.
   pauses. Its own
   `prod-review` of the fixes runs only for a fix past a few lines when round two below will
   skip. Re-run
-  `green-repo` after the fixes, then commit them.
+  `green-repo` after the fixes, then commit them. When a **QA pass** `Not approve` was among the
+  findings, run the QA pass once more on the committed head. That is its last run.
 
   Put `git diff <Base>...HEAD --shortstat` into the run log's **Review** before the fixes and
   again after their commit, write `Round 2 base. <the sha HEAD was at before the fixes>` beside
@@ -171,7 +172,12 @@ the run log for a review.
   exceptions, each worth one more round on the newest fixes and no more. Round two's own fixes
   introduced a regression, or a `FIX` in security, access control, data loss, or concurrency is
   still open with an input that shows it. Record each round in the run log's **Review**.
-- **Ship.** A **QA pass** `Not approve` still standing holds this step. Run `pr`, push the
+- **Ship.** When the QA pass's last run still returns `Not approve` and **Gate** quotes no
+  acceptance of those cases, push the branch, open no pull request, set `Status. waiting`,
+  report the failing cases with their captures, and end the turn. An answer that accepts them
+  is quoted in **Gate**, and this step runs again. In a series stage, the stage run returns them
+  unanswered in its summary, and the coordinator runs `series.mjs wait review "<the failing
+  cases>" --stage <id>` per **Waiting** in `series.md`. Otherwise run `pr`, push the
   branch, and open the PR with `gh pr create`, naming each screenshot and recording the body
   shows with `--attach`, as `pr` says. When the branch already has a pull request, push to it
   and leave its description alone unless the change made it wrong. In T3 Code, the call after

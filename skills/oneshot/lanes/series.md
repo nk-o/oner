@@ -229,9 +229,11 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    run** in `lanes/series.md`, then holds the program folder's absolute path, the stage id, its
    branch and checkout, the rule that it runs the stage run above through Ship and never
    touches `program.json`, merges, or deploys, the rule that a question at one of the
-   hard stops comes back unanswered in its summary, the rule that it removes what it
+   hard stops, or the failing cases of a QA pass still `Not approve` at Ship, comes back
+   unanswered in its summary, the rule that it removes what it
    creates for its checks, the rule that it writes the stage's production check, and the
-   check that proves it: an open pull request whose checks are running. The coordinator puts a hard stop to the user, per
+   check that proves it: an open pull request whose checks are running, or that summary. The
+   coordinator puts either to the user, per
    **Waiting**, and does not settle it for the delegate. `next` prints no more `start` actions
    than `parallel` leaves room for, and holds the rest until a stage's merge is approved. Merges, deploys, and
    production checks go one stage at a time whatever else runs, and `next` holds the rest.
@@ -328,7 +330,7 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
 
    No separate handoff file. A new coordinator, on any host, reads `## Now`, then runs `next`.
    After a resume or in a new session, a `build` stage gets a fresh delegate with the same
-   brief when the host shows its delegate ended, or cannot show it and the checkout's head and
+   brief, plus the user's answer to the stage's wait when it had one, when the host shows its delegate ended, or cannot show it and the checkout's head and
    run log are unchanged since `## Now` was written. The stage run resumes from its own log per
    **Resume before you open** in the skill. When the checkout changed and the host cannot show
    its delegate, write the head and log state seen into `## Now`, and the next resume or
