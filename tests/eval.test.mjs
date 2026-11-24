@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 import { after, test } from 'node:test';
@@ -56,6 +57,21 @@ test('no file_exists grader uses brackets, which the eval glob treats as literal
   for (const f of walk(join(repo, 'evals')).filter((f) => /\/graders\/.+\.md$/.test(f.rel))) {
     const head = readFileSync(f.abs, 'utf8').split('---')[1];
     if (/^type: file_exists$/m.test(head)) assert.doesNotMatch(head.match(/^path: (.*)$/m)[1], /[[\]]/, f.rel);
+  }
+});
+
+test('every file a grader reads exists after the fixture or is named in the request', () => {
+  const cases = readdirSync(join(repo, 'evals'), { withFileTypes: true }).filter((d) => d.isDirectory());
+  for (const { name } of cases) {
+    const caseDir = join(repo, 'evals', name);
+    const work = join(root, `fixture-${name}`);
+    mkdirSync(work);
+    execFileSync('bash', [join(caseDir, 'fixture.sh')], { cwd: work, env: { PATH: process.env.PATH, HOME: work }, stdio: 'ignore' });
+    const prompt = readFileSync(join(caseDir, 'prompt.md'), 'utf8');
+    for (const g of readdirSync(join(caseDir, 'graders'))) {
+      const path = readFileSync(join(caseDir, 'graders', g), 'utf8').match(/source: file, path: ([^ }]+)/)?.[1];
+      if (path) assert.ok(existsSync(join(work, path)) || prompt.includes(path), `${name}/graders/${g} reads ${path}`);
+    }
   }
 });
 

@@ -1,6 +1,6 @@
 ---
 type: llm
-focus: last_message
+focus: trace
 ---
 
 The repository answers these facts: the statuses and their labels (`src/statuses.js`), where
@@ -14,5 +14,5 @@ Also PASS when the agent asked nothing and said there was nothing left to settle
 
 FAIL when any question asks which statuses exist or what they are called, where the order list
 lives, how filters work or where the new one goes, or anything else the files above state.
-Also FAIL when the reply shows no gate at all: no question to the user and no statement
+Also FAIL when the transcript shows no gate at all: no question to the user and no statement
 that nothing is left to settle.

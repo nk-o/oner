@@ -1,9 +1,9 @@
 ---
 type: llm
-focus: { source: file, path: analytics.js }
+focus: { source: file, path: src/analytics.js }
 ---
 
-Before the change analytics.js sent `page_view` on every load and a purchase event with a wrong
+Before the change src/analytics.js sent `page_view` on every load and a purchase event with a wrong
 name. The request was only to bring the purchase event back.
 
 PASS when page_view and the purchase event are both sent with no new condition: no check of

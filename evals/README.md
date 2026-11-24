@@ -10,7 +10,7 @@ Run them from the repository root:
 
 ```
 node bin/eval.mjs                     # every case, once
-node bin/eval.mjs --case 'route-*'    # one group
+node bin/eval.mjs --case 'route-*'    # one group; the glob takes `[` and `]` literally
 node bin/eval.mjs --baseline          # also run without oner and report the difference
 ```
 
@@ -58,7 +58,8 @@ is invented: no real product, company, person, store, order, or key.
 Prefer a deterministic grader. Add an `llm` grader only for the part no pattern can check. A
 grader that every run would pass whatever the agent did checks nothing, so delete it. The judge
 sees only the first and last 12 transcript messages, and the first ones are the hook outputs, so
-a judge reads `last_message` or a file. Under `--baseline` a `tool_used: Skill` grader stops
+`focus: trace` judges only the end of a run. `last_message` is the final text block alone, often
+one line. Under `--baseline` a `tool_used: Skill` grader stops
 counting and shows whether the plugin fired, because the run without oner has no skill to call.
 Score both runs on what the agent left behind.
 
@@ -68,7 +69,7 @@ the first tool call is `Skill`.
 
 `allowed_tools` takes only read-only tools: `Read`, `Glob`, `Grep`, `Skill`, `Agent`,
 `TodoWrite`. The runner grants `Bash`, `Edit`, and `Write` to every case. An eval run offers no
-`AskUserQuestion` tool, so the agent asks in its reply text and the turn ends there. A case
+`AskUserQuestion` tool, so the agent asks in its reply text and stops for an answer. A case
 about the gate judges the questions in that text. A case that needs the run to get past the
 gate says so the way a user would, such as "Я отойду, бери рекомендованные варианты", which
 `oneshot` treats as **Away**.
