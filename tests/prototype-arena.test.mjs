@@ -57,7 +57,10 @@ test('Codex judges in an empty directory, with copies of the screenshots and the
   const work = args[args.indexOf('-C') + 1];
   assert.ok(!work.startsWith(root), 'not the caller directory');
   assert.equal(existsSync(work), false, 'the copies are removed');
-  for (const flag of ['read-only', 'shell_tool', 'apps', 'plugins']) assert.ok(args.includes(flag), flag);
+  const pair = (a, b) => args.some((x, i) => x === a && args[i + 1] === b);
+  assert.ok(pair('--sandbox', 'read-only'));
+  assert.ok(args.includes('--ignore-user-config'), 'the user config carries MCP servers');
+  for (const tool of ['shell_tool', 'apps', 'plugins']) assert.ok(pair('--disable', tool), tool);
   for (const s of shots) assert.ok(args.includes(`--image=${join(work, s.split('/').at(-1))}`), s);
   const prompt = args.slice(args.indexOf('--') + 1).join('\n');
   assert.match(prompt, /The order number reads first at 390px\./);
@@ -78,11 +81,14 @@ test('a Codex run that leaves no verdict is a failure, not a pass', () => {
   assert.match(r.stdout, /^fail: codex exited 0 without a verdict/);
 });
 
-test('a judge past its deadline is stopped', () => {
-  fakeCodex('trap "" TERM; sleep 60');
+test('a judge past its deadline is stopped with what it started', () => {
+  const child = join(root, 'child-pid');
+  fakeCodex(`trap "" TERM; sleep 60 & echo $! > "${child}"; wait`);
   writeFileSync(join(skills, 'external-review', 'providers.env'), 'ENABLED="codex"\nCODEX_MODEL="m"\nCODEX_EFFORT="high"\nCODEX_TIMEOUT="1"\n');
   const started = Date.now();
   const r = spawnSync(script, [rubric, verdict, ...shots], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
   assert.equal(r.status, 1);
   assert.ok(Date.now() - started < 15000, `stopped after ${Date.now() - started} ms`);
+  const pid = Number(readFileSync(child, 'utf8'));
+  assert.throws(() => process.kill(pid, 0), /ESRCH/, `child ${pid} still runs`);
 });

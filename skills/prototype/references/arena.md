@@ -34,22 +34,23 @@ emphasis no sibling shares.
 
 ## Build the candidates
 
-Each candidate writes its own mount file beside the direction's, such as
-`<direction>.arena-<n>.js`, under the same `mount(stage, params)` contract, reads the same
-shared files, and joins the picker as a temporary variant named only by its letter. Where the host runs subagents, give each candidate its own, with the brief, its
+Before any build, draw each candidate's letter in a shuffled order and register every
+candidate in the picker yourself, as a temporary variant named only by its letter, with its
+mount file `<direction>.arena-<letter>.js` under the same `mount(stage, params)` contract. A
+candidate then writes only that file and reads the shared ones. Where the host runs subagents, give each candidate its own, with the brief, its
 emphasis, the shared paths it may read, the one file it may write, and the instruction to use
 `frontend-design` and operate the candidate in a browser before returning. Start every
 candidate of a round at once. Without subagents, build the candidates in order, reread the
 brief and the emphasis before each, and do not open a sibling's file.
 
 Then capture every candidate at both rubric widths, in the typical scenario, as
-`<direction>-<letter>.png` and `<direction>-narrow-<letter>.png`, lettering the candidates in a
-shuffled order, so a name gives away neither the builder nor the emphasis. A candidate that
+`<direction>-<letter>.png` and `<direction>-narrow-<letter>.png`. The shuffled letters keep a
+name from giving away the builder or the emphasis. A candidate that
 does not render or misses its brief is rebuilt once, then dropped and reported.
 
 Done when every remaining candidate has both captures, and at least two candidates remain.
-With one left, it is the direction, and the round reports that the arena had nothing to
-compare.
+With one left, it is the direction. With none, build the direction once the way the rest of
+the skill does. Either way the report says the arena had nothing to compare.
 
 ## Judge
 

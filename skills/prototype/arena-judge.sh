@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Second judge for a prototype arena: Codex scores candidate screenshots against a rubric.
-# It runs in an empty directory holding only copies of the screenshots, with no shell tool,
-# apps, or plugins, so it receives the rubric and the images and nothing from the project.
+# It runs in an empty directory holding only copies of the screenshots, without the user's
+# config.toml (whose MCP servers would hand it a file-reading REPL), shell tool, apps, or
+# plugins, so it receives the rubric and the images and nothing from the project.
 # Prints the verdict path, or one line starting skip: or fail:.
 set -u
 
@@ -44,7 +45,7 @@ done
 
 prompt="You judge UI candidates from their screenshots alone. Each file name ends in the candidate's letter.
 For every candidate and every criterion below, answer met or not met with one line of evidence you can point to in the image.
-End with one line: Base: <letter>, naming the candidate you recommend as the base.
+End with one line: Base: <letter>, naming the candidate you recommend as the base. Do not run commands or edit files.
 
 $(cat "$rubric")"
 
@@ -52,12 +53,13 @@ log="$verdict.log"
 answer="$work/answer.md"
 rm -f "$verdict"
 set -m
-codex exec -C "$work" --sandbox read-only --skip-git-repo-check --ephemeral \
+codex exec -C "$work" --ignore-user-config --sandbox read-only --skip-git-repo-check --ephemeral \
   --disable shell_tool --disable apps --disable plugins \
   -m "$CODEX_MODEL" -c model_reasoning_effort="$CODEX_EFFORT" \
   "${images[@]}" -o "$answer" -- "$prompt" </dev/null >"$log" 2>&1 &
 pid=$!
 set +m
+trap 'kill -TERM -- "-$pid" 2>/dev/null; exit 130' INT TERM HUP
 # Polling, not one long sleep: a sleeping child would hold the caller's pipes for the whole budget.
 (
   for ((i = 0; i < CODEX_TIMEOUT; i++)); do
@@ -75,7 +77,6 @@ if [ "$rc" -eq 0 ] && grep -qiE "^[*_ ]*base[*_ ]*:[*_ ]*[$letters]([^a-z]|$)" "
   cp "$answer" "$verdict"
   echo "$verdict"
 else
-  [ -f "$answer" ] && cp "$answer" "$verdict.partial"
   echo "fail: codex exited $rc without a verdict naming a base among $letters, its output is in $log"
   exit 1
 fi
