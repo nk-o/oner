@@ -172,11 +172,12 @@ the run log for a review.
   exceptions, each worth one more round on the newest fixes and no more. Round two's own fixes
   introduced a regression, or a `FIX` in security, access control, data loss, or concurrency is
   still open with an input that shows it. Record each round in the run log's **Review**.
-- **Ship.** When the QA pass's last run still returns `Not approve`, push the branch, open no
-  pull request, set `Status. stopped: QA not approved`, and report the failing cases with their
-  captures. In a series stage, the stage run returns them unanswered in its summary, and the
-  coordinator runs `series.mjs wait review "<the failing cases>" --stage <id>` per **Waiting**
-  in `series.md`. Otherwise run `pr`, push the
+- **Ship.** When the QA pass's last run still returns `Not approve` and **Gate** quotes no
+  acceptance of those cases, push the branch, open no pull request, set `Status. waiting`,
+  report the failing cases with their captures, and end the turn. An answer that accepts them
+  is quoted in **Gate**, and this step runs again. In a series stage, the stage run returns them
+  unanswered in its summary, and the coordinator runs `series.mjs wait review "<the failing
+  cases>" --stage <id>` per **Waiting** in `series.md`. Otherwise run `pr`, push the
   branch, and open the PR with `gh pr create`, naming each screenshot and recording the body
   shows with `--attach`, as `pr` says. When the branch already has a pull request, push to it
   and leave its description alone unless the change made it wrong. In T3 Code, the call after
