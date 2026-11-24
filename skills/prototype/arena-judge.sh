@@ -59,7 +59,7 @@ codex exec -C "$work" --ignore-user-config --sandbox read-only --skip-git-repo-c
   "${images[@]}" -o "$answer" -- "$prompt" </dev/null >"$log" 2>&1 &
 pid=$!
 set +m
-trap 'kill -TERM -- "-$pid" 2>/dev/null; exit 130' INT TERM HUP
+trap 'kill -TERM -- "-$pid" 2>/dev/null; sleep 2; kill -KILL -- "-$pid" 2>/dev/null; exit 130' INT TERM HUP
 # Polling, not one long sleep: a sleeping child would hold the caller's pipes for the whole budget.
 (
   for ((i = 0; i < CODEX_TIMEOUT; i++)); do

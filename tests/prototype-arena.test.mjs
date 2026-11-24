@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -89,6 +89,21 @@ test('a judge past its deadline is stopped with what it started', () => {
   const r = spawnSync(script, [rubric, verdict, ...shots], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
   assert.equal(r.status, 1);
   assert.ok(Date.now() - started < 15000, `stopped after ${Date.now() - started} ms`);
+  const pid = Number(readFileSync(child, 'utf8'));
+  assert.throws(() => process.kill(pid, 0), /ESRCH/, `child ${pid} still runs`);
+});
+
+test('a signal to the script stops the judge and what it started', async () => {
+  const child = join(root, 'signal-child-pid');
+  rmSync(child, { force: true });
+  fakeCodex(`trap "" TERM; sleep 60 & echo $! > "${child}"; wait`);
+  writeFileSync(join(skills, 'external-review', 'providers.env'), 'ENABLED="codex"\nCODEX_MODEL="m"\nCODEX_EFFORT="high"\nCODEX_TIMEOUT="60"\n');
+  const run = spawn(script, [rubric, verdict, ...shots], { detached: true, stdio: 'ignore', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
+  const exited = new Promise((done) => run.on('exit', done));
+  while (!existsSync(child)) await new Promise((r) => setTimeout(r, 50));
+  process.kill(-run.pid, 'SIGTERM');
+  await exited;
+  await new Promise((r) => setTimeout(r, 500));
   const pid = Number(readFileSync(child, 'utf8'));
   assert.throws(() => process.kill(pid, 0), /ESRCH/, `child ${pid} still runs`);
 });
