@@ -45,6 +45,19 @@ test('a top-level key the user set is replaced, and removed only while it still 
   assert.equal(mergeTopKeys(own, {}, { model_auto_compact_token_limit: 900000 }), own);
 });
 
+test('the build owns its permission rules one by one, so the user own rules survive', () => {
+  const user = { permissions: { allow: ['Bash(npm test:*)'], deny: ['Read(./.env)'], defaultMode: 'acceptEdits' } };
+  const first = mergeSettings(user, { permissions: { allow: ['Bash(gh pr merge:*)'] } }, null, []);
+  assert.deepEqual(first.settings.permissions, { allow: ['Bash(npm test:*)', 'Bash(gh pr merge:*)'], deny: ['Read(./.env)'], defaultMode: 'acceptEdits' });
+  const again = mergeSettings(first.settings, { permissions: { allow: ['Bash(gh pr merge:*)'] } }, first.owned, []);
+  assert.deepEqual(again.settings.permissions, first.settings.permissions);
+  const off = mergeSettings(again.settings, {}, again.owned, []);
+  assert.deepEqual(off.settings.permissions, { allow: ['Bash(npm test:*)'], deny: ['Read(./.env)'], defaultMode: 'acceptEdits' });
+  const had = mergeSettings({ permissions: { allow: ['Bash(gh pr merge:*)'] } }, { permissions: { allow: ['Bash(gh pr merge:*)'] } }, null, []);
+  const kept = mergeSettings(had.settings, {}, had.owned, []);
+  assert.deepEqual(kept.settings.permissions, { allow: ['Bash(gh pr merge:*)'] });
+});
+
 test('the build owns env entry by entry, so the user own variables survive', () => {
   const user = { env: { MINE: '1', CLAUDE_CODE_ENABLE_CFC: '1' } };
   const first = mergeSettings(user, { env: { A: 'x', CLAUDE_CODE_ENABLE_CFC: '1' } }, null, []);
