@@ -456,10 +456,21 @@ function hookId(event, entry) {
 }
 
 // Keys the build owns entry by entry, so the user's own entries beside them stay.
-const BY_ENTRY = new Set(['env']);
+// A list entry, such as permissions.allow, is owned rule by rule.
+const BY_ENTRY = new Set(['env', 'permissions']);
 
 // Removes owned keys and hook entries recorded in oldOwned and the legacy hook
 // commands, then adds the template's. Returns the new settings and what is owned.
+function mergeEntries(own, value) {
+  const out = { ...own };
+  for (const [entry, v] of Object.entries(value)) {
+    out[entry] = Array.isArray(v) && Array.isArray(out[entry])
+      ? [...out[entry], ...v.filter((rule) => !out[entry].includes(rule))]
+      : structuredClone(v);
+  }
+  return out;
+}
+
 export function mergeSettings(settings, template, oldOwned, legacyCommands) {
   const out = structuredClone(settings);
   if (out.hooks !== undefined && !isObject(out.hooks)) throw new TargetError('settings.json "hooks" is not an object');
@@ -485,7 +496,11 @@ export function mergeSettings(settings, template, oldOwned, legacyCommands) {
   for (const [key, value] of Object.entries(oldOwned?.keys ?? {})) {
     if (BY_ENTRY.has(key) && isObject(value) && isObject(out[key])) {
       for (const [entry, v] of Object.entries(value)) {
-        if (!(entry in (template[key] ?? {})) && canon(out[key][entry]) === canon(v)) delete out[key][entry];
+        const kept = template[key]?.[entry];
+        if (Array.isArray(v) && Array.isArray(out[key][entry])) {
+          out[key][entry] = out[key][entry].filter((rule) => !v.includes(rule) || (Array.isArray(kept) && kept.includes(rule)));
+          if (!out[key][entry].length) delete out[key][entry];
+        } else if (!(entry in (template[key] ?? {})) && canon(out[key][entry]) === canon(v)) delete out[key][entry];
       }
       if (!Object.keys(out[key]).length) delete out[key];
     } else if (!(key in template) && canon(out[key]) === canon(value)) delete out[key];
@@ -494,7 +509,7 @@ export function mergeSettings(settings, template, oldOwned, legacyCommands) {
   const owned = { keys: {}, hooks: [] };
   for (const [key, value] of Object.entries(template)) {
     if (key === 'hooks') continue;
-    out[key] = BY_ENTRY.has(key) && isObject(out[key]) ? { ...out[key], ...structuredClone(value) } : structuredClone(value);
+    out[key] = BY_ENTRY.has(key) && isObject(out[key]) ? mergeEntries(out[key], value) : structuredClone(value);
     owned.keys[key] = value;
   }
   for (const [event, entries] of Object.entries(template.hooks ?? {})) {
