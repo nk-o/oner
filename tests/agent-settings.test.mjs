@@ -5,7 +5,7 @@ import { mergeTables, mergeTopKeys } from '../build/codex-config.mjs';
 import { readFileSync } from 'node:fs';
 import { listSkills, validateConfig } from '../build/config.mjs';
 import { executorsTable, mergeSettings } from '../build/install.mjs';
-import { renderFile, renderText, tokenValues } from '../build/render.mjs';
+import { renderFile, renderText, tokenValues, walk } from '../build/render.mjs';
 
 const personal = 'model = "gpt"\n\n[mcp_servers.node_repl]\ncommand = "node_repl"\n';
 const block = '# oner: start (written by bin/build.mjs)\n["analytics"]\nenabled = false\n# oner: end\n';
@@ -147,4 +147,12 @@ test('the settings page puts every skill under a stage, so none falls into Other
   const stages = page.match(/const STAGES = \[([\s\S]*?)\n\];/)[1];
   const staged = new Set([...stages.matchAll(/"([a-z][a-z-]*)"/g)].map((m) => m[1]));
   assert.deepEqual(listSkills(resolve('.')).filter((name) => !staged.has(name)), []);
+});
+
+test('no text names an agent file by extension, since each agent host stores it differently', () => {
+  const names = walk(resolve('agents')).map((f) => f.rel.replace(/\.md$/, ''));
+  const file = new RegExp(`\\b(?:${names.join('|')})\\.(?:agent\\.)?(?:md|toml)\\b`, 'g');
+  const texts = [resolve('AGENTS.md'), ...walk(resolve('skills')).map((f) => f.abs)];
+  const hits = texts.flatMap((f) => [...readFileSync(f, 'utf8').matchAll(file)].map((m) => `${f}: ${m[0]}`));
+  assert.deepEqual(hits, []);
 });
