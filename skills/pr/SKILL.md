@@ -135,6 +135,13 @@ it prints is a broken image, so fix the paths and run `gh pr edit` again with th
 When `gh pr create --help` lists no `--attach`, this `gh` is too old. Open the PR without the
 media, keep the files, and say where they are.
 
+A host's own pull request tool, such as T3 Code's `pull_request_create` or
+`pull_request_update`, takes no files. A body with media still opens or changes through `gh`
+with `--attach`, even where the host says to prefer its tool, and in T3 Code the next call is
+`link_pull_request` with the pull request's full URL. Captures taken for the change, such as
+the Before and After in a run's `media/`, belong in the body. A body without media may use the
+host's tool.
+
 Keep bullets to one level and bold the one thing the reviewer must not miss. No emoji headers,
 no checklists you ticked yourself.
 
