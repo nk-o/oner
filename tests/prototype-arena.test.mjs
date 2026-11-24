@@ -30,7 +30,7 @@ for (const s of shots) writeFileSync(s, 'png');
 const verdict = join(root, 'verdict.md');
 
 function judge(enabled) {
-  writeFileSync(join(skills, 'external-review', 'providers.env'), `ENABLED="${enabled}"\nCODEX_TIMEOUT="30"\n`);
+  writeFileSync(join(skills, 'external-review', 'providers.env'), `ENABLED="${enabled}"\nCODEX_MODEL="m"\nCODEX_EFFORT="high"\nCODEX_TIMEOUT="30"\n`);
   rmSync(argv, { force: true });
   return spawnSync(script, [rubric, verdict, ...shots], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
 }
@@ -43,17 +43,32 @@ test('a session whose external review leaves Codex out skips the second judge wi
   assert.equal(existsSync(argv), false);
 });
 
-test('Codex judges read-only, with every screenshot and the rubric', () => {
-  fakeCodex('out=""; prev=""; for a in "$@"; do [ "$prev" = "-o" ] && out="$a"; prev="$a"; done; echo "B is the base" > "$out"');
+const answer = (text) => `out=""; prev=""; for a in "$@"; do [ "$prev" = "-o" ] && out="$a"; prev="$a"; done; printf '${text}' > "$out"`;
+
+test('Codex judges in an empty directory, with copies of the screenshots and the rubric only', () => {
+  fakeCodex(answer('A misses the order number.\\n**Base:** B\\n'));
+  const started = Date.now();
   const r = judge('grok codex claude');
   assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.ok(Date.now() - started < 5000, 'a finished judge returns at once, not at its deadline');
   assert.equal(r.stdout.trim(), verdict);
-  assert.equal(readFileSync(verdict, 'utf8'), 'B is the base\n');
+  assert.match(readFileSync(verdict, 'utf8'), /Base:\*\* B/);
   const args = readFileSync(argv, 'utf8').split('\n');
-  assert.deepEqual(args.slice(0, 3), ['exec', '--sandbox', 'read-only']);
-  for (const s of shots) assert.ok(args.includes(`--image=${s}`), s);
+  const work = args[args.indexOf('-C') + 1];
+  assert.ok(!work.startsWith(root), 'not the caller directory');
+  assert.equal(existsSync(work), false, 'the copies are removed');
+  for (const flag of ['read-only', 'shell_tool', 'apps', 'plugins']) assert.ok(args.includes(flag), flag);
+  for (const s of shots) assert.ok(args.includes(`--image=${join(work, s.split('/').at(-1))}`), s);
   const prompt = args.slice(args.indexOf('--') + 1).join('\n');
   assert.match(prompt, /The order number reads first at 390px\./);
+});
+
+test('a reply that names no candidate as the base is a failure', () => {
+  fakeCodex(answer('I cannot read these images.\\n'));
+  const r = judge('codex');
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /^fail: codex exited 0 without a verdict naming a base among ab/);
+  assert.equal(existsSync(verdict), false);
 });
 
 test('a Codex run that leaves no verdict is a failure, not a pass', () => {
@@ -61,4 +76,13 @@ test('a Codex run that leaves no verdict is a failure, not a pass', () => {
   const r = judge('codex');
   assert.equal(r.status, 1);
   assert.match(r.stdout, /^fail: codex exited 0 without a verdict/);
+});
+
+test('a judge past its deadline is stopped', () => {
+  fakeCodex('trap "" TERM; sleep 60');
+  writeFileSync(join(skills, 'external-review', 'providers.env'), 'ENABLED="codex"\nCODEX_MODEL="m"\nCODEX_EFFORT="high"\nCODEX_TIMEOUT="1"\n');
+  const started = Date.now();
+  const r = spawnSync(script, [rubric, verdict, ...shots], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
+  assert.equal(r.status, 1);
+  assert.ok(Date.now() - started < 15000, `stopped after ${Date.now() - started} ms`);
 });

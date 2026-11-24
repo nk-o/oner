@@ -4,10 +4,10 @@ description: >-
   Builds working UI prototypes and variants of a component, section, page, screen, or short
   flow, from many directions down to live controls for a chosen one, or a clickable demo that
   pushes a state model or business rule through its awkward cases. Use when the user asks to
-  prototype, compare designs, explore alternatives, tune a design's open parameters live, build
-  each direction several times and keep the strongest, or check whether a state machine,
-  workflow rule, or data shape holds up before building it. A
-  design already chosen goes to `frontend-design` or `figma-design`.
+  prototype, compare designs, explore alternatives, tune a design's open parameters live, run an
+  arena that builds each direction several times and keeps the strongest, or check whether a
+  state machine, workflow rule, or data shape holds up before building it. A design already
+  chosen goes to `frontend-design` or `figma-design`.
 license: MIT. Adapted material and attribution in LICENSE.txt and references/sources.md.
 ---
 
