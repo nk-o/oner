@@ -90,24 +90,16 @@ the run log for a review.
   **QA pass.** When the change reaches a screen a user sees, or a flow through one, a reader who
   did not write the change runs the test plan: the cases the lane picked before the edit
   (feature lane step 4, the fix lane's reproduction) and the acceptance criteria. Where the host
-  has subagents, the reader is a fresh delegate on the `light` tier of this session's executor
-  in `{{skills_dir}}/lead/executors.md`, else on the host's smallest model. Its brief holds only
-  the test plan, the screen's element list where plan.md has one, **Base** and the head, how to
-  start the app (the `verify-<app>` skill where the repository has one), the widths the user
-  named or sent screenshots at, the reference **Look first** in `design-review` names, and the
-  run folder's `media/` for its captures. Without subagents it is a separate pass whose only
-  inputs are those. It writes no tracked file. It runs the app at **Base**, in a scratch
-  worktree removed after, and at the head, each on its own copy of the data `verify-<app>`
-  **Seed** puts in, at the narrowest supported width and the width the user views. Where the
-  store cannot be copied, Base's cases run first and the seed is restored before the head's. It
-  drives each case as a user does (click, type, submit), carries out **Look first** on every
-  capture, and only then reads code, to name a suspected cause as `file:line` for each fail. It
-  returns `pass` or `fail` per case with the head's capture path and the Base path or `not on
-  Base`, then `Approve` or `Not approve` overall, with the head it ran on. A case or criterion
-  that fails on the head fails the verdict, whatever the base shows, and so does a defect the
-  head shows and the base does not. A defect both show outside the test plan is `pre-existing`:
-  one sentence in the run log, per **Editing** in `AGENTS.md`. A `Not approve` is a finding for
-  Resolve, which runs the whole test plan once more on the head after its fixes. Then run the rest of `design-review` on the rendered UI with the same captures.
+  has subagents, the reader is `oneshot-qa`, a fresh delegate on the `light` tier of this
+  session's executor in `{{skills_dir}}/lead/executors.md`, else on the host's smallest model.
+  Without subagents it is a separate pass that follows `{{agents_dir}}/oneshot-qa.md` with only
+  the brief's inputs. Its brief holds the test plan, the screen's element list where plan.md has
+  one, **Base** and the head, how to start the app, the widths the user named or sent
+  screenshots at, the reference **Look first** in `design-review` names, and the run folder's
+  `media/`. A `pre-existing` defect it returns goes into the run log as one sentence, per
+  **Editing** in `AGENTS.md`. A `Not approve` is a finding for Resolve, which runs the whole
+  test plan once more on the head after its fixes. Then run the rest of `design-review` on the
+  rendered UI with the same captures.
 - **Cross the boundary if the change does.** When the change reaches a wire format, a stored
   column another service reads, a pinned library's internals, or a file another language
   parses, run `blast-radius` on that path and paste its result into the run log's **Checks**.

@@ -173,8 +173,9 @@ directives silently. Start a fresh one with the whole scope.
 **On Claude Code the delegate is `oneshot-worker`** (`subagent_type: "oneshot-worker"`,
 defined in `{{agents_dir}}/`). It carries the delegate contract, so the brief carries only the
 items above. Read-only exploration goes to `Explore`. The tail's review goes to `oneshot-reviewer`,
-and any other review to `general-purpose`, because Explore skips `AGENTS.md`. Both delegates
-carry their own reasoning effort from `config.json`, whatever level the session runs at.
+its QA pass to `oneshot-qa`, and any other review to `general-purpose`, because Explore skips
+`AGENTS.md`. The worker and the reviewer carry their own reasoning effort from `config.json`,
+whatever level the session runs at.
 Anything that does not block the next step runs with `run_in_background: true`. Pass
 `model: "sonnet"` for a mechanical task with a precise brief, and no `model` where the task
 needs judgment. A delegate that runs alone edits the branch's own tree. Parallel writers each
@@ -182,7 +183,7 @@ get `isolation: "worktree"` and follow `implement`'s steps, with `install` from
 `.claude/worktree.json` as the install command, else the lockfile's package manager. Two
 writers in one checkout share its git index and break each other's builds.
 
-**Every host starts them per Delegating in `AGENTS.md`.** Codex uses the same two agents from
+**Every host starts them per Delegating in `AGENTS.md`.** Codex uses the same agents from
 `{{agents_dir}}/`, and a T3 Code `delegate_task` for one plan.md task opens with
 `{{agents_dir}}/oneshot-worker.md`'s body. Before a turn ends to wait on a `delegate_task`, set
 `Status. waiting` in the run log, and back to `running` when it returns.
