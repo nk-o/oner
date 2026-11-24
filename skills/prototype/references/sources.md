@@ -38,6 +38,12 @@ the safe-to-bold ordering in the Claude Design guidance above, and
 [Verbalized Sampling](https://arxiv.org/abs/2510.01171) (asking for many candidates with how
 typical each is, which the authors report recovers diversity lost to typicality bias).
 
+The arena is written for this set, with no text or code copied. Its shape, inspected on
+2026-11-24, comes from the `arena` skill in [pstack](https://github.com/cursor/plugins/tree/main/pstack)
+(parallel candidates on one brief, a read-only judge from another vendor scoring a rubric,
+then a base with grafts from the others). The per-candidate emphasis and the screenshot-only
+judge are additions for UI.
+
 ## Logic prototype
 
 `logic.md` is adapted from the logic branch of [Matt Pocock's prototype skill](https://github.com/mattpocock/skills/tree/v1.3.1/skills/engineering/prototype)

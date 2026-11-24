@@ -4,9 +4,10 @@ description: >-
   Builds working UI prototypes and variants of a component, section, page, screen, or short
   flow, from many directions down to live controls for a chosen one, or a clickable demo that
   pushes a state model or business rule through its awkward cases. Use when the user asks to
-  prototype, compare designs, explore alternatives, tune a design's open parameters live, or
-  check whether a state machine, workflow rule, or data shape holds up before building it. A
-  design already chosen goes to `frontend-design` or `figma-design`.
+  prototype, compare designs, explore alternatives, tune a design's open parameters live, run an
+  arena that builds each direction several times and keeps the strongest, or check whether a
+  state machine, workflow rule, or data shape holds up before building it. A design already
+  chosen goes to `frontend-design` or `figma-design`.
 license: MIT. Adapted material and attribution in LICENSE.txt and references/sources.md.
 ---
 
@@ -40,6 +41,9 @@ Choose the mode from the request:
 - **Refinement.** Keep the chosen direction and expose the axes still open in it as
   controls, such as density, action placement, or how detail expands. Add another direction
   only for a structural alternative.
+- **Arena.** When the user asks for an arena, several attempts per direction, or the best
+  version of each, build every direction several times and keep the strongest, per [the
+  arena](references/arena.md). It adds to either mode above and to a wide round.
 
 Split the open decisions into two kinds before building:
 
