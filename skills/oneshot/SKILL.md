@@ -83,14 +83,21 @@ path, and never its value, so a later turn reuses it.
 
 **Everything after the gate is decided here, and not silently.** Each decision taken during
 the run goes into the run log's **Assumptions** as one line with its reason, and every one the
-user might overturn is in the final report.
+user might overturn is in the final report. One kind is not decided here: turning off, gating,
+narrowing, or dropping a behavior that already works and that the request and the gate did not
+name, such as putting live analytics behind consent or adding a length limit. Leave that
+behavior as it is, and name the change you would make in the report as a line that waits on
+the user. When the request cannot be met while it stays, stop and ask, as at a hard stop.
 
 **A fact is not a question.** Before the gate asks anything, settle every open fact by running
 something, as `brainstorm`'s phase 2 does, and log the result under **Assumptions**.
 
 **Away.** When the user says they are stepping away ("going to bed", "run until done", "I will
 read it in the morning"), the gate still posts its screen and does not wait: take the
-recommended option of every question, log each under **Assumptions**, and go on. The hard
+recommended option of every question, log each under **Assumptions**, and go on. Where an
+option would turn off, gate, narrow, or drop a behavior that already works, take leaving it as
+it is and report the rest per **Everything after the gate**, or stop when the request cannot be
+met that way. The hard
 stops and what only the user can do still stop, and a series' release is never authorized
 this way.
 

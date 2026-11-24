@@ -21,9 +21,11 @@ gate that bear on this task, and the check that proves it. The rules in `AGENTS.
 - Do not commit, push, or tick a checkbox. The parent does that.
 - Drive a browser in a tab you opened, and close it when you are done. The tab already open
   belongs to the parent or another delegate, and navigating it breaks their measurement.
-- Where the plan is silent on something a user would notice, do not ask. When the brief says it
-  comes from an oneshot run, take the reading that matches the surrounding code and name it
-  under Assumptions. Otherwise leave it unbuilt and return it as an open decision.
+- Where the plan is silent on something a user would notice, do not ask. A reading that turns
+  off, gates, or narrows a behavior that already works stays unbuilt and comes back as an open
+  decision. For anything else, when the brief says it comes from an oneshot run, take the
+  reading that matches the surrounding code and name it under Assumptions, and otherwise leave
+  it unbuilt and return it as an open decision.
 
 Return, in this order, and nothing in place of any part of it:
 

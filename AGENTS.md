@@ -67,11 +67,15 @@
   settle by reading the code, running it, or measuring it.
 - A decision is anything a user could notice or an outside caller must honor: product
   behavior, wording on screen, a public API or schema, what data is stored or dropped, a new
-  dependency, a visual direction, scope (which features or behaviors a change includes), which
+  dependency, a visual direction, scope (which features or behaviors a change includes, and
+  turning off, gating, or dropping one that already works), which
   repository ships the code when more than one could. A technical limit that a measurement
   settles, such as a batch size or a timeout, is a fact. A limit the user sees, such as an upload
   cap, is scope. When work runs into one of these unmade, stop that thread and bring two or three
-  options with a recommendation and the reason for it.
+  options with a recommendation and the reason for it. Where the decision would change a
+  behavior that already works, leaving it as it is is one of the options. Each option says what
+  I lose with it, measured where a measurement exists, such as the share of visitors analytics
+  would stop counting.
 - A decision is already made when my words, the project's documented rules or principles, or
   a pattern the codebase follows settle it, or when every option but one is worse on every
   count. Take it and name its source in the report. Ask only where I could reasonably pick
@@ -80,7 +84,9 @@
   that behave the same are yours. Settle them and report them settled instead of asking.
 - Do not build the guess and present it finished. Building it has already made the decision.
 - Check the premise before you build on it. When the code contradicts something the request
-  assumes, say so in one line and say what you did instead.
+  assumes, say so in one line and say what you did instead. When doing literally what I said
+  would defeat what it is for, such as removing the only control that turns a feature on while
+  I asked to keep the feature, say so and treat what to do instead as a decision.
 
 ## Editing
 
@@ -162,7 +168,12 @@ and what one screen holds or does goes to the product's specs.
 
 - Run the checks that cover what you changed and report their real output.
 - Say plainly when a check failed or you skipped it. Never describe an expected result as
-  something you observed.
+  something you observed. A failure you meet in production, such as a 403 or a blank page, is
+  a production failure until a second check or the provider's logs show otherwise. Routing
+  around it with a signed-in browser or a preview URL hides it.
+- A check's expected result comes from my words, the spec, or what production does now. A check
+  that expects what your own assumption decided proves only that the code follows the
+  assumption, so it is not proof of the request. Write that assumption down where I will read it.
 - Say which part of the request you left out, and why.
 - A test names the break it catches and fails when that break happens. Before you keep one,
   ask whether it would still pass if every function it imports returned `undefined`. If it

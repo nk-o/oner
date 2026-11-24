@@ -74,13 +74,14 @@ with `{{agents_dir}}/oneshot-worker.md`'s body.
 ## Unattended
 
 When `oneshot` runs this skill, the third Deviations rule no longer stops. Silence in the plan
-is decided here, recorded as one line with its reason and its evidence under **Assumptions**
-in the run log (`.oner/NNN-slug/oneshot.md`, the file the hook names), and reported at the
-end when the user might overturn it. That log is the one place assumptions live, so plan.md
-gets no copy.
+is decided here, except about a behavior that already works, which follows **Everything after
+the gate** in `oneshot`. Each decision is recorded as one line with its reason and its evidence
+under **Assumptions** in the run log (`.oner/NNN-slug/oneshot.md`, the file the hook names),
+and reported at the end when the user might overturn it. That log is the one place assumptions
+live, so plan.md gets no copy.
 
 Two things still stop, whatever else is running: a conflict with the spec or a contradicted
-decision, as written above, and the hard stops in `oneshot`'s contract.
+decision, as written above, and what `oneshot`'s contract stops on.
 
 Final verification and Report do not run under `oneshot`: its tail runs `green-repo` and the
 Verify step on the cleaned diff, and writes the report. After the last stage's Verify and
@@ -96,7 +97,10 @@ log's **Checks**; the tail still counts a failure as pre-existing only when it a
   `.claude/skills/`, drive the app through its CLI and run `check` on the features
   `list --affected` names, or `check --all` when it prints `unmapped` files. Otherwise use the
   browser/preview tools.
-  Take screenshots as proof for the visual ones.
+  Take screenshots as proof for the visual ones. When the change reaches a screen a user
+  already sees, capture it at the base commit too, at the same width and with the same data,
+  and run `design-review` on both, because a check that every number renders says nothing
+  about how the screen now looks.
 
 ## Report
 
