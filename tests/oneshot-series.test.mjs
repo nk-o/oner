@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { afterEach, test } from 'node:test';
 import { NEW, OLD, migrate } from '../skills/oneshot/migrate.mjs';
 
@@ -989,10 +989,14 @@ test('a new session hears how many Guard lines wait in the primary checkout, and
   const transcript = join(f.root, 'transcript.jsonl');
   writeFileSync(transcript, '');
   assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
-  writeFileSync(join(f.repo, '.oner', 'guards.md'), '- 2026-11-24 Check the price after a tab returns\n\n- 2026-11-24 Compare live third-party requests\n');
-  assert.match(runHook(f.repo, 'SessionStart', transcript), /^2 Guard lines from earlier reports wait in .*\.oner\/guards\.md\./);
+  const ledger = join(f.repo, '.git', 'oner', 'guards.md');
+  mkdirSync(dirname(ledger), { recursive: true });
+  writeFileSync(ledger, '- 2026-11-24 Check the price after a tab returns\n\n- 2026-11-24 Compare live third-party requests\n');
+  const worktree = f.build('guards').dir;
+  assert.ok(runHook(worktree, 'SessionStart', transcript).startsWith(`2 Guard lines from earlier reports wait in ${realpathSync(ledger)}.`));
+  assert.equal(runHook(worktree, 'SessionStart', transcript, { source: 'compact' }), '');
   assert.equal(runHook(f.repo, 'UserPromptSubmit', transcript, { prompt: 'go on' }), '');
-  writeFileSync(join(f.repo, '.oner', 'guards.md'), '\n');
+  writeFileSync(ledger, '\n');
   assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
 });
 
