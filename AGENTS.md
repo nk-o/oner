@@ -161,7 +161,8 @@ misses it. A mistake seen once, with nothing that would bring it back, gets the 
 Inside a task the second fix is a **Guard** line in the report, not part of the diff. The same
 line, dated, goes into the guard ledger, `oner/guards.md` in the directory `git rev-parse
 --path-format=absolute --git-common-dir` prints, so it outlasts the chat and every worktree.
-Append it with the shell, since editors refuse `.git/`, and skip a line the file already holds.
+Append it with the shell, creating `oner/` first, since editors refuse `.git/`, and skip a lesson
+the file already holds. Where the sandbox refuses the write, the line stays in the report only.
 `reflect` applies guards and deletes each line it settles. One exception: a correction I make a second time has
 recurred already. When it is about how the product looks or reads, write it into the project's
 `DESIGN.md` in the change that applies it, as a general rule for future screens,

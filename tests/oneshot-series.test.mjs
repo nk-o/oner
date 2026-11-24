@@ -983,7 +983,7 @@ test('a new or compacted session hears the open asks in .oner/requests.md, and o
   assert.equal(runHook(f.repo, 'SessionStart', transcript), '');
 });
 
-test('a new session hears how many Guard lines wait in the primary checkout, and only then', () => {
+test('a new session hears how many Guard lines wait in the git directory, and only then', () => {
   const f = fixture();
   rmSync(f.program, { recursive: true });
   const transcript = join(f.root, 'transcript.jsonl');
