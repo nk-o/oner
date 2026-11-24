@@ -32,6 +32,11 @@ Prove each placement instead of assuming it. Grep for the callers, check whether
 on. Then order the Live bucket by users affected times how hard it is to undo. Schema changes
 and data migrations first, then shared code an existing user already reaches.
 
+Write down the expected load from what the repository says, such as the README, the deploy
+config, and worker counts. A race, an unbounded list, or a rare client state is a finding when
+the expected load or real traffic triggers it, and a note when only a larger load or an unusual
+client would.
+
 ## Where findings concentrate
 
 - Every function whose signature or semantics changed. Check every caller.

@@ -46,7 +46,9 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    - **The release.** The merge method the repository uses, the checks GitHub must report
      green or, where CI does not run on pull requests, the local gate command that replaces
      them as `release.localGate`, the command that prints the commit production runs, the command that proves a
-     stage's migrations are applied, the read-only production checks, and the timeout. Each
+     stage's migrations are applied, the read-only production checks, and the timeout. The
+     production checks include one for each live behavior a stage could break without an error,
+     such as a page's analytics request from a fresh browser profile. Each
      is a fact you find before the gate, in the CI workflows, the deploy provider, and the
      project's `AGENTS.md`. None of them is a question. Each command runs from the primary
      checkout, where a deploy provider's local project link lives, but that checkout's files

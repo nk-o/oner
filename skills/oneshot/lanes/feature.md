@@ -26,7 +26,10 @@ is your call, per **Delegating the work**.
    touches. Take each one and capture what it does today as a command you can re-run, from the
    code as it shipped, before the first edit. Paste it into the run log's **Checks**. Where the
    feature reaches nothing that already exists, write `n/a:` and why. This is the pin the
-   refactor lane opens with, and the Verify step in [`tail.md`](tail.md) re-runs it. A pin that
+   refactor lane opens with, and the Verify step in [`tail.md`](tail.md) re-runs it. When the
+   change touches a page that is live, the pin also lists the requests that page sends to other
+   origins from a fresh browser profile, such as analytics and payments, captured on production,
+   because a dev server often loads none of them and their loss shows no error. A pin that
    ships as a test gets its own commit before the build, because `implement` starts only on a
    clean tree. A scratch pin lives in the run folder, which git ignores. In the same step, pick
    the worst cases for each surface the feature adds or changes, per steps 1 and 2 of

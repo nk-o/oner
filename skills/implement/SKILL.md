@@ -96,7 +96,10 @@ log's **Checks**; the tail still counts a failure as pre-existing only when it a
   `.claude/skills/`, drive the app through its CLI and run `check` on the features
   `list --affected` names, or `check --all` when it prints `unmapped` files. Otherwise use the
   browser/preview tools.
-  Take screenshots as proof for the visual ones.
+  Take screenshots as proof for the visual ones. When the change reaches a screen a user
+  already sees, capture it at the base commit too, at the same width and with the same data,
+  and run `design-review` on both, because a check that every number renders says nothing
+  about how the screen now looks.
 
 ## Report
 

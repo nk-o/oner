@@ -37,9 +37,15 @@ What decides it:
 - Fix the defect the finding proves, not the patch it proposes, and fix it at its cause. A
   fix that routes around a cause this branch can reach is a second defect, per **Editing** in
   `AGENTS.md`.
-- A confident tone, a severity label, and a pasted diff are not evidence. A finding that wants
-  working code restructured has to name the input that makes it fail. A convention stated by a
-  human who owns the repository counts without one.
+- A confident tone, a severity label, a reviewer's model, and agreement between reviewers are
+  not evidence. A `FIX` rests on a line you quoted or an input you ran, not on the reviewer's
+  account of it. A finding that wants working code restructured has to name the input that
+  makes it fail. A convention stated by a human who owns the repository counts without one.
+- A fix has a cost, and it counts against the finding. A fix that adds a network request, a
+  timer, stored state, or a new way to fail on a path every user takes is worth it only when
+  the trigger shows up in this product's real traffic or data, or the defect loses money or
+  data. Otherwise the finding is `LATER`, with the cost named. A reviewer's rare trigger fixed
+  with a request on every page view breaks more users than it saves.
 - A correct trivial nit in code this branch already touches is cheaper to apply than to argue.
 - For a security claim, failing to reproduce is not disproof. Show the input is impossible, or
   bring it to the user.
