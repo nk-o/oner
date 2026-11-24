@@ -173,8 +173,8 @@ the run log for a review.
   unanswered in its summary, and the coordinator runs `series.mjs wait review "<the failing
   cases>" --stage <id>` per **Waiting** in `series.md`. Otherwise run `pr`, push the
   branch, and open the PR with `gh pr create`, naming each screenshot and recording the body
-  shows with `--attach`, as `pr` says, also where the host offers its own pull request tool,
-  because that tool takes no files. When the branch already has a pull request, push to it
+  shows with `--attach`, as `pr` says, its rule for a host's own pull request tool included.
+  When the branch already has a pull request, push to it
   and leave its description alone unless the change made it wrong. In T3 Code, the call after
   `gh pr create` or the push is `link_pull_request` with the pull request's full URL. When the
   run log names an issue, update it for the open pull request per the `issue-tracker` skill. Do
