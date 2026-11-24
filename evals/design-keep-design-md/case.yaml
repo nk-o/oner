@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: design-keep-design-md
+description: >-
+  design-context SKILL.md "After a local UI edit, change the document only if the edit implements
+  an approved durable system change" and "Do not promote ... a single screen's layout ... into a
+  system rule". DESIGN.md says page content sits centered in a card at max-width 720px and
+  settings.html breaks it, so the improved page comes back into the card and DESIGN.md keeps the
+  rule unchanged. Mining pattern C2 (DESIGN.md loosened to fit agent output).
+context:
+  scaffold_script: fixture.sh

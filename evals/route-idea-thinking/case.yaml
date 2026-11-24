@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: route-idea-thinking
+description: >-
+  An idea the user only wants thought through gets an answer or brainstorm, never oneshot, and
+  no file is edited or written. Rule: AGENTS.md, Whole tasks, route table first row ("an
+  analysis, brainstorm X | an answer, or `brainstorm` ... Nothing is written") and the user's
+  own words "ничего не меняй"; skills/brainstorm/SKILL.md "this skill writes nothing into the
+  repository". Mining pattern R6.
+context:
+  scaffold_script: fixture.sh

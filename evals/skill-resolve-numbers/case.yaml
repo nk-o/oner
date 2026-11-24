@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: skill-resolve-numbers
+description: >-
+  resolve-review SKILL.md "Report": "Answer in the numbers the review used so each line matches
+  its finding: number, verdict", with verdicts FIX, WRONG, STALE, LATER, DECIDE, and "LATER: Real,
+  but the diff never touched it". The pasted review has two real findings in the diff (1 and 4),
+  one the code disproves (2), and one real defect outside the diff (3). Mining pattern
+  resolve-review 3 (numbering must be kept, the user replies by number).
+context:
+  scaffold_script: fixture.sh

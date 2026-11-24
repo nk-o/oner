@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: run-implement-all-stages
+description: >-
+  Implementing a two-stage plan runs every task of both stages in one go and leaves no box
+  unticked, instead of stopping between stages with a progress report. Rule: implement
+  SKILL.md, "working through its plan.md task by task until every checkbox is ticked", and its
+  Loop (stage boundary: Verify, commit, next task). Mining pattern I1 (stops between stages).
+context:
+  scaffold_script: fixture.sh

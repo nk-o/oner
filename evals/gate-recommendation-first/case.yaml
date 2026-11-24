@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: gate-recommendation-first
+description: >-
+  Where order drafts live (the browser or the server) is a product decision the code does not
+  settle, so the agent asks it, and every question puts the recommended option first with its
+  reason. Nothing is edited while the user only asked to think it through. Rule: AGENTS.md,
+  Decisions, "bring two or three options with a recommendation and the reason for it", and the
+  question routing "Put the recommended option and its reason first for each question";
+  skills/brainstorm/SKILL.md phase 2, "recommended option first". Mining patterns B3 and B4.
+context:
+  scaffold_script: fixture.sh

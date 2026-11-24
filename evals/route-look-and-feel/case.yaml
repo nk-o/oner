@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: route-look-and-feel
+description: >-
+  How an existing control moves, even when the user calls it broken, routes to refine or
+  prototype (with motion-design for the gesture), not to oneshot, and stops before a pull
+  request. Rule: AGENTS.md, Whole tasks, route table row "How something that exists looks,
+  feels, or moves, even when it is called broken | `prototype` ... `refine` ... Both stop before
+  a pull request". Mining pattern R2.
+context:
+  scaffold_script: fixture.sh

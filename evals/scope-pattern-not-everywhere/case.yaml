@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: scope-pattern-not-everywhere
+description: >-
+  A navigation pattern requested for one panel lands in that panel only, and the blocks panel
+  with its own nested groups stays as it is. Rule: AGENTS.md Decisions, scope is the user's
+  (which features or behaviors a change includes), and Editing, "Leave working code you were
+  not asked to change". Mining pattern P7 (requested pattern applied beyond its scope).
+context:
+  scaffold_script: fixture.sh

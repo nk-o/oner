@@ -244,17 +244,23 @@ function pathsFor(ctx, spec, dir, config) {
   };
 }
 
+export function renderTarget(repo, config, name, dir, { absolute = false, local } = {}) {
+  const spec = TARGETS[name];
+  return renderOutputs({ repo, local, absolute }, spec, dir, config, optionWrites(spec, config));
+}
+
 // Map of target-relative path to { data, mode }.
 function renderOutputs(ctx, spec, dir, config, writes) {
   const paths = pathsFor(ctx, spec, dir, config);
-  const text = tokenValues(paths, 'tilde', config);
-  const shell = tokenValues(paths, 'home', config);
+  const text = tokenValues(paths, ctx.absolute ? 'absolute' : 'tilde', config);
+  const shell = tokenValues(paths, ctx.absolute ? 'absolute' : 'home', config);
+  const localDir = ctx.local ?? join(ctx.repo, 'local');
   const render = (abs, rel) => renderFile(abs, rel.endsWith('.sh') ? shell : text);
   const out = new Map();
 
   const disabled = new Set(config.disabledSkills);
   const core = walk(join(ctx.repo, 'skills'));
-  const local = walk(join(ctx.repo, 'local', 'skills'));
+  const local = walk(join(localDir, 'skills'));
   const coreNames = new Set(core.map((f) => f.rel.split(sep)[0]));
   for (const f of local) {
     const skill = f.rel.split(sep)[0];
@@ -308,7 +314,7 @@ function renderOutputs(ctx, spec, dir, config, writes) {
 
   let instructions = `These rules are installed for ${spec.label}. If read from another host, use the session's actual host and available tools.\n\n` +
     render(join(ctx.repo, 'AGENTS.md'), 'AGENTS.md').toString('utf8');
-  const personal = join(ctx.repo, 'local', 'AGENTS.md');
+  const personal = join(localDir, 'AGENTS.md');
   if (existsSync(personal)) instructions += '\n' + render(personal, 'AGENTS.md').toString('utf8');
   for (const rule of writes.rules) instructions += '\n' + rule + '\n';
   if (!config.disabledSkills.includes('external-review') && enabledReviewers(config).length) {

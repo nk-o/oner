@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: route-feature-plain
+description: >-
+  A plain request for new behavior routes to oneshot, feature lane, with the route line first
+  and the skill as the first tool call, not a Bash call. Rule: AGENTS.md, Whole tasks, route
+  table row "New or changed behavior | `oneshot`, feature lane" and "A route that starts a flow
+  ... is named in the reply's first line ... the route's skill is the first tool call". Mining
+  pattern R5.
+context:
+  scaffold_script: fixture.sh

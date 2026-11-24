@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: skill-review-findings
+description: >-
+  prod-review SKILL.md "8. Report": one numbered list, each finding a heading with the defect and
+  the `file:line` in parentheses, and "7. Verify, defaulting to refuted". The branch adds two real
+  defects (pagination skips the first page because pages start at 1, and a missing await makes an
+  unknown order return 200) and one decoy, `isMissing` with a loose `== null`, which is correct.
+  Mining pattern prod-review 1 (numbered-finding contract drifts, headings without file:line).
+context:
+  scaffold_script: fixture.sh

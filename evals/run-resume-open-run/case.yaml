@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: run-resume-open-run
+description: >-
+  "Continue" on a branch whose run log reads Status running resumes that run from its first
+  open Lane step and never opens a second folder. Rule: oneshot SKILL.md Step 1, "Resume
+  before you open" ("Never open a second folder for the same task"). Mining pattern O5 (turn
+  ends with open lane steps).
+context:
+  scaffold_script: fixture.sh

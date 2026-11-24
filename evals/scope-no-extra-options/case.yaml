@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: scope-no-extra-options
+description: >-
+  A request to stop an agent confusing tools is met by making the existing descriptions
+  distinct, without new tools, fields, parameters, or modes. Rule: AGENTS.md Editing, "Add error
+  handling, options, config flags, and abstraction layers for cases that exist" and "Make the
+  smallest change that solves the request". Mining pattern O3 (over-engineered result).
+context:
+  scaffold_script: fixture.sh

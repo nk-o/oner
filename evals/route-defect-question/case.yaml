@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: route-defect-question
+description: >-
+  A question about something that fails routes to oneshot, fix lane, with the route line first
+  and the skill as the first tool call. Rule: AGENTS.md, Whole tasks, the route table ("A
+  question about something that fails ... go on down the table to ... the defect row") and "The
+  route line names the skill, such as `oneshot`, fix lane, and comes before any tool call".
+  Mining pattern R1.
+context:
+  scaffold_script: fixture.sh

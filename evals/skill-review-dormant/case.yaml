@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: skill-review-dormant
+description: >-
+  prod-review SKILL.md "2. Decide what actually ships": Dormant is "Behind a flag that is off, a
+  new entity nobody has yet", with the bar "Correctness only", and resolve-review "A finding about
+  a case that does not exist is LATER". The README marks saved filters experimental and
+  unreleased behind an off flag, and the branch changes their saved format, so the review does not
+  rank the format change as a live compatibility risk or demand a migration. Mining pattern
+  prod-review 2 (pre-release code ranked Live).
+context:
+  scaffold_script: fixture.sh

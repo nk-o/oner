@@ -1,0 +1,89 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, join, resolve } from 'node:path';
+import { after, test } from 'node:test';
+import { validateConfig } from '../build/config.mjs';
+import { CHUNK_LIMIT, chunkInstructions, toolPath, writeEvalPlugin } from '../build/eval.mjs';
+import { walk } from '../build/render.mjs';
+
+const repo = resolve('.');
+const root = mkdtempSync(join(realpathSync(tmpdir()), 'eval-'));
+after(() => rmSync(root, { recursive: true, force: true }));
+
+test('chunks break at section headings, stay under the hook limit, and rejoin', () => {
+  const section = (name, size) => `## ${name}\n\n${'x'.repeat(size)}\n\n`;
+  const text = 'Intro\n\n' + section('A', 5000) + section('B', 5000) + section('C', 20000) + section('D', 100);
+  const chunks = chunkInstructions(text);
+  assert.equal(chunks.join(''), text);
+  for (const c of chunks) assert.ok(c.length <= CHUNK_LIMIT, `chunk of ${c.length}`);
+  assert.ok(chunks[1].startsWith('## B'), 'a section that fits is never split');
+  assert.ok(chunks.at(-1).endsWith(section('D', 100)));
+});
+
+test('the eval plugin carries skills, the instructions as hooks, and the cases', () => {
+  const dir = join(root, 'plugin');
+  writeEvalPlugin(repo, validateConfig({ skills: { disabled: ['oneshot'] } }, repo), dir);
+
+  const hooks = JSON.parse(readFileSync(join(dir, 'hooks', 'hooks.json'), 'utf8')).hooks;
+  const commands = (event) => hooks[event].flatMap((e) => e.hooks.map((h) => h.command));
+  const context = readdirSync(join(dir, 'context')).sort();
+  assert.deepEqual(
+    commands('SessionStart').filter((c) => c.includes('/context/')),
+    context.map((f) => `cat "\${CLAUDE_PLUGIN_ROOT}/context/${f}"`),
+  );
+  for (const event of ['SessionStart', 'UserPromptSubmit', 'PermissionRequest', 'Stop']) {
+    assert.ok(commands(event).includes('"${CLAUDE_PLUGIN_ROOT}/skills/oneshot/hook.sh"'), `${event} runs the oneshot hook`);
+  }
+  assert.ok(!Object.values(hooks).flat().some((e) => e.hooks.some((h) => /build\.mjs|update-check|devservers/.test(h.command))));
+  const parts = context.map((f) => readFileSync(join(dir, 'context', f), 'utf8'));
+  parts.forEach((p, i) => assert.ok(p.startsWith(`Part ${i + 1} of ${parts.length} of the session rules.`)));
+  const instructions = parts.join('');
+  assert.match(instructions, /These rules are installed for Claude Code\./);
+  assert.match(instructions, /## Whole tasks/);
+  assert.ok(!instructions.includes('~/'), 'paths are absolute, because the eval runs under another HOME');
+
+  const oneshot = readFileSync(join(dir, 'skills', 'oneshot', 'SKILL.md'), 'utf8');
+  assert.ok(oneshot.includes(join(dir, 'skills')), 'skill paths point into the plugin');
+  for (const f of walk(join(dir, 'skills'))) {
+    assert.ok(!readFileSync(f.abs, 'utf8').includes('~/.claude/skills'), `${f.rel} points at the installed copy`);
+  }
+  assert.equal(JSON.parse(readFileSync(join(dir, '.claude-plugin', 'plugin.json'), 'utf8')).name, 'oner');
+  assert.ok(walk(join(dir, 'evals')).some((f) => f.rel.endsWith('prompt.md')));
+});
+
+test('no file_exists grader uses brackets, which the eval glob treats as literal', () => {
+  for (const f of walk(join(repo, 'evals')).filter((f) => /\/graders\/.+\.md$/.test(f.rel))) {
+    const head = readFileSync(f.abs, 'utf8').split('---')[1];
+    if (/^type: file_exists$/m.test(head)) assert.doesNotMatch(head.match(/^path: (.*)$/m)[1], /[[\]]/, f.rel);
+  }
+});
+
+test('every file a grader reads exists after the fixture or is named in the request', () => {
+  const cases = readdirSync(join(repo, 'evals'), { withFileTypes: true }).filter((d) => d.isDirectory());
+  for (const { name } of cases) {
+    const caseDir = join(repo, 'evals', name);
+    const work = join(root, `fixture-${name}`);
+    mkdirSync(work);
+    execFileSync('bash', [join(caseDir, 'fixture.sh')], { cwd: work, env: { PATH: process.env.PATH, HOME: work }, stdio: 'ignore' });
+    const prompt = readFileSync(join(caseDir, 'prompt.md'), 'utf8');
+    for (const g of readdirSync(join(caseDir, 'graders'))) {
+      const path = readFileSync(join(caseDir, 'graders', g), 'utf8').match(/source: file, path: ([^ }]+)/)?.[1];
+      if (path) assert.ok(existsSync(join(work, path)) || prompt.includes(path), `${name}/graders/${g} reads ${path}`);
+    }
+  }
+});
+
+test('toolPath skips the xcrun git and version-manager shims', () => {
+  const shimDir = join(root, 'shims');
+  const xcrunDir = join(root, 'xcrun');
+  const realDir = join(root, 'real');
+  for (const d of [shimDir, xcrunDir, realDir]) mkdirSync(d);
+  writeFileSync(join(root, 'mise'), '');
+  symlinkSync(join(root, 'mise'), join(shimDir, 'git'));
+  symlinkSync('/usr/bin/git', join(xcrunDir, 'git'));
+  writeFileSync(join(realDir, 'git'), '');
+  assert.equal(toolPath('git', [shimDir, xcrunDir, realDir].join(delimiter)), realDir);
+  assert.equal(toolPath('git', [shimDir, xcrunDir].join(delimiter)), null);
+});

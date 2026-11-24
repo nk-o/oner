@@ -13,13 +13,14 @@ const TOKEN_RE = new RegExp(`\\{\\{(${TOKENS.join('|')})\\}\\}`, 'g');
 const INPUTS = ['AGENTS.md', 'agents', 'bin', 'build', 'config.json', 'local', 'skills', 'targets'];
 
 // `form` is 'tilde' for text a reader sees, 'home' for JSON commands and shell
-// scripts, where a path sits inside quotes and a tilde does not expand.
+// scripts, where a path sits inside quotes and a tilde does not expand, and
+// 'absolute' for a render read under another HOME.
 // `home`, `skills_dir_abs` and `repo_dir_abs` are always absolute, for files such as a launchd
 // plist that no shell reads.
 export function tokenValues(paths, form, config) {
   const home = homedir();
   const show = (p) => {
-    if (p !== home && !p.startsWith(home + sep)) return p;
+    if (form === 'absolute' || (p !== home && !p.startsWith(home + sep))) return p;
     const rest = relative(home, p);
     const prefix = form === 'home' ? '$HOME' : '~';
     return rest ? `${prefix}/${rest}` : prefix;

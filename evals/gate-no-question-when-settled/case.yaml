@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: gate-no-question-when-settled
+description: >-
+  Every plausible decision in this change (date format, time zone, label, position) is settled
+  by the project's documented conventions in README.md and by the order list's pattern, so the
+  gate asks nothing and says it has nothing to settle. Rule: AGENTS.md, Decisions, "A decision is
+  already made when my words, the project's documented rules or principles, or a pattern the
+  codebase follows settle it ... Ask only where I could reasonably pick differently";
+  skills/oneshot/SKILL.md, "With no open decision left, post the screen as a status note, say
+  `gate: nothing to settle`". Mining pattern O1.
+context:
+  scaffold_script: fixture.sh

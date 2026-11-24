@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: skill-humanizer-no-invented
+description: >-
+  humanizer SKILL.md "3. Draft rewrite": "Every number, name, date, and quote in the rewrite comes
+  from the source or from the user. Where a vague claim needs a specific the source does not hold,
+  leave [fact needed: <what>]", and "5. Final rewrite ... with no em or en dashes used as sentence
+  breaks". The landing draft names one invented product and holds one number. Mining pattern
+  humanizer 3 (invented proper nouns).
+context:
+  scaffold_script: fixture.sh

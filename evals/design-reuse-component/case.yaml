@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: design-reuse-component
+description: >-
+  frontend-design SKILL.md "Reuse established tokens instead of creating parallel values" and
+  "The same action keeps the same component and name", plus AGENTS.md "Reuse before you write".
+  A hint popover already exists in components/popover.js and page-a.html uses it, so page-b gets
+  the same component instead of a new one. Mining pattern F1 (no reuse of the existing component).
+context:
+  scaffold_script: fixture.sh

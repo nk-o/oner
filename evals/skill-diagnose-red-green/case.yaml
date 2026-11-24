@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: skill-diagnose-red-green
+description: >-
+  diagnose SKILL.md "1. Build the loop": "Make it deterministic by pinning time", "Done when you can
+  name one command you have already run ... that is red on this bug", and "5. Fix ... watch it
+  fail, apply the fix, and watch it pass", plus "4. Probe ... name the file:line". daysLeft in
+  src/trial.js subtracts days of the month, so the test fails only near the end of a month.
+  Mining pattern diagnose 4 (success: red-then-green with a pinned clock).
+context:
+  scaffold_script: fixture.sh

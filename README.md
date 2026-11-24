@@ -195,6 +195,17 @@ run going works in Claude Code and Codex. The Gemini CLI, Copilot, OpenCode, and
 follow each tool's documentation and have not been run against the tool itself. [docs/how-it-works.md](docs/how-it-works.md) describes the
 build, the repository layout, and what external reviewers receive.
 
+## Evals
+
+`evals/` holds cases that check what the agent decides with these skills: which flow a request
+starts, what the gate asks, what a fix leaves alone, what a report claims. They run through
+Claude Code's `claude plugin eval` on this checkout, so a skill edit is measured before it
+ships. [evals/README.md](evals/README.md) has the format.
+
+```
+node bin/eval.mjs --case 'route-*'
+```
+
 ## Where the skills come from
 
 Skills and rules that started elsewhere keep only the parts that worked in practice, rewritten to
