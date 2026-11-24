@@ -46,6 +46,13 @@ has_asks() { [ -f "$requests" ] && grep -q '[^[:space:]]' "$requests" 2>/dev/nul
 if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] && has_asks; then
   printf '%s\n%s\n' "Asks still open from earlier work, kept in .oner/requests.md. Delete a line once it is done or dropped:" "$(grep '[^[:space:]]' "$requests" | head -n 20)"
 fi
+guards="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/oner/guards.md"
+if [ "$(field '.hook_event_name // empty')" = "SessionStart" ] && [ "$(field '.source // "startup"')" = startup ] && [ -f "$guards" ]; then
+  waiting="$(grep -c '[^[:space:]]' "$guards" 2>/dev/null || true)"
+  if [ "${waiting:-0}" -gt 0 ]; then
+    printf '%s\n' "$waiting Guard lines from earlier reports wait in $guards. Say so in one line in your first reply, and run \`reflect\` on them when the user asks."
+  fi
+fi
 
 log=""
 status=""

@@ -39,7 +39,7 @@ const notes = [
 ];
 const root = input.cwd ?? input.workspace_roots?.[0];
 if (root) {
-  const event = JSON.stringify({ hook_event_name: 'SessionStart', cwd: root });
+  const event = JSON.stringify({ hook_event_name: 'SessionStart', cwd: root, source: input.source });
   notes.push(run(join(skillsDir, 'oneshot', 'hook.sh'), [], event));
 }
 const extra = notes.filter(Boolean).join('\n\n');
