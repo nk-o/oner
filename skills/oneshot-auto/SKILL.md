@@ -39,7 +39,7 @@ takes the recommended option of every question, and logs each under **Assumption
 
 ## Hard stops
 
-`oneshot`'s **Hard stops** hold as written there: an additive migration is a decision
+`oneshot`'s **Three hard stops** hold as written there: an additive migration is a decision
 with its checks, not a stop. One more becomes a decision here: a change to an outside contract
 that every existing caller survives. Take it, log it under **Assumptions** as a line that starts
 with `Attention.`, and go on. When a hard stop comes up, set `Status. waiting` and ask through the host's question tool, with the pull

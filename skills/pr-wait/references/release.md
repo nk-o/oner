@@ -44,9 +44,10 @@ commit, `gh run list --commit <merge sha>`, and treat its failure as a deploy fa
 **Production.** After the deploy, when the change reaches a page a user sees, open each such page
 in production with the browser driver, the way a user arrives: it loads, its main content
 renders, the console shows no page error, and no request for the app's own assets or API fails.
-Where the run log pins the origins the page requested before the change, open it again in a
-fresh browser profile, signed out, and compare. An origin the change did not mean to drop, such
-as an analytics or payment script, counts as a failure, because its loss raises no error. The
+Where the run log pins the requests the page sent to other services before the change, open it
+again in a fresh browser profile, signed out, record them the same way, and compare. A request
+the change did not mean to drop, such as the analytics collection request, counts as a failure,
+because its loss raises no error. The
 production URL comes from the deploy status's link, the project's `verify-<app>` skill, or
 its deploy config. A failure counts when it shows on two checks a minute apart, since a cache
 or a cold start can fail once. Never sign in as a real user or write data in production for the

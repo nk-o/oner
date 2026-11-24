@@ -44,7 +44,8 @@ What decides it:
 - A fix has a cost, and it counts against the finding. A fix that adds a network request, a
   timer, stored state, or a new way to fail on a path every user takes is worth it only when
   the trigger shows up in this product's real traffic or data, or the defect loses money or
-  data. Otherwise the finding is `LATER`, with the cost named. A reviewer's rare trigger fixed
+  data or opens a security or access hole. Otherwise look for a fix without that cost, and when
+  there is none, the finding is `LATER`, with the cost named. A reviewer's rare trigger fixed
   with a request on every page view breaks more users than it saves.
 - A correct trivial nit in code this branch already touches is cheaper to apply than to argue.
 - For a security claim, failing to reproduce is not disproof. Show the input is impossible, or

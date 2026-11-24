@@ -86,7 +86,8 @@ the run goes into the run log's **Assumptions** as one line with its reason, and
 user might overturn is in the final report. One kind is not decided here: turning off, gating,
 narrowing, or dropping a behavior that already works and that the request and the gate did not
 name, such as putting live analytics behind consent or adding a length limit. Leave that
-behavior as it is, and put the change you would make in the report as a follow-up.
+behavior as it is, and name the change you would make in the report as a line that waits on
+the user. When the request cannot be met while it stays, stop and ask, as at a hard stop.
 
 **A fact is not a question.** Before the gate asks anything, settle every open fact by running
 something, as `brainstorm`'s phase 2 does, and log the result under **Assumptions**.
@@ -97,12 +98,10 @@ recommended option of every question, log each under **Assumptions**, and go on.
 stops and what only the user can do still stop, and a series' release is never authorized
 this way.
 
-**Hard stops survive the gate.** Stop and ask, whatever else is running, when the choice
+**Three hard stops survive the gate.** Stop and ask, whatever else is running, when the choice
 in front of you changes a contract something outside this repository already depends on, drops
-or overwrites data a user has, stops production from collecting data it collects now (analytics,
-events, logs) for any share of its traffic, or sets a migration or a stored data shape that does
-more than add. These are expensive to unwind after the fact, and data never collected cannot be
-recovered, which is the whole reason the rest are not.
+or overwrites data a user has, or sets a migration or a stored data shape that does more than
+add. These are expensive to unwind after the fact, which is the whole reason the rest are not.
 One that only adds (a new table, a new column that is nullable or has a constant default, a
 non-unique index built without blocking writes where the database can, a new optional field in
 a stored record) is a decision: take it, log it under **Assumptions** as a line that starts

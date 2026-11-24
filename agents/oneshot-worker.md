@@ -23,7 +23,8 @@ gate that bear on this task, and the check that proves it. The rules in `AGENTS.
   belongs to the parent or another delegate, and navigating it breaks their measurement.
 - Where the plan is silent on something a user would notice, do not ask. When the brief says it
   comes from an oneshot run, take the reading that matches the surrounding code and name it
-  under Assumptions. Otherwise leave it unbuilt and return it as an open decision.
+  under Assumptions. Otherwise, and for any reading that turns off, gates, or narrows a
+  behavior that already works, leave it unbuilt and return it as an open decision.
 
 Return, in this order, and nothing in place of any part of it:
 

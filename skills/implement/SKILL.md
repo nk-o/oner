@@ -76,8 +76,9 @@ with `{{agents_dir}}/oneshot-worker.md`'s body.
 When `oneshot` runs this skill, the third Deviations rule no longer stops. Silence in the plan
 is decided here, recorded as one line with its reason and its evidence under **Assumptions**
 in the run log (`.oner/NNN-slug/oneshot.md`, the file the hook names), and reported at the
-end when the user might overturn it. That log is the one place assumptions live, so plan.md
-gets no copy.
+end when the user might overturn it, except a behavior that already works, which stays as it
+is per **Everything after the gate** in `oneshot`. That log is the one place assumptions live,
+so plan.md gets no copy.
 
 Two things still stop, whatever else is running: a conflict with the spec or a contradicted
 decision, as written above, and the hard stops in `oneshot`'s contract.

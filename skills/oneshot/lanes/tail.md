@@ -150,8 +150,9 @@ the run log for a review.
   round.
 - **Resolve.** Run `resolve-review` on the merged list. Its `DECIDE` verdict is not available
   here: the spec, the plan, or the gate pins the behavior, or the decision is taken and logged
-  under **Assumptions**, or it narrows a behavior that already works and stays out per the
-  skill's contract, or it is one of the hard stops and the run pauses. Its own
+  under **Assumptions**, or it narrows a behavior that already works and stays out per
+  **Everything after the gate** in `oneshot`, or it is one of the hard stops and the run
+  pauses. Its own
   `prod-review` of the fixes runs only for a fix past a few lines when round two below will
   skip. Re-run
   `green-repo` after the fixes, then commit them.

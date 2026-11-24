@@ -32,10 +32,9 @@ Prove each placement instead of assuming it. Grep for the callers, check whether
 on. Then order the Live bucket by users affected times how hard it is to undo. Schema changes
 and data migrations first, then shared code an existing user already reaches.
 
-Write down the expected load from what the repository says, such as the README, the deploy
-config, and worker counts. A race, an unbounded list, or a rare client state is a finding when
-the expected load or real traffic triggers it, and a note when only a larger load or an unusual
-client would.
+Take the expected load from what the repository says, such as the README, the deploy config,
+replica and worker counts, and cron schedules. A race, an unbounded list, or a query per item is
+a finding when the expected load triggers it, and a note when only a larger load would.
 
 ## Where findings concentrate
 
