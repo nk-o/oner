@@ -8,7 +8,7 @@
 | `CLAUDE.md` | what to know before editing this repository. |
 | `INSTALL.md` | the setup an agent follows on a new machine. |
 | `skills/` | one directory per skill, each with a `SKILL.md`. |
-| `agents/` | subagent definitions. `oneshot-worker` writes one task of a plan, `oneshot-reviewer` reviews the finished change. |
+| `agents/` | subagent definitions. `oneshot-worker` writes one task of a plan, `oneshot-reviewer` reviews the finished change, and `oneshot-qa` runs the test plan as a user would. |
 | `mods/` | Claude Code mods, one folder per mod. `weekly-pace` shows the weekly usage limit under the prompt against how much today can spend, and warns when the five-hour window nears its limit. |
 | `bin/build.mjs`, `build/` | the build. It has no dependencies. |
 | `bin/ui.mjs`, `ui/`, `panel/` | the panel: today's work across agents and pull requests, stats, the local skill editor, and settings. It reads no secrets of its own, and writes only to `config.json`, `local/`, and a cache of numbers. |

@@ -100,8 +100,9 @@ log's **Checks**; the tail still counts a failure as pre-existing only when it a
   Take screenshots as proof for the visual ones. When the change reaches a screen a user
   already sees, capture it at the base commit too, at the same width and with the same data,
   and run `design-review` on both, because a check that every number renders says nothing
-  about how the screen now looks. Where the host has subagents, `oneshot-qa` runs the
-  acceptance criteria on both commits as the user would.
+  about how the screen now looks. Where the host has subagents, `oneshot-qa` on the
+  smallest model runs the acceptance criteria on both commits as the user would, with its
+  captures in a scratch folder. A `Not approve` leaves those criteria unverified in the report.
 
 ## Report
 

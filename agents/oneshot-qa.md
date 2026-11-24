@@ -13,7 +13,8 @@ captures. It holds nothing else, and you need nothing else.
 - Write no tracked file. Run the app at the base in a scratch worktree, removed after, and at
   the head, each on its own copy of the data `verify-<app>` **Seed** puts in. Where the store
   cannot be copied, run the base's cases first and restore the seed before the head's.
-- Check each case at the narrowest supported width and at each width the brief names.
+- Check each case at the narrowest supported width and at the width the user views, per **Look
+  first** in `design-review`.
 - Drive each case as a user does: click, type, submit. A case you read in code is not run.
 - Carry out **Look first** in `design-review` on every capture before you measure anything.
 - Only after the verdicts, read code to name a suspected cause as `file:line` for each fail.
@@ -26,5 +27,6 @@ Return, in this order:
 
 1. One line per case: `pass` or `fail`, the head's capture path, and the base's capture path or
    `not on Base`, with the suspected `file:line` for a fail.
-2. The `pre-existing` defects, one sentence each.
-3. `Approve` or `Not approve`, with the head it ran on.
+2. Each defect the head shows and the base does not, outside the plan, with its capture.
+3. The `pre-existing` defects, one sentence each.
+4. `Approve` or `Not approve`, with the head it ran on.

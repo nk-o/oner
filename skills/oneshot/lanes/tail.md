@@ -92,9 +92,11 @@ the run log for a review.
   (feature lane step 4, the fix lane's reproduction) and the acceptance criteria. Where the host
   has subagents, the reader is `oneshot-qa`, a fresh delegate on the `light` tier of this
   session's executor in `{{skills_dir}}/lead/executors.md`, else on the host's smallest model.
-  Without subagents it is a separate pass that follows `{{agents_dir}}/oneshot-qa.md` with only
-  the brief's inputs. Its brief holds the test plan, the screen's element list where plan.md has
-  one, **Base** and the head, how to start the app, the widths the user named or sent
+  Without subagents it is a separate pass that follows the `oneshot-qa` definition in
+  `{{agents_dir}}/` with only
+  the brief's inputs. Its brief holds only the test plan, the screen's element list where plan.md has
+  one, **Base** and the head, how to start the app (the `verify-<app>` skill where the repository
+  has one), the widths the user named or sent
   screenshots at, the reference **Look first** in `design-review` names, and the run folder's
   `media/`. A `pre-existing` defect it returns goes into the run log as one sentence, per
   **Editing** in `AGENTS.md`. A `Not approve` is a finding for Resolve, which runs the whole
