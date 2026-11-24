@@ -468,6 +468,13 @@ function mergeEntries(own, value) {
   return out;
 }
 
+function ownedEntries(before, value, old) {
+  return Object.fromEntries(Object.entries(value).map(([entry, v]) => [entry,
+    Array.isArray(v) && Array.isArray(before[entry])
+      ? v.filter((rule) => !before[entry].includes(rule) || (Array.isArray(old?.[entry]) && old[entry].includes(rule)))
+      : v]));
+}
+
 // Removes owned keys and hook entries recorded in oldOwned and the legacy hook
 // commands, then adds the template's. Returns the new settings and what is owned.
 export function mergeSettings(settings, template, oldOwned, legacyCommands) {
@@ -508,8 +515,10 @@ export function mergeSettings(settings, template, oldOwned, legacyCommands) {
   const owned = { keys: {}, hooks: [] };
   for (const [key, value] of Object.entries(template)) {
     if (key === 'hooks') continue;
-    out[key] = BY_ENTRY.has(key) && isObject(out[key]) ? mergeEntries(out[key], value) : structuredClone(value);
-    owned.keys[key] = value;
+    const before = out[key];
+    const byEntry = BY_ENTRY.has(key) && isObject(before);
+    out[key] = byEntry ? mergeEntries(before, value) : structuredClone(value);
+    owned.keys[key] = byEntry ? ownedEntries(before, value, oldOwned?.keys?.[key]) : value;
   }
   for (const [event, entries] of Object.entries(template.hooks ?? {})) {
     out.hooks ??= {};

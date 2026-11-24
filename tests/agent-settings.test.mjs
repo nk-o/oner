@@ -53,6 +53,9 @@ test('the build owns its permission rules one by one, so the user own rules surv
   assert.deepEqual(again.settings.permissions, first.settings.permissions);
   const off = mergeSettings(again.settings, {}, again.owned, []);
   assert.deepEqual(off.settings.permissions, { allow: ['Bash(npm test:*)'], deny: ['Read(./.env)'], defaultMode: 'acceptEdits' });
+  const had = mergeSettings({ permissions: { allow: ['Bash(gh pr merge:*)'] } }, { permissions: { allow: ['Bash(gh pr merge:*)'] } }, null, []);
+  const kept = mergeSettings(had.settings, {}, had.owned, []);
+  assert.deepEqual(kept.settings.permissions, { allow: ['Bash(gh pr merge:*)'] });
 });
 
 test('the build owns env entry by entry, so the user own variables survive', () => {
