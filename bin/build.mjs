@@ -11,7 +11,8 @@ Renders skills/, agents/, AGENTS.md, and local/ into every target enabled in
 config.json, and merges the build's own keys into each target's settings.
 
   --auto  Rebuild only when this checkout has built before and its inputs
-          changed since. Silent when there is nothing to do. The hooks run this.`;
+          changed since, and retry an agent the last build skipped until it
+          installs. Silent when there is nothing to do. The hooks run this.`;
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {

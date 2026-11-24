@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
@@ -173,4 +173,34 @@ test('manual builds install downloaded skills and automatic builds use disk with
   git(f.local, 'restore', 'AGENTS.md');
   build(f.repo, config, { auto: false });
   assert.match(readFileSync(installed, 'utf8'), /Remote update/);
+});
+
+test('an automatic build reports a skipped agent every time until the conflict is gone', t => {
+  const f = fixture(t);
+  writeFileSync(join(f.repo, 'AGENTS.md'), 'Shared rules.\n');
+  cpSync(resolve('targets'), join(f.repo, 'targets'), { recursive: true });
+  const targets = Object.fromEntries(Object.keys(TARGETS).map(name => [name, { enabled: false, dir: join(f.root, `agent-${name}`) }]));
+  targets.claude.enabled = true;
+  const codexDir = join(f.root, 'agent-codex');
+  const foreign = join(codexDir, 'skills', 'personal', 'SKILL.md');
+  mkdirSync(join(codexDir, 'skills', 'personal'), { recursive: true });
+  writeFileSync(foreign, 'Not written by the build.\n');
+  delete targets.codex;
+  const config = validateConfig({ local: { repository: f.remote }, targets, externalReview: {
+    cursor: { enabled: false }, codex: { enabled: false }, claude: { enabled: false },
+  } }, f.repo);
+  config.targets.codex = { enabled: true, explicit: false, dir: codexDir };
+  assert.match(build(f.repo, config, { auto: false }).join('\n'), /codex: skipped: these already exist/);
+  const settings = join(targets.claude.dir, 'settings.json');
+  const own = JSON.parse(readFileSync(settings, 'utf8'));
+  own.permissions.allow.push('Bash(npm test:*)');
+  writeFileSync(settings, JSON.stringify(own));
+  const retry = build(f.repo, config, { auto: true });
+  assert.equal(retry.length, 1);
+  assert.match(retry[0], /^codex: skipped: these already exist/);
+  assert.ok(JSON.parse(readFileSync(settings, 'utf8')).permissions.allow.includes('Bash(npm test:*)'));
+  assert.equal(JSON.parse(readFileSync(join(f.repo, '.build-state.json'), 'utf8'))[homedir()].targets.claude, targets.claude.dir);
+  rmSync(foreign);
+  assert.match(build(f.repo, config, { auto: true }).join('\n'), /codex: .*written/);
+  assert.deepEqual(build(f.repo, config, { auto: true }), []);
 });
