@@ -469,7 +469,7 @@
           }
         },
         "assign": {
-          "description": "The standing split of work between executors. lead applies each entry as if the user had said it in the session, and the user's words in the session still win. Empty by default, so lead picks each stage's executor by tier.",
+          "description": "The preferred split of work between executors, a recommendation lead follows in every session. lead sets an entry aside for a stage it fits poorly, falls back to the tiers when the executor is off, out of limits, or failing, and the user's words in the session win. Empty by default, so lead picks each stage's executor by tier.",
           "type": "array",
           "default": [],
           "items": {
@@ -483,7 +483,7 @@
                 "pattern": "^[^|\\r\\n]+$"
               },
               "executor": {
-                "description": "An enabled executor with a build model.",
+                "description": "The executor this work should go to.",
                 "enum": ["claude", "codex", "grok", "cursor"]
               }
             }

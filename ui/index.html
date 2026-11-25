@@ -240,6 +240,7 @@
   .model { display: flex; gap: 8px; justify-content: flex-end; }
   .model input { width: 190px; font-family: var(--mono); font-size: 12.5px; letter-spacing: 0; }
   .model select { min-width: 96px; }
+  #split input[type="text"] { width: 100%; }
   .lang { display: flex; gap: 12px; align-items: center; padding: 12px 18px; flex-wrap: wrap; }
   .lang input { width: 220px; }
   #local-repository { flex: 1; min-width: min(240px, 100%); }
@@ -371,6 +372,12 @@
       <div class="card" id="effort"></div>
     </section>
 
+    <section aria-labelledby="h-split">
+      <h2 id="h-split">Who builds what</h2>
+      <p class="help">Which agent you prefer for each kind of work when lead runs a series. lead follows this as a recommendation, picks another agent when a stage fits it better, and falls back when an agent is off, out of limits, or failing.</p>
+      <div class="card" id="split"></div>
+    </section>
+
     <section aria-labelledby="h-review">
       <h2 id="h-review">External review</h2>
       <p class="help">Models that review a change before you see it. Each needs its own CLI and subscription.</p>
@@ -451,6 +458,7 @@ function draftFrom(s) {
     effort: Object.fromEntries(s.effort.map((e) => [e.stage, e.level])),
     reviewers: Object.fromEntries(s.reviewers.map((r) => [r.name, { enabled: r.enabled, model: r.model, ...(r.effort ? { effort: r.effort } : {}) }])),
     reviewBots: Object.fromEntries(s.reviewBots.map((b) => [b.name, b.mode])),
+    assignments: s.assignments.map((a) => ({ work: a.work, executor: a.executor })),
     browser: s.browser,
     attribution: s.attribution,
     telemetry: s.telemetry,
@@ -462,7 +470,7 @@ function draftFrom(s) {
 
 const tilde = (p) => (p === state.home ? "~" : p.startsWith(state.home + "/") ? "~" + p.slice(state.home.length) : p);
 const present = (t) => t.enabled || t.cliFound || t.dirExists || t.installedFrom;
-const dirty = () => JSON.stringify(draft) !== JSON.stringify(draftFrom(state));
+const dirty = () => Object.keys(changes()).length > 0;
 
 // Only what the user changed is sent, so every setting they never touched keeps
 // following its default, such as an agent installed later.
@@ -487,6 +495,8 @@ function changes() {
   for (const key of ["browser", "attribution", "telemetry", "guard", "autoCompact", "localRepository"]) {
     if (draft[key] !== base[key]) out[key] = draft[key];
   }
+  const assign = draft.assignments.map((a) => ({ work: a.work.trim(), executor: a.executor }));
+  if (JSON.stringify(assign) !== JSON.stringify(base.assignments)) out.assign = assign;
   if (JSON.stringify(draft.disabledSkills) !== JSON.stringify(base.disabledSkills)) out.disabledSkills = draft.disabledSkills;
   return out;
 }
@@ -540,6 +550,35 @@ function renderReviewers() {
         el("div", { class: "sub" }, r.cliFound ? "CLI found" : "CLI not installed")),
       el("div", { class: "model" }, controls));
   }));
+}
+
+function renderSplit() {
+  const rows = draft.assignments.map((a, i) =>
+    el("div", { class: "row" },
+      el("span"),
+      el("input", { type: "text", value: a.work, placeholder: "Kind of work, such as code and API", "aria-label": `Kind of work ${i + 1}`,
+        spellcheck: "false", autocomplete: "off", oninput: (e) => { a.work = e.target.value; refreshBar(); } }),
+      el("div", { class: "model" },
+        el("select", { "aria-label": `Agent for kind of work ${i + 1}`, onchange: (e) => { a.executor = e.target.value; refreshBar(); } },
+          state.executors.map((x) => el("option", { value: x.name, selected: x.name === a.executor }, x.enabled ? x.label : `${x.label} (off)`))),
+        el("button", { type: "button", class: "plain danger", "aria-label": `Remove kind of work ${i + 1}`,
+          onclick: () => {
+            draft.assignments.splice(i, 1);
+            renderSplit();
+            refreshBar();
+            ($("split").querySelectorAll('input[type="text"]')[i] ?? $("split").querySelector("button.btn")).focus();
+          } }, "Remove"))));
+  const add = el("div", { class: "row" },
+    el("span"),
+    el("div", { class: "sub" }, rows.length ? "" : "No preference set. lead picks by tier, starting with the agent that runs the session."),
+    el("div", { class: "model" },
+      el("button", { type: "button", class: "btn", onclick: () => {
+        draft.assignments.push({ work: "", executor: state.executors.find((x) => x.enabled)?.name ?? state.executors[0].name });
+        renderSplit();
+        refreshBar();
+        $("split").querySelectorAll('input[type="text"]')[draft.assignments.length - 1].focus();
+      } }, "Add")));
+  $("split").replaceChildren(...rows, add);
 }
 
 function renderBots() {
@@ -646,6 +685,7 @@ function render() {
   renderUpdate();
   renderAgents();
   renderEffort();
+  renderSplit();
   renderReviewers();
   renderBots();
   renderBehavior();

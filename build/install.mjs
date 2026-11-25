@@ -413,10 +413,19 @@ export function executorsTable(executors, assignments = []) {
   const lines = ['# Executors', '', 'Written by bin/build.mjs from `executors` in config.json. Only enabled executors are listed.', ''];
   if (rows.length) lines.push('| Executor | Tier | Model | Effort |', '| --- | --- | --- | --- |', ...rows, '');
   else lines.push('No enabled executor has a model, so every stage runs on the session\'s own provider and model.', '');
-  for (const name of idle) lines.push(`${name} is enabled with no build model, so it runs no stage. Set \`executors.${name}.build.model\` in config.json to use it.`, '');
+  for (const name of idle) {
+    lines.push(executors[name].tiers.lead
+      ? `${name} is enabled with only a lead model, so it runs screen stages alone. Set \`executors.${name}.build.model\` in config.json to use it for the rest.`
+      : `${name} is enabled with no build model, so it runs no stage. Set \`executors.${name}.build.model\` in config.json to use it.`, '');
+  }
   if (assignments.length) {
-    lines.push('## Assignments', '', 'The user\'s standing split of work, from `executors.assign` in config.json.', '',
+    lines.push('## Recommendations', '', 'The user\'s preferred split of work, from `executors.assign` in config.json. They guide step 4 of the lead skill, which decides.', '',
       '| Work | Executor |', '| --- | --- |', ...assignments.map((a) => `| ${a.work} | ${a.executor} |`), '');
+    for (const name of new Set(assignments.map((a) => a.executor))) {
+      const { enabled, tiers } = executors[name];
+      if (!enabled) lines.push(`${name} is off, so its rows fall back to the tiers.`, '');
+      else if (!tiers.build && !tiers.lead) lines.push(`${name} has no build or lead model, so its rows fall back to the tiers.`, '');
+    }
   }
   return lines.join('\n');
 }

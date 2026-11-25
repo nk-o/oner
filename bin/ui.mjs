@@ -64,6 +64,7 @@ function merge(raw, body) {
     if (r && typeof r === 'object') next.externalReview[name] = { ...raw.externalReview?.[name], ...r };
   }
   if (body.reviewBots && typeof body.reviewBots === 'object') next.reviewBots = { ...raw.reviewBots, ...body.reviewBots };
+  if (Array.isArray(body.assign)) next.executors = { ...raw.executors, assign: body.assign };
   for (const key of ['browser', 'attribution', 'telemetry', 'guard']) {
     if (typeof body[key] === 'boolean') next[key] = { ...raw[key], enabled: body[key] };
   }

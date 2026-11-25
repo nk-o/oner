@@ -147,6 +147,23 @@ test('the editor saves through the real build, and a build refusal restores the 
   assert.equal(existsSync(installed), true);
 });
 
+test('saving work recommendations writes config and executors.md, and a refused list leaves both', async () => {
+  const assign = [{ work: 'code and API', executor: 'codex' }, { work: 'screens and copy', executor: 'claude' }];
+  const saved = await post('/api/config', { assign });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.deepEqual(saved.body.state.assignments, assign);
+  assert.deepEqual(JSON.parse(readFileSync(join(repo, 'config.json'), 'utf8')).executors.assign, assign);
+  const table = join(home, '.claude', 'skills', 'lead', 'executors.md');
+  assert.match(readFileSync(table, 'utf8'), /\| code and API \| codex \|\n\| screens and copy \| claude \|/);
+  const refused = await post('/api/config', { assign: [...assign, { work: 'code and API', executor: 'claude' }] });
+  assert.equal(refused.status, 400);
+  assert.match(refused.body.error, /executors\.assign\.2\.work: repeats an earlier entry/);
+  assert.deepEqual(JSON.parse(readFileSync(join(repo, 'config.json'), 'utf8')).executors.assign, assign);
+  const cleared = await post('/api/config', { assign: [] });
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
+  assert.doesNotMatch(readFileSync(table, 'utf8'), /Recommendations/);
+});
+
 test('saving a personal repository downloads files and clearing it keeps the checkout', async () => {
   const remote = join(home, 'personal-remote');
   mkdirSync(remote);
