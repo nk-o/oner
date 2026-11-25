@@ -36,7 +36,9 @@ prototypes. Skipping prototypes skips the comparison, not the design.
    it with that recommendation.
 2. Write the element list: every text, control, status, and icon with its job, starting from
    the fewest that complete the task, per **Every element has a job**. A rare action goes
-   behind one menu, not into every row.
+   behind one menu, not into every row. For a product screen, read
+   [product basics](references/product-basics.md) now: a list row, a detail header, and a
+   loading state each have a floor there that the list must meet.
 3. Pick the fixtures per steps 1 and 2 of `break-ui`: the typical case, the most items a real
    account reaches, the longest values, and empty. Read the element list against each. A
    structure that holds only for three short rows changes now, before any code.
@@ -121,7 +123,8 @@ which one.
 Write from the user's side. Name what people recognize and control, not implementation
 details. Actions say what happens, such as "Save changes". Keep that vocabulary through the
 flow. Labels label, examples demonstrate, and errors explain recovery. A persistent control
-keeps one label across records. A value that varies per record goes into its tooltip or menu.
+keeps one label across records. A value that varies per record goes into its tooltip or menu
+when the record shows it elsewhere too.
 
 Use plain verbs, concise copy, and the product's voice. Preserve factual copy when changing
 visual treatment. Long text and translations are inputs, not reasons to shorten the content
@@ -170,8 +173,10 @@ into the product after they pick it. An open-ended
 ## Look at what you built
 
 Build fully, render it with every fixture from **Before the first edit**, then run
-`design-review` on the rendered result, its **Look first** included, before reporting visible
-UI done.
+`design-review` on the rendered result, its **Look first** and its component crops included,
+before reporting visible UI done. A change that breaks a rule in
+[product basics](references/product-basics.md) is not done. A break the screen already had
+is a proposal, per the removal test in `design-review`.
 Include an ordinary laptop height when viewport sizing, sticky chrome, or a large hero is
 involved, and reuse `break-ui` evidence for the same surface. A prototype has the same
 interaction floor as a working screen.

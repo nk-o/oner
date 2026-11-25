@@ -33,6 +33,13 @@ an external screen the user or `design-context` named, else, for a change that k
 screen's design, its own capture from before the change. A screen with none of these is
 judged against the brief, and its line says so.
 
+A full screen at 1x hides the defects users point at: a doubled divider, a hover fill with the
+wrong radius, an avatar 3px off its line. So also crop one of each component kind the change
+touches, such as a list row, a row on hover, a panel header, a card, a menu, a field, and a
+badge, at device scale factor 2, and open each crop at full size beside the same kind on the
+reference. Then run the geometry script per **Composition** in
+[interface checks](references/interface-checks.md#composition).
+
 The look is done by a reader who did not build the change. Where the host has subagents, a
 fresh delegate gets the captures, the reference, and the task, and not the diff or the
 author's notes. Otherwise it is a separate pass whose only input is those three. In the
@@ -41,7 +48,7 @@ that reader. A look already done on the same captures and reference is reused. T
 skeptical: a screen passes only when its line names nothing that reads worse than the reference or breaks the brief.
 
 Write one line per screen: what reads well, what reads worse than the reference, and the
-capture's path. "No remarks", "passed", or "clean" about how a screen looks needs that line
+capture's and crops' paths. "No remarks", "passed", or "clean" about how a screen looks needs that line
 for every screen it covers. A script that checks status codes, DOM presence, scroll width, or
 errors is reported by what it checked, never as a visual pass. A screen that cannot be
 captured gets a line that says so, and nothing about how it looks is reported.
@@ -56,7 +63,8 @@ validation. Static mockups prove presentation only; Figma frames do not prove we
 If browser or rendered access is unavailable, name the unverified checks.
 
 - **Task and hierarchy.** The reading order, main action, and grouping are clear. Secondary
-  content does not compete with the task. Density suits use frequency and information.
+  content does not compete with the task. Density suits use frequency and information, per
+  [product basics](../frontend-design/references/product-basics.md) in `frontend-design`.
   Removal test: hide each line of text, control, and status in turn. One the task still reads
   and completes without fails "Every element has a job" in `frontend-design`. It is a defect
   of the change when the change added it, and a proposal to remove when it was already there.
@@ -66,8 +74,9 @@ If browser or rendered access is unavailable, name the unverified checks.
 - **System consistency.** Tokens, components, terminology, and meaningful states match the
   product. A local change does not introduce a second visual language. A new surface built in
   an older UI layer while the platform has a current one is a system conflict, per
-  `design-context`. Each duplicate of the target, per step 4 of `design-context`, looks and acts
-  the same as the target apart from the variants that step keeps. Frame: put the target beside
+  `design-context`. Each duplicate of the target, per step 4 of `design-context`, looks the same
+  as the target apart from the variants that step keeps, and acts the same where it is the same
+  component. A behavior the user asked for in one place is not owed to the others. Frame: put the target beside
   each duplicate's screen, else a sibling screen, at the same width. Content width, alignment, gutters, the surface content sits on, and the header's
   position match, unless the system gives the target its own frame for a stated reason.
 - **Composition.** After the look, run the measurements in
@@ -81,8 +90,9 @@ If browser or rendered access is unavailable, name the unverified checks.
   after scrolling elsewhere: the page opens at its top, and nothing shifts when data, images,
   or a scrollbar arrive. Touch does not depend on hover. Existing
   accessible primitives own focus and keyboard behavior.
-- **Accessibility.** Semantic controls, visible labels, accessible names, visible unobscured
-  focus, and meaning beyond color. Measure contrast on rendered colors for the applicable
+- **Accessibility.** Semantic controls, accessible names, visible unobscured focus, and
+  meaning beyond color. A field without a visible label is the design's choice, per
+  **Forms and actions** in the interface checks. Measure contrast on rendered colors for the applicable
   text or control requirement; do not report a ratio guessed from a screenshot.
 - **Motion.** Purposeful, frequency-appropriate, interruptible when needed, and compatible
   with reduced motion. Read `motion-design` only when motion is part of the target.

@@ -261,7 +261,7 @@ usually one small script that imports what the app ships and calls the function 
   | --- | --- |
   | A question about how something works or why it is built this way, an analysis, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. A question about something that fails, such as "why does X break?", and a report or ticket of a failure to look into, go on down the table to the first row their subject fits: the look-and-feel row, else the defect row. |
   | Work that needs several pull requests, or names a tracker project or initiative | `lead`, which plans it with me in the tracker or runs the plan I approved |
-  | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open, `refine` when the request names it. Both stop before a pull request, and `oneshot` ships only what I pick. |
+  | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open or the request reshapes what several screens show, `refine` when it names a direction and keeps the structure. Both stop before a pull request, and `oneshot` ships only what I pick. |
   | A defect, a question about one, a report or ticket of one to look into, or a small change | `oneshot`, whose lane table picks fix or feature. The run finds the cause and goes on to the fix. |
   | New or changed behavior | `oneshot`, feature lane. Its gate asks the decisions that are mine. |
 

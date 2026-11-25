@@ -49,7 +49,10 @@ the primary checkout, the first entry of `git worktree list`. Keep `.oner/` out 
   ones `DESIGN.md` holds up, else the most used. Measure each on the rendered page at 1280 and
   write its frame in `run.md`: content width and alignment, gutters, the surface content sits
   on (a card, a panel, the bare page), where the header starts, and the anatomy of a list row.
-  This frame is the bar every other surface is held to in step 3.
+  This frame is the bar every other surface is held to in step 3. A reference that exists only
+  as the user's screenshots gets its component anatomy written in `run.md` instead, per
+  **Study a reference** in `design-context`, and every surface's rows, headers, stats, and
+  badges are held to it.
 - **Ledger.** Read `.oner/improve-ui.md` in the primary checkout. Create it when missing, with
   two sections, `## Open` and `## Rejected`, one line per decision:
   `<surface> | <decision> | <reason> | <default branch sha> | <YYYY-MM-DD>`. A finding that
@@ -115,8 +118,10 @@ not a look. Then, before any defect check, run four passes:
 
 Then operate the real controls: tab through, use touch targets at their
 rendered size, open each menu and dialog. Check against **Check the result** in
-`design-review` and its interface checks, then against "Habits to question" in
-`frontend-design`, in that order. Measure contrast, target sizes, and padding on the rendered
+`design-review` and its interface checks, then against `frontend-design`'s
+[product basics](../frontend-design/references/product-basics.md) and its "Habits to
+question", in that order. A break of a product basic is a finding, at least P2, whose action
+the table below sets. Measure contrast, target sizes, and padding on the rendered
 page. A value read from a screenshot or from the CSS is a guess. For a Read or Sell surface a search engine indexes,
 also measure it per [page quality](references/page-quality.md).
 
@@ -137,7 +142,8 @@ Write each finding as a row in `run.md`:
 | --- | --- |
 | spacing, alignment, overlap, overflow, clipping, text with no way to read the rest | a new token, color, font, radius, or shadow |
 | grouping, order within a row, and gaps of controls the page already has, in CSS with the markup unchanged | which controls a page has |
-| contrast below the requirement, with a value the system already has | removing, hiding, or moving an action, a field, or information people use |
+| on a surface the user called overloaded, text, a date, a column, or a field that fails "Every element has a job" and stays reachable in the record's detail view, per step 3 of `refine` | removing an action, or information the product would then show nowhere |
+| contrast below the requirement, with a value the system already has | removing, hiding, or moving an action, a field, or information people use, outside the overload case above |
 | a missing loading, empty, error, or disabled state, an error with no retry | a change to navigation, the sections a page has, or the order of a flow |
 | accessible names, visible focus, keyboard reach, target size | copy that states a fact, a claim, a limit, or a price |
 | an action reachable only on hover, a one-off where a shared component exists | what data is stored, sent, or accepted, per the decisions in `break-ui` |
