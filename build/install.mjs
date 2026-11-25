@@ -12,11 +12,12 @@ import {
   renameSync,
   rmdirSync,
   statSync,
+  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { BuildError, TargetError } from './config.mjs';
 import { hashInputs, renderFile, renderJson, tokenValues, walk } from './render.mjs';
 import { EXECUTOR_TIERS, EXECUTORS, OPTIONS, PROVIDERS, TARGETS } from './targets.mjs';
@@ -78,8 +79,33 @@ export function build(repo, config, { auto }) {
     if (prevDir && prevDir !== target.dir) say(uninstallIfMine(ctx, spec, prevDir, 'moved'));
     next.targets[name] = target.dir;
   }
+  const command = linkCommand(repo, auto);
+  if (command) lines.push(`command: ${command}`);
   writeJson(statePath, { ...allState, [homedir()]: next });
   return lines;
+}
+
+// Links ~/.local/bin/oner to this checkout's bin/oner.mjs. A link into another checkout
+// that still exists, or a file that is not a link, is not ours to replace.
+function linkCommand(repo, auto) {
+  const binDir = join(homedir(), '.local', 'bin');
+  const link = join(binDir, 'oner');
+  const source = join(repo, 'bin', 'oner.mjs');
+  if (!existsSync(source)) return null;
+  const onPath = (process.env.PATH ?? '').split(':').includes(binDir);
+  const hint = onPath ? '' : `; add ${binDir} to PATH to run it`;
+  let current = null;
+  if (lexists(link)) {
+    if (!lstatSync(link).isSymbolicLink()) return `${link} is not a link, left as it is`;
+    current = resolve(binDir, readlinkSync(link));
+    if (current === source) return auto ? null : `up to date (${link})`;
+    if (existsSync(current)) return `${link} links to ${current}, left as it is`;
+  }
+  mkdirSync(binDir, { recursive: true });
+  const temp = `${link}.${randomBytes(4).toString('hex')}`;
+  symlinkSync(source, temp);
+  renameSync(temp, link);
+  return `${current ? `relinked from ${current}, which no longer exists` : 'linked'} (${link})${hint}`;
 }
 
 function install(ctx, spec, dir, auto, config) {
