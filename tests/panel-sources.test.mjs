@@ -201,6 +201,7 @@ test('open asks come from each checkout and repo labels survive worktrees', asyn
   assert.equal(unread, 0);
   assert.equal(repoLabel('/w/poise/.claude/worktrees/x-1/sub'), 'poise');
   assert.equal(repoLabel('/h/.codex/worktrees/ef90/poise'), 'poise');
+  assert.equal(repoLabel('/h/.t3/worktrees/poise/t3-1cfe0c00-4d5a53d4/sub'), 'poise');
   const found = await findRepos([process.cwd(), '/private/var/folders/x/repository', '/tmp/nothing-here', '/no/such/dir']);
   assert.equal(found.length, 1);
 });
