@@ -10,6 +10,7 @@ import { localDate, searchTime } from './sources/github.mjs';
 const WINDOW_DAYS = 30;
 const HISTORY_DAYS = 400;
 const CACHE_VERSION = 2;
+const PR_CACHE_VERSION = 1;
 
 export const windowStart = (now) => {
   const day = new Date(now);
@@ -94,12 +95,12 @@ async function listTranscripts(projects, since) {
   return found;
 }
 
-function loadCache(file) {
+function loadCache(file, version = CACHE_VERSION) {
   try {
     const cache = JSON.parse(readFileSync(file, 'utf8'));
-    if (cache.version === CACHE_VERSION && cache.files) return cache;
+    if (cache.version === version && cache.files) return cache;
   } catch {}
-  return { version: CACHE_VERSION, files: {} };
+  return { version, files: {} };
 }
 
 function saveCache(file, cache) {
@@ -187,12 +188,16 @@ export function codexStatsSource({ codexDir }) {
     timeout: 30_000,
     async read({ signal, now }) {
       const since = Math.floor(historyStart(now) / 1000);
+      // Older state databases have no originator column, and an exec run's review subagent
+      // can only be told apart by it.
+      const [{ known }] = await queryCodex(codexDir, `select count(*) as known from pragma_table_info('threads') where name = 'originator'`, signal);
+      const notExec = known ? `and coalesce(originator, '') != 'codex_exec'` : '';
       // tokens_used is the thread's total_tokens: input with cached input, plus output.
       const rows = await queryCodex(
         codexDir,
         `select date(created_at, 'unixepoch', 'localtime') as day, cwd, model,
          sum(source in ('vscode', 'cli')) as threads, sum(tokens_used) as tokens
-         from threads where (source in ('vscode', 'cli') or source like '{"subagent"%') and created_at >= ${since} group by day, cwd, model`,
+         from threads where (source in ('vscode', 'cli') or (source like '{"subagent"%' ${notExec})) and created_at >= ${since} group by day, cwd, model`,
         signal,
       );
       const daily = {};
@@ -220,8 +225,9 @@ async function readJson(file) {
 
 // Grok keeps each session as sessions/<cwd>/<id>/ with summary.json and usage.json.
 // A headless session is another program's helper, as sdk-cli is for Claude, so it counts
-// nothing. A subagent adds tokens, not a session. totalTokens is input with cached input,
-// plus output, and each turn's tokens go on the day it ended.
+// nothing. A subagent session counts nothing either, because its parent's turn already
+// holds its usage. totalTokens is the full input with both cache buckets, plus output, and
+// each turn's tokens go on the day it ended.
 export function grokStatsSource({ grokDir }) {
   return {
     id: 'stats-grok',
@@ -230,8 +236,9 @@ export function grokStatsSource({ grokDir }) {
     timeout: 60_000,
     async read({ signal, now }) {
       const root = join(grokDir, 'sessions');
-      const folders = await readdir(root, { withFileTypes: true }).catch(() => null);
-      if (!folders) throw new SourceOff('Grok is not on this machine');
+      const folders = await readdir(root, { withFileTypes: true }).catch((err) => {
+        throw err.code === 'ENOENT' ? new SourceOff('Grok is not on this machine') : err;
+      });
       const since = historyStart(now);
       const daily = {};
       const at = (day) => (daily[day] ??= { sessions: 0, tokens: 0, models: {}, repos: {} });
@@ -242,13 +249,13 @@ export function grokStatsSource({ grokDir }) {
           if (!session.isDirectory()) continue;
           const dir = join(root, folder.name, session.name);
           const summary = await readJson(join(dir, 'summary.json'));
-          if (!summary || summary.session_kind === 'headless') continue;
+          if (!summary || summary.session_kind === 'headless' || String(summary.session_kind).startsWith('subagent')) continue;
           const usage = await readJson(join(dir, 'usage.json'));
           const turns = Array.isArray(usage?.turns) ? usage.turns : [];
           if (!turns.length) continue;
           const repo = repoLabel(summary.info?.cwd) || 'other';
           const started = Date.parse(summary.created_at);
-          if (summary.session_kind !== 'subagent' && started >= since) at(localDate(started)).sessions++;
+          if (started >= since) at(localDate(started)).sessions++;
           for (const turn of turns) {
             const ended = Date.parse(turn.endedAt);
             if (!(ended >= since)) continue;
@@ -300,7 +307,7 @@ export function prStatsSource({ cacheFile }) {
     },
     async read({ signal, now }) {
       const start = Math.min(wanted ?? Infinity, windowStart(now));
-      const cache = loadCache(cacheFile);
+      const cache = loadCache(cacheFile, PR_CACHE_VERSION);
       cache.months ??= {};
       let capped = 0;
       for (const key of monthsBetween(start, now)) {

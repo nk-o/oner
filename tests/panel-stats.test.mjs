@@ -46,20 +46,21 @@ test('review runs count nothing and subagents add tokens, not sessions', () => {
   assert.equal(daily[day].repos.poise, 22);
 });
 
-test('codex subagent threads add tokens, not sessions, and exec runs count nothing', async () => {
+test('codex subagent threads add tokens, not sessions, and exec runs and their subagents count nothing', async () => {
   const dir = tmp();
   const at = Math.floor(Date.now() / 1000);
   execFileSync('sqlite3', [join(dir, 'state_5.sqlite'), `
-    create table threads (cwd text, source text, created_at integer, tokens_used integer, model text);
-    insert into threads values ('/x/app', 'vscode', ${at}, 100, 'gpt');
-    insert into threads values ('/x/app', '{"subagent":{"other":"guardian"}}', ${at}, 30, 'gpt');
-    insert into threads values ('/x/app', 'exec', ${at}, 1000, 'gpt');`]);
+    create table threads (cwd text, source text, created_at integer, tokens_used integer, model text, originator text);
+    insert into threads values ('/x/app', 'vscode', ${at}, 100, 'gpt', 'Codex Desktop');
+    insert into threads values ('/x/app', '{"subagent":{"other":"guardian"}}', ${at}, 30, 'gpt', null);
+    insert into threads values ('/x/app', 'exec', ${at}, 1000, 'gpt', 'codex_exec');
+    insert into threads values ('/x/app', '{"subagent":"review"}', ${at}, 500, 'gpt', 'codex_exec');`]);
   const { data } = await codexStatsSource({ codexDir: dir }).read({ signal: new AbortController().signal, now: Date.now() });
   const [day] = Object.values(data.daily);
   assert.deepEqual([day.sessions, day.tokens, day.repos.app], [1, 130, 130]);
 });
 
-test('grok counts its own sessions by turn day, subagents add tokens only, and headless helpers count nothing', async () => {
+test('grok counts its own sessions by turn day, and subagents and headless helpers count nothing', async () => {
   const root = tmp();
   const now = Date.parse('2026-11-20T12:00:00');
   const session = (id, kind, created, turns) => {
@@ -74,7 +75,7 @@ test('grok counts its own sessions by turn day, subagents add tokens only, and h
   const { data } = await grokStatsSource({ grokDir: root }).read({ signal: new AbortController().signal, now });
   const pick = (d) => [d.sessions, d.tokens, d.repos.poise, d.models['grok-4.7']];
   assert.deepEqual(pick(data.daily['2026-11-18']), [1, 100, 100, 100]);
-  assert.deepEqual(pick(data.daily['2026-11-19']), [0, 47, 47, 47]);
+  assert.deepEqual(pick(data.daily['2026-11-19']), [0, 40, 40, 40]);
   await assert.rejects(grokStatsSource({ grokDir: join(root, 'none') }).read({ signal: new AbortController().signal, now }), SourceOff);
 });
 
@@ -97,6 +98,24 @@ test('a second run reads only changed files, and the cache holds no transcript t
   assert.equal(readFileSync(cacheFile, 'utf8').includes(SECRET), false);
   writeFileSync(join(project, 'two.jsonl'), assistant('m2', 5));
   assert.equal((await source.read({ signal, now: Date.now() })).data.read, 1);
+});
+
+test('a pull request cache from before the transcript cache version change is kept', async () => {
+  const root = tmp();
+  const cacheFile = join(root, 'prs.json');
+  writeFileSync(cacheFile, JSON.stringify({ version: 1, files: {}, months: { '2026-10': { frozen: true, prs: [[Date.UTC(2026, 9, 15, 10), 'o/r']] } } }));
+  const source = prStatsSource({ cacheFile });
+  source.want(Date.UTC(2026, 9, 1));
+  const before = process.env.PATH;
+  process.env.PATH = `${root}:${before}`;
+  writeFileSync(join(root, 'gh'), `#!/bin/sh\necho '{"data":{"search":{"issueCount":0,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}'\n`);
+  chmodSync(join(root, 'gh'), 0o755);
+  try {
+    const { data } = await source.read({ signal: new AbortController().signal, now: Date.UTC(2026, 10, 5) });
+    assert.equal(data.daily['2026-10-15'].merged, 1);
+  } finally {
+    process.env.PATH = before;
+  }
 });
 
 test('the window covers thirty days including today', () => {

@@ -305,13 +305,12 @@ function barList(entries, unit, cls) {
       el('span', { class: 'num' }, unit(value)))));
 }
 
-// Each agent keeps its color everywhere, and its card shows only once it has tokens.
 const AGENT_SERIES = [
   { id: 'stats-claude', name: 'Claude', cls: 's1' },
   { id: 'stats-codex', name: 'Codex', cls: 's2' },
   { id: 'stats-grok', name: 'Grok', cls: 's3' },
 ];
-const hasTokens = (data) => Object.values(data.daily).some((d) => d.tokens > 0);
+const has = (data, field) => Object.values(data.daily).some((d) => d[field] > 0);
 
 function renderChartsLoading() {
   $('charts').replaceChildren(el('div', { class: 'charts', style: '--cards:2' },
@@ -323,14 +322,15 @@ function renderCharts() {
   if (!stats || !range) return;
   const find = (id) => stats.sources.find((s) => s.id === id);
   const prs = find('stats-prs');
-  const agents = AGENT_SERIES.map((a) => ({ ...a, source: find(a.id) }))
-    .filter(({ source }) => source && source.state !== 'off' && (!source.data || hasTokens(source.data)));
+  const known = AGENT_SERIES.map((a) => ({ ...a, source: find(a.id) })).filter((a) => a.source);
+  const agents = known.filter(({ source }) => (source.data ? has(source.data, 'tokens') : source.state === 'failed'));
   const plan = bucketize(range.from, range.to);
   const days = dayList(range.from, range.to);
   const number = (n) => n.toLocaleString('en');
   const tokens = (a) => (ds) => sumDays(a.source.data?.daily, ds, (d) => d.tokens);
   const withData = agents.filter((a) => a.source.data);
-  const sessionSeries = withData.map((a) => ({ label: a.name, cls: a.cls, format: number, sum: (ds) => sumDays(a.source.data.daily, ds, (d) => d.sessions) }));
+  const inRange = withData.filter((a) => tokens(a)(days) > 0);
+  const sessionSeries = known.filter((a) => a.source.data && has(a.source.data, 'sessions')).map((a) => ({ label: a.name, cls: a.cls, format: number, sum: (ds) => sumDays(a.source.data.daily, ds, (d) => d.sessions) }));
   const sessionsTotal = sessionSeries.reduce((sum, s) => sum + s.sum(days), 0);
   const merged = (ds) => sumDays(prs.data?.daily, ds, (d) => d.merged);
   const prsLoading = prs.data && prs.data.from > range.from;
@@ -346,8 +346,8 @@ function renderCharts() {
   };
   const detailSections = [
     prs.data ? ['Merged pull requests by repository', barList(Object.entries(mergeDays(prs.data.daily, days, 'repos')), String, 's0')] : null,
-    ...withData.map((a) => [`${a.name} tokens by project`, barList(Object.entries(mergeDays(a.source.data.daily, days, 'repos')), compact, a.cls)]),
-    ...withData.map((a) => [`${a.name} tokens by model`, byModel(a)]),
+    ...inRange.map((a) => [`${a.name} tokens by project`, barList(Object.entries(mergeDays(a.source.data.daily, days, 'repos')), compact, a.cls)]),
+    ...inRange.map((a) => [`${a.name} tokens by model`, byModel(a)]),
     ['Every day', el('table', {},
       el('thead', {}, el('tr', {}, ['Day', 'Sessions', 'Merged', ...withData.map((a) => `${a.name} tokens`)].map((h, i) => el('th', { class: i ? 'num' : '' }, h)))),
       el('tbody', {}, days.slice().reverse().map((day) => el('tr', {},
@@ -359,7 +359,7 @@ function renderCharts() {
     el('div', { class: 'charts', style: `--cards:${2 + agents.length}` },
       chartCard({
         label: 'Sessions',
-        sources: AGENT_SERIES.map((a) => find(a.id)).filter(Boolean),
+        sources: known.map((a) => a.source),
         value: number(sessionsTotal),
         legend: sessionSeries.length > 1 ? sessionSeries.map((s) => ({ cls: s.cls, text: `${s.label} ${number(s.sum(days))}` })) : null,
         series: sessionSeries,
