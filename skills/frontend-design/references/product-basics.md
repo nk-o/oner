@@ -15,7 +15,7 @@ unfinished. They are not a style.
 - A visual beside text, such as an avatar, a logo, or an icon, centers on the first line of
   that text, not on the whole block, unless it is as tall as the block.
 - Text of different sizes on one line shares a baseline.
-- Peers in a row or a grid are the same size as each other.
+- Peers in a row or a grid differ in size only for a content, role, or state reason.
 
 ## Spacing and shape
 
@@ -30,18 +30,20 @@ unfinished. They are not a style.
 ## Type
 
 - Weight follows hierarchy. A control or a label is not heavier than the heading it sits under.
-- Text in one role keeps one size and one weight across the screen, apart from the weight step
-  light text on a dark surface takes.
+- Text in one role keeps one size and one weight across the screen, apart from the step a thin
+  face takes on a dark surface, per **Text, images, and layout** in `design-review`'s interface
+  checks.
 - Tabular figures, heading spacing, and wrapping follow **Text, images, and layout** in
   `design-review`'s interface checks.
 
 ## Density
 
 - A summary, such as a row, a card, or a header, shows what the user scans it for. Everything
-  else lives in the record's detail.
+  else lives in the record's detail. Where the record has no detail, dropping a field is a
+  decision.
 - A second copy of a value in one view, or text that restates the control, heading, or value
-  beside it, needs its own reader, such as the table behind a chart that touch and screen
-  readers use, per **Every element has a job** in `frontend-design`.
+  beside it, needs its own use, such as the table that gives touch and screen-reader users a
+  chart's values, per **Every element has a job** in `frontend-design`.
 - Data the user reads is never in a tooltip alone, since touch has no hover. A tooltip may
   sharpen a value the screen already shows.
 - A table keeps its header cells for screen readers, visually hidden where the design shows
