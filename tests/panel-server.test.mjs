@@ -107,7 +107,7 @@ test('today answers at once, with each source saying where it stands', async () 
   assert.deepEqual(machine.sources.map((s) => s.id), ['worktrees', 'servers']);
   assert.match(await (await fetch(url('/range.js'))).text(), /export function parseRange/);
   const stats = await (await fetch(url('/api/stats?from=2026-01-01'))).json();
-  assert.deepEqual(stats.sources.map((s) => s.id), ['stats-claude', 'stats-codex', 'stats-prs']);
+  assert.deepEqual(stats.sources.map((s) => s.id), ['stats-claude', 'stats-codex', 'stats-grok', 'stats-prs']);
 });
 
 test('the editor saves through the real build, and a build refusal restores the file', async () => {

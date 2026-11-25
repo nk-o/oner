@@ -29,6 +29,7 @@
     --danger-soft: rgb(194 54 43 / 8%);
     --series-1: #d9734a;
     --series-2: #4f7bd9;
+    --series-3: #2a9d8f;
     --series-0: #111;
     --ease: cubic-bezier(0.23, 1, 0.32, 1);
     --r: 22px;
@@ -150,7 +151,7 @@
   .date-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; display: grid; gap: 10px; width: 244px; padding: 14px; border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-pop); font-size: 13px; }
   .date-pop label { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: center; color: var(--prose); }
   .date-pop input { width: 100%; padding: 4px 8px; border: 0; border-radius: 8px; background: var(--hover); box-shadow: var(--shadow-ring); font-variant-numeric: tabular-nums; }
-  .charts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .charts { display: grid; grid-template-columns: repeat(var(--cards, 4), minmax(0, 1fr)); gap: 14px; }
   .chart-card { padding: 14px 14px 10px; display: flex; flex-direction: column; min-width: 0; min-height: 188px; }
   .chart-label { color: var(--prose); font-size: 13px; font-weight: 500; line-height: 20px; }
   .chart-late { color: var(--danger); font-size: 13px; line-height: 20px; }
@@ -170,6 +171,7 @@
   .s0 { background: var(--series-0); }
   .s1 { background: var(--series-1); }
   .s2 { background: var(--series-2); }
+  .s3 { background: var(--series-3); }
   .axis-row { display: flex; justify-content: space-between; margin-top: 6px; color: var(--mute); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
   .plot-empty { display: grid; place-items: center; height: 64px; border-bottom: 1px solid var(--line); color: var(--mute); font-size: 13px; }
   .plot-state { display: grid; place-content: center; justify-items: center; gap: 8px; flex: 1; margin-top: 10px; color: var(--mute); font-size: 13px; line-height: 18px; text-align: center; overflow-wrap: anywhere; }

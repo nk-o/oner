@@ -3,6 +3,7 @@ import { run } from './run.mjs';
 
 const WORKTREE = /^(.*?)\/\.claude\/worktrees\/[^/]+/;
 const CODEX_WORKTREE = /\/\.codex\/worktrees\/[^/]+\/([^/]+)/;
+const T3_WORKTREE = /\/\.t3\/worktrees\/([^/]+)\/[^/]+/;
 const THROWAWAY = /^(\/private)?\/(var\/folders|tmp)\//;
 
 // The project a working directory belongs to, for a label beside an item.
@@ -10,6 +11,8 @@ export function repoLabel(cwd) {
   if (!cwd) return '';
   const codex = CODEX_WORKTREE.exec(cwd);
   if (codex) return codex[1];
+  const t3 = T3_WORKTREE.exec(cwd);
+  if (t3) return t3[1];
   const claude = WORKTREE.exec(cwd);
   return basename(claude ? claude[1] : cwd);
 }

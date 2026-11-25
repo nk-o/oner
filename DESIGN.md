@@ -18,7 +18,7 @@ repository's `DESIGN.md`. Tokens are on `:root` in `ui/index.html`.
 
 ## Start screen
 
-- Order: one row of four chart cards first (two per row on narrow screens), then not checked notices,
+- Order: one row of chart cards first (two per row on narrow screens), then not checked notices,
   what waits, what runs, finished (folded). The list stays visible on a laptop without scrolling.
 - The heading above the list states the answer: how many things wait on the person.
 - A source that fails shows a danger notice with a retry. Nothing appears for a source that is fine,
@@ -28,9 +28,12 @@ repository's `DESIGN.md`. Tokens are on `:root` in `ui/index.html`.
 ## Charts
 
 - Thin bars with no gridlines, a value and a one-line label above, first and last date below.
-- Identity: Claude `--series-1`, Codex `--series-2`, anything without an agent `--series-0`. The pair was
-  checked with the dataviz palette validator on white.
+- The row holds Sessions, Merged pull requests, and one token card per agent. An agent whose history
+  holds no tokens, or that is not on the machine, has no card and no column anywhere.
+- Identity: Claude `--series-1`, Codex `--series-2`, Grok `--series-3`, anything without an agent
+  `--series-0`. Every pair was checked with the dataviz palette validator on white.
 - The tooltip is a dark pill below and to the right of the pointer. A table in Details holds every
   value for touch and screen readers.
-- Tokens from different agents are never added together.
+- Tokens from different agents are never added together. A token card counts processed tokens, the
+  same sum for every agent: input, cache reads, cache writes, and output.
 - Days up to two months, weeks up to about a year, months beyond.

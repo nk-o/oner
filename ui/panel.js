@@ -276,7 +276,7 @@ function chartState(sources) {
     return el('div', { class: 'plot-state', role: 'alert' }, `${failed.label} not checked. ${failed.reason}.`,
       el('button', { type: 'button', class: 'btn', 'data-key': `check-${failed.id}`, onclick: () => fetchStats(failed.id).then(pollStats) }, failed.checking ? 'Checking…' : 'Check again'));
   }
-  if (sources.every((s) => s.state === 'off')) return el('div', { class: 'plot-state' }, 'No history on this machine.');
+  if (sources.every((s) => s.state === 'off' || s.data)) return el('div', { class: 'plot-state' }, 'No history on this machine.');
   return el('div', { class: 'plot-state' }, 'Reading your history…');
 }
 
@@ -305,55 +305,63 @@ function barList(entries, unit, cls) {
       el('span', { class: 'num' }, unit(value)))));
 }
 
-// The cards keep their place while the first read runs, so the list below does not jump.
+const AGENT_SERIES = [
+  { id: 'stats-claude', name: 'Claude', cls: 's1' },
+  { id: 'stats-codex', name: 'Codex', cls: 's2' },
+  { id: 'stats-grok', name: 'Grok', cls: 's3' },
+];
+const has = (data, field) => Object.values(data.daily).some((d) => d[field] > 0);
+
 function renderChartsLoading() {
-  $('charts').replaceChildren(el('div', { class: 'charts' },
-    ['Sessions', 'Merged pull requests', 'Claude output tokens', 'Codex tokens'].map((label) =>
+  $('charts').replaceChildren(el('div', { class: 'charts', style: '--cards:2' },
+    ['Sessions', 'Merged pull requests'].map((label) =>
       el('div', { class: 'card chart-card' }, el('div', { class: 'chart-label' }, label), el('div', { class: 'plot-state' }, 'Reading your history…')))));
 }
 
 function renderCharts() {
   if (!stats || !range) return;
   const find = (id) => stats.sources.find((s) => s.id === id);
-  const [claude, codex, prs] = [find('stats-claude'), find('stats-codex'), find('stats-prs')];
+  const prs = find('stats-prs');
+  const known = AGENT_SERIES.map((a) => ({ ...a, source: find(a.id) })).filter((a) => a.source);
+  const agents = known.filter(({ source }) => (source.data ? has(source.data, 'tokens') : source.state === 'failed'));
   const plan = bucketize(range.from, range.to);
   const days = dayList(range.from, range.to);
   const number = (n) => n.toLocaleString('en');
-  const claudeOut = (d) => Object.values(d.models).reduce((sum, m) => sum + m.output, 0);
-  const sessionSeries = [
-    claude.data ? { label: 'Claude', cls: 's1', format: number, sum: (ds) => sumDays(claude.data.daily, ds, (d) => d.sessions) } : null,
-    codex.data ? { label: 'Codex', cls: 's2', format: number, sum: (ds) => sumDays(codex.data.daily, ds, (d) => d.sessions) } : null,
-  ].filter(Boolean);
+  const tokens = (a) => (ds) => sumDays(a.source.data?.daily, ds, (d) => d.tokens);
+  const withData = agents.filter((a) => a.source.data);
+  const inRange = withData.filter((a) => tokens(a)(days) > 0);
+  const sessionSeries = known.filter((a) => a.source.data && has(a.source.data, 'sessions')).map((a) => ({ label: a.name, cls: a.cls, format: number, sum: (ds) => sumDays(a.source.data.daily, ds, (d) => d.sessions) }));
   const sessionsTotal = sessionSeries.reduce((sum, s) => sum + s.sum(days), 0);
   const merged = (ds) => sumDays(prs.data?.daily, ds, (d) => d.merged);
-  const output = (ds) => sumDays(claude.data?.daily, ds, claudeOut);
-  const codexTokens = (ds) => sumDays(codex.data?.daily, ds, (d) => d.tokens);
   const prsLoading = prs.data && prs.data.from > range.from;
-  const claudeModels = Object.entries(mergeDays(claude.data?.daily, days, 'models')).sort((a, b) => b[1].output - a[1].output);
+  const byModel = (a) => {
+    const models = Object.entries(mergeDays(a.source.data.daily, days, 'models'));
+    if (a.id !== 'stats-claude') return barList(models, compact, a.cls);
+    const rows = models.map(([model, r]) => [model, r.input + r.cacheRead + r.cacheWrite + r.output, r]).filter(([, total]) => total > 0).sort((x, y) => y[1] - x[1]);
+    return el('table', {},
+      el('thead', {}, el('tr', {}, ['Model', 'Total', 'Input', 'Cache read', 'Cache write', 'Output'].map((h, i) => el('th', { class: i ? 'num' : '' }, h)))),
+      el('tbody', {}, rows.map(([model, total, r]) => el('tr', {},
+        el('td', { class: 'mono wrap' }, model),
+        [total, r.input, r.cacheRead, r.cacheWrite, r.output].map((v) => el('td', { class: 'num' }, compact(v)))))));
+  };
   const detailSections = [
     prs.data ? ['Merged pull requests by repository', barList(Object.entries(mergeDays(prs.data.daily, days, 'repos')), String, 's0')] : null,
-    claude.data ? ['Claude output tokens by project', barList(Object.entries(mergeDays(claude.data.daily, days, 'repos')), compact, 's1')] : null,
-    codex.data ? ['Codex tokens by project', barList(Object.entries(mergeDays(codex.data.daily, days, 'repos')), compact, 's2')] : null,
-    claudeModels.length ? ['Claude tokens by model', el('table', {},
-      el('thead', {}, el('tr', {}, ['Model', 'Output', 'Input', 'Cache read', 'Cache write'].map((h, i) => el('th', { class: i ? 'num' : '' }, h)))),
-      el('tbody', {}, claudeModels.map(([model, row]) => el('tr', {},
-        el('td', { class: 'mono wrap' }, model),
-        [row.output, row.input, row.cacheRead, row.cacheWrite].map((v) => el('td', { class: 'num' }, compact(v)))))))] : null,
-    codex.data ? ['Codex tokens by model', barList(Object.entries(mergeDays(codex.data.daily, days, 'models')), compact, 's2')] : null,
+    ...inRange.map((a) => [`${a.name} tokens by project`, barList(Object.entries(mergeDays(a.source.data.daily, days, 'repos')), compact, a.cls)]),
+    ...inRange.map((a) => [`${a.name} tokens by model`, byModel(a)]),
     ['Every day', el('table', {},
-      el('thead', {}, el('tr', {}, ['Day', 'Sessions', 'Merged', 'Claude output', 'Codex tokens'].map((h, i) => el('th', { class: i ? 'num' : '' }, h)))),
+      el('thead', {}, el('tr', {}, ['Day', 'Sessions', 'Merged', ...withData.map((a) => `${a.name} tokens`)].map((h, i) => el('th', { class: i ? 'num' : '' }, h)))),
       el('tbody', {}, days.slice().reverse().map((day) => el('tr', {},
         el('td', {}, dateLabel(day, true)),
         [sessionSeries.reduce((sum, s) => sum + s.sum([day]), 0), merged([day])].map((v) => el('td', { class: 'num' }, number(v))),
-        [output([day]), codexTokens([day])].map((v) => el('td', { class: 'num' }, compact(v)))))))],
+        withData.map((a) => el('td', { class: 'num' }, compact(tokens(a)([day]))))))))],
   ].filter(Boolean);
   patch($('charts'), [
-    el('div', { class: 'charts' },
+    el('div', { class: 'charts', style: `--cards:${2 + agents.length}` },
       chartCard({
         label: 'Sessions',
-        sources: [claude, codex],
+        sources: known.map((a) => a.source),
         value: number(sessionsTotal),
-        legend: sessionSeries.map((s) => ({ cls: s.cls, text: `${s.label} ${number(s.sum(days))}` })),
+        legend: sessionSeries.length > 1 ? sessionSeries.map((s) => ({ cls: s.cls, text: `${s.label} ${number(s.sum(days))}` })) : null,
         series: sessionSeries,
         plan,
       }),
@@ -364,20 +372,13 @@ function renderCharts() {
         series: prs.data ? [{ label: 'Merged', cls: 's0', format: number, sum: merged }] : [],
         plan,
       }),
-      claude.state === 'off' ? null : chartCard({
-        label: 'Claude output tokens',
-        sources: [claude],
-        value: compact(output(days)),
-        series: claude.data ? [{ label: 'Output', cls: 's1', format: compact, sum: output }] : [],
+      agents.map((a) => chartCard({
+        label: `${a.name} tokens`,
+        sources: [a.source],
+        value: compact(tokens(a)(days)),
+        series: a.source.data ? [{ label: 'Tokens', cls: a.cls, format: compact, sum: tokens(a) }] : [],
         plan,
-      }),
-      codex.state === 'off' ? null : chartCard({
-        label: 'Codex tokens',
-        sources: [codex],
-        value: compact(codexTokens(days)),
-        series: codex.data ? [{ label: 'Tokens', cls: 's2', format: compact, sum: codexTokens }] : [],
-        plan,
-      })),
+      }))),
     el('details', { class: 'fold block', 'data-open-key': 'details' },
       el('summary', { 'data-key': 'details' }, 'Details'),
       el('div', { class: 'fold-body card details-body' }, detailSections.map(([title, content]) => el('div', {}, el('h3', {}, title), content)))),

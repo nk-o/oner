@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
-import { aggregate, claudeStatsSource, monthsBetween, prStatsSource, scanTranscript, windowStart } from '../panel/stats.mjs';
+import { SourceOff } from '../panel/run.mjs';
+import { aggregate, claudeStatsSource, codexStatsSource, grokStatsSource, monthsBetween, prStatsSource, scanTranscript, windowStart } from '../panel/stats.mjs';
 
 const roots = [];
 after(() => {
@@ -40,7 +42,41 @@ test('review runs count nothing and subagents add tokens, not sessions', () => {
   ], Date.parse(`${day}T00:00:00`) - 86400000);
   assert.equal(daily[day].sessions, 1);
   assert.equal(daily[day].models.opus.output, 20);
-  assert.equal(daily[day].repos.poise, 20);
+  assert.equal(daily[day].tokens, 22);
+  assert.equal(daily[day].repos.poise, 22);
+});
+
+test('codex subagent threads add tokens, not sessions, and exec runs and their subagents count nothing', async () => {
+  const dir = tmp();
+  const at = Math.floor(Date.now() / 1000);
+  execFileSync('sqlite3', [join(dir, 'state_5.sqlite'), `
+    create table threads (cwd text, source text, created_at integer, tokens_used integer, model text, originator text);
+    insert into threads values ('/x/app', 'vscode', ${at}, 100, 'gpt', 'Codex Desktop');
+    insert into threads values ('/x/app', '{"subagent":{"other":"guardian"}}', ${at}, 30, 'gpt', null);
+    insert into threads values ('/x/app', 'exec', ${at}, 1000, 'gpt', 'codex_exec');
+    insert into threads values ('/x/app', '{"subagent":"review"}', ${at}, 500, 'gpt', 'codex_exec');`]);
+  const { data } = await codexStatsSource({ codexDir: dir }).read({ signal: new AbortController().signal, now: Date.now() });
+  const [day] = Object.values(data.daily);
+  assert.deepEqual([day.sessions, day.tokens, day.repos.app], [1, 130, 130]);
+});
+
+test('grok counts its own sessions by turn day, and subagents and headless helpers count nothing', async () => {
+  const root = tmp();
+  const now = Date.parse('2026-11-20T12:00:00');
+  const session = (id, kind, created, turns) => {
+    const dir = join(root, 'sessions', encodeURIComponent('/w/poise'), id);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'summary.json'), JSON.stringify({ session_kind: kind, created_at: created, info: { cwd: '/w/poise' }, generated_title: SECRET }));
+    writeFileSync(join(dir, 'usage.json'), JSON.stringify({ turns: turns.map(([endedAt, totalTokens]) => ({ endedAt, modelUsage: { 'grok-4.7': { totalTokens } } })) }));
+  };
+  session('a', undefined, '2026-11-18T10:00:00', [['2026-11-18T10:05:00', 100], ['2026-11-19T10:00:00', 40]]);
+  session('b', 'subagent', '2026-11-19T10:01:00', [['2026-11-19T10:02:00', 7]]);
+  session('c', 'headless', '2026-11-19T11:00:00', [['2026-11-19T11:01:00', 5000]]);
+  const { data } = await grokStatsSource({ grokDir: root }).read({ signal: new AbortController().signal, now });
+  const pick = (d) => [d.sessions, d.tokens, d.repos.poise, d.models['grok-4.7']];
+  assert.deepEqual(pick(data.daily['2026-11-18']), [1, 100, 100, 100]);
+  assert.deepEqual(pick(data.daily['2026-11-19']), [0, 40, 40, 40]);
+  await assert.rejects(grokStatsSource({ grokDir: join(root, 'none') }).read({ signal: new AbortController().signal, now }), SourceOff);
 });
 
 test('a second run reads only changed files, and the cache holds no transcript text', async () => {
@@ -62,6 +98,24 @@ test('a second run reads only changed files, and the cache holds no transcript t
   assert.equal(readFileSync(cacheFile, 'utf8').includes(SECRET), false);
   writeFileSync(join(project, 'two.jsonl'), assistant('m2', 5));
   assert.equal((await source.read({ signal, now: Date.now() })).data.read, 1);
+});
+
+test('a pull request cache from before the transcript cache version change is kept', async () => {
+  const root = tmp();
+  const cacheFile = join(root, 'prs.json');
+  writeFileSync(cacheFile, JSON.stringify({ version: 1, files: {}, months: { '2026-10': { frozen: true, prs: [[Date.UTC(2026, 9, 15, 10), 'o/r']] } } }));
+  const source = prStatsSource({ cacheFile });
+  source.want(Date.UTC(2026, 9, 1));
+  const before = process.env.PATH;
+  process.env.PATH = `${root}:${before}`;
+  writeFileSync(join(root, 'gh'), `#!/bin/sh\necho '{"data":{"search":{"issueCount":0,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}'\n`);
+  chmodSync(join(root, 'gh'), 0o755);
+  try {
+    const { data } = await source.read({ signal: new AbortController().signal, now: Date.UTC(2026, 10, 5) });
+    assert.equal(data.daily['2026-10-15'].merged, 1);
+  } finally {
+    process.env.PATH = before;
+  }
 });
 
 test('the window covers thirty days including today', () => {
