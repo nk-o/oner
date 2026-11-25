@@ -1,12 +1,16 @@
-// Evaluate this file as one expression in the page, e.g. page.evaluate(source). Set
-// globalThis.geometryRoot to a selector first to scope it. Returns an array of findings.
+// Evaluate this file's trimmed text as one expression in the page, e.g. page.evaluate(source).
+// Set globalThis.geometryRoot to a selector first to scope it. Returns an array of findings.
 (() => {
   const root = document.querySelector(globalThis.geometryRoot || 'body') || document.body;
+  const PER_CHECK = 25;
   const findings = [];
+  const counts = {};
   const add = (check, el, detail) => {
-    if (findings.length < 200) findings.push({ check, at: path(el), detail });
+    counts[check] = (counts[check] || 0) + 1;
+    if (counts[check] <= PER_CHECK) findings.push({ check, at: path(el), detail });
   };
   const round = (n) => Math.round(n * 10) / 10;
+  const px = (value) => Number.parseFloat(value) || 0;
 
   function path(el) {
     const parts = [];
@@ -56,8 +60,7 @@
 
   function borders(el) {
     const s = getComputedStyle(el);
-    const side = (name) =>
-      Number.parseFloat(s[`border${name}Width`]) > 0 && s[`border${name}Style`] !== 'none' && alpha(s[`border${name}Color`]) > 0;
+    const side = (name) => px(s[`border${name}Width`]) > 0 && s[`border${name}Style`] !== 'none' && alpha(s[`border${name}Color`]) > 0;
     return { top: side('Top'), right: side('Right'), bottom: side('Bottom'), left: side('Left') };
   }
 
@@ -67,22 +70,20 @@
     return ownBackground(el) || sides >= 3 || getComputedStyle(el).boxShadow !== 'none';
   }
 
-  const elements = [...root.querySelectorAll('*')].filter(visible);
-
-  const textRects = [];
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (!node.textContent.trim() || !node.parentElement || !visible(node.parentElement)) continue;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    for (const r of range.getClientRects()) if (r.width > 0 && r.height > 0) textRects.push({ node, r });
-  }
-  const contentRects = textRects.map((t) => t.r);
-  for (const el of elements) {
-    if (el.matches('img, svg, video, canvas, input, select, textarea, button, [role="img"]')) {
-      contentRects.push(el.getBoundingClientRect());
+  function textRectsIn(el) {
+    const out = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent.trim() || !node.parentElement || !visible(node.parentElement)) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const r of range.getClientRects()) if (r.width > 0 && r.height > 0) out.push(r);
     }
+    return out;
   }
+
+  const REPLACED = 'img, svg, video, canvas, input, select, textarea, button, [role="img"]';
+  const elements = [root, ...root.querySelectorAll('*')].filter(visible);
 
   const visuals = elements.filter((el) => {
     if (el.parentElement && el.parentElement.closest('svg')) return false;
@@ -93,135 +94,175 @@
     const painted = ownBackground(el) || getComputedStyle(el).backgroundImage !== 'none' || el.querySelector('img, svg');
     return square && painted && !(el.textContent || '').trim();
   });
-  for (const v of visuals) contentRects.push(v.getBoundingClientRect());
-  for (const v of visuals) {
-    const r = v.getBoundingClientRect();
-    if (visuals.some((o) => o !== v && o.contains(v))) continue;
-    let row = v.parentElement;
-    for (let i = 0; row && i < 4; i++, row = row.parentElement) {
-      const d = getComputedStyle(row).display;
-      if (d.includes('flex') || d.includes('grid') || row.tagName === 'TR' || row.tagName === 'LI') break;
-    }
-    if (!row) continue;
-    const line = textRects.find(
-      (t) => row.contains(t.node) && !v.contains(t.node) && t.r.left >= r.right - 2 && t.r.bottom > r.top - 8 && t.r.top < r.bottom + 8,
-    );
-    if (!line) continue;
-    const lines = textRects.filter((t) => t.node.parentElement && t.r.left >= r.right - 2 && row.contains(t.node) && !v.contains(t.node));
-    if (lines.length < 2) continue;
-    const offset = r.top + r.height / 2 - (line.r.top + line.r.height / 2);
-    const block = Math.max(...lines.map((t) => t.r.bottom)) - line.r.top;
-    if (Math.abs(offset) > 2 && block > line.r.height * 1.5 && block > r.height + 4) {
-      add('leading-visual-off-first-line', v, `center is ${round(offset)}px from the first text line's center`);
-    }
+
+  function contentRectsIn(el) {
+    const rects = textRectsIn(el);
+    for (const child of el.querySelectorAll(REPLACED)) if (visible(child)) rects.push(child.getBoundingClientRect());
+    for (const v of visuals) if (el !== v && el.contains(v)) rects.push(v.getBoundingClientRect());
+    return rects;
   }
 
-  for (const el of elements) {
-    if (!surface(el)) continue;
-    const box = el.getBoundingClientRect();
-    if (box.height > 160) continue;
-    const s = getComputedStyle(el);
-    if (Number.parseFloat(s.paddingTop) + Number.parseFloat(s.paddingBottom) === 0) continue;
-    const inside = contentRects.filter(
-      (r) => r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5 && r.left >= box.left - 0.5 && r.right <= box.right + 0.5,
-    );
-    if (!inside.length) continue;
-    const top = Math.min(...inside.map((r) => r.top)) - box.top - Number.parseFloat(s.borderTopWidth);
-    const bottom = box.bottom - Math.max(...inside.map((r) => r.bottom)) - Number.parseFloat(s.borderBottomWidth);
-    if (top >= 0 && bottom >= 0 && Math.abs(top - bottom) > 4) {
-      add('padding-uneven', el, `content sits ${round(top)}px from the top and ${round(bottom)}px from the bottom`);
-    }
-  }
-
-  const lines = [];
-  for (const el of elements) {
-    const r = el.getBoundingClientRect();
-    const b = borders(el);
-    const divider = !b.left && !b.right && b.top !== b.bottom;
-    if (divider && b.top) lines.push({ el, y: r.top, x1: r.left, x2: r.right });
-    if (divider && b.bottom) lines.push({ el, y: r.bottom, x1: r.left, x2: r.right });
-    if (el.tagName === 'HR' || (r.height <= 2 && r.width > 40 && ownBackground(el))) lines.push({ el, y: r.top, x1: r.left, x2: r.right });
-  }
-  lines.sort((a, b) => a.y - b.y);
-  for (let i = 0; i < lines.length; i++) {
-    for (let j = i + 1; j < lines.length && lines[j].y - lines[i].y <= 32; j++) {
-      const a = lines[i];
-      const b = lines[j];
-      const dy = b.y - a.y;
-      if (dy < 1.5) continue;
-      const x1 = Math.max(a.x1, b.x1);
-      const x2 = Math.min(a.x2, b.x2);
-      if (x2 - x1 < 0.5 * Math.min(a.x2 - a.x1, b.x2 - b.x1)) continue;
-      const between = contentRects.some((r) => r.bottom > a.y + 1 && r.top < b.y - 1 && r.right > x1 && r.left < x2);
-      if (!between) add('double-divider', b.el, `a line ${round(dy)}px below another line with nothing between them (${path(a.el)})`);
-    }
-  }
-
-  const lists = new Set();
-  for (const el of elements) {
-    const kids = [...el.children].filter(visible);
-    if (kids.length < 3) continue;
-    const sig = (k) => `${k.tagName}.${k.classList[0] || ''}`;
-    const counts = {};
-    for (const k of kids) counts[sig(k)] = (counts[sig(k)] || 0) + 1;
-    const [best, n] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    const rows = kids.filter((k) => sig(k) === best);
-    const stacked = rows.every((row, i) => i === 0 || row.getBoundingClientRect().top >= rows[i - 1].getBoundingClientRect().bottom - 1);
-    if (n >= 3 && n >= kids.length * 0.6 && stacked) lists.add({ el, rows });
-  }
-  for (const { el, rows } of lists) {
-    const lefts = rows.map((row) => {
-      const first = textRects.find((t) => row.contains(t.node));
-      return first ? first.r.left : null;
-    });
-    const known = lefts.filter((x) => x !== null).map(round);
-    if (known.length < 3) continue;
-    const freq = {};
-    for (const x of known) freq[x] = (freq[x] || 0) + 1;
-    const [modeKey, modeCount] = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
-    if (modeCount < known.length * 0.6) continue;
-    const mode = Number(modeKey);
-    rows.forEach((row, i) => {
-      if (lefts[i] !== null && Math.abs(lefts[i] - mode) > 1 && Math.abs(lefts[i] - mode) < 48) {
-        add('row-text-off-edge', row, `text starts ${round(lefts[i] - mode)}px from the other rows' text edge`);
+  function checkLeadingVisuals() {
+    for (const v of visuals) {
+      if (visuals.some((o) => o !== v && o.contains(v))) continue;
+      const r = v.getBoundingClientRect();
+      let row = null;
+      for (let node = v.parentElement, i = 0; node && i < 4 && !row; i++, node = node.parentElement) {
+        const d = getComputedStyle(node).display;
+        if (d.includes('flex') || d.includes('grid') || node.tagName === 'TR' || node.tagName === 'LI') row = node;
       }
-    });
-    let heading = el.previousElementSibling;
-    if (heading && !heading.matches('h1, h2, h3, h4, h5, h6, [role="heading"], legend, caption')) {
-      heading = heading.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]');
-    }
-    const headText = heading && textRects.find((t) => heading.contains(t.node));
-    const leads = rows
-      .map((row) => contentRects.filter((r) => { const b = row.getBoundingClientRect(); return r.left >= b.left - 0.5 && r.right <= b.right + 0.5 && r.top >= b.top - 0.5 && r.bottom <= b.bottom + 0.5; }))
-      .filter((rs) => rs.length)
-      .map((rs) => round(Math.min(...rs.map((r) => r.left))));
-    const lead = leads.length ? Math.min(...leads) : null;
-    if (headText && lead !== null && Math.abs(headText.r.left - lead) > 1 && Math.abs(headText.r.left - lead) <= 24) {
-      add('heading-off-row-edge', heading, `heading text starts ${round(headText.r.left - lead)}px from its rows' content edge`);
+      if (!row || row.getBoundingClientRect().height > 160) continue;
+      const rowBox = row.getBoundingClientRect();
+      const beside = textRectsIn(row)
+        .filter((t) => t.left >= r.right - 2)
+        .sort((a, b) => a.top - b.top);
+      if (beside.length < 2) continue;
+      const first = beside[0];
+      const block = Math.max(...beside.map((t) => t.bottom)) - first.top;
+      if (first.top < rowBox.top - 1 || block <= first.height * 1.5 || block <= r.height + 4) continue;
+      const offset = r.top + r.height / 2 - (first.top + first.height / 2);
+      if (Math.abs(offset) > 2) add('leading-visual-off-first-line', v, `center is ${round(offset)}px from the first text line's center`);
     }
   }
 
-  for (const el of elements) {
-    const inner = Number.parseFloat(getComputedStyle(el).borderTopLeftRadius);
-    const own = el.getBoundingClientRect();
-    if (!(inner > 0) || inner >= Math.min(own.width, own.height) / 2 - 1 || !surface(el)) continue;
-    let outer = el.parentElement;
-    while (outer && outer !== root.parentElement && !(surface(outer) && Number.parseFloat(getComputedStyle(outer).borderTopLeftRadius) > 0)) {
-      outer = outer.parentElement;
-    }
-    if (!outer || outer === root.parentElement) continue;
-    const o = outer.getBoundingClientRect();
-    const r = el.getBoundingClientRect();
-    const inset = Math.min(r.left - o.left, r.top - o.top, o.right - r.right, o.bottom - r.bottom);
-    if (inset < 0 || inset > 24) continue;
-    const corner = Math.min(r.left - o.left, r.top - o.top) <= inset + 0.5 && Math.min(o.right - r.right, o.bottom - r.bottom) >= 0;
-    if (!corner) continue;
-    const outerRadius = Number.parseFloat(getComputedStyle(outer).borderTopLeftRadius);
-    const expected = inner + inset;
-    if (Math.abs(outerRadius - expected) > 3 && r.left - o.left <= 24 && r.top - o.top <= 24) {
-      add('radius-not-concentric', el, `radius ${round(inner)}px at ${round(inset)}px inside a ${round(outerRadius)}px surface, expected about ${round(Math.max(outerRadius - inset, 0))}px`);
+  function checkPadding() {
+    for (const el of elements) {
+      if (!surface(el)) continue;
+      const box = el.getBoundingClientRect();
+      const s = getComputedStyle(el);
+      if (box.height > 160 || px(s.paddingTop) + px(s.paddingBottom) === 0) continue;
+      const inside = contentRectsIn(el).filter((r) => r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5);
+      if (!inside.length) continue;
+      const top = Math.min(...inside.map((r) => r.top)) - box.top - px(s.borderTopWidth);
+      const bottom = box.bottom - Math.max(...inside.map((r) => r.bottom)) - px(s.borderBottomWidth);
+      if (top >= 0 && bottom >= 0 && Math.abs(top - bottom) > 4) {
+        add('padding-uneven', el, `content sits ${round(top)}px from the top and ${round(bottom)}px from the bottom`);
+      }
     }
   }
 
+  function checkDoubleDividers() {
+    const lines = [];
+    for (const el of elements) {
+      const r = el.getBoundingClientRect();
+      const b = borders(el);
+      const kind = !b.left && !b.right && b.top !== b.bottom ? 'divider' : 'edge';
+      if (b.top) lines.push({ el, kind, y: r.top, x1: r.left, x2: r.right });
+      if (b.bottom) lines.push({ el, kind, y: r.bottom, x1: r.left, x2: r.right });
+      if (el.tagName === 'HR' || (r.height <= 2 && r.width > 40 && ownBackground(el))) lines.push({ el, kind: 'divider', y: r.top, x1: r.left, x2: r.right });
+    }
+    lines.sort((a, b) => a.y - b.y);
+    const content = contentRectsIn(root);
+    for (let i = 0; i < lines.length; i++) {
+      for (let j = i + 1; j < lines.length && lines[j].y - lines[i].y <= 32; j++) {
+        const a = lines[i];
+        const b = lines[j];
+        if (a.el === b.el || b.y - a.y < 0.5) continue;
+        const edge = a.kind === 'edge' ? a : b.kind === 'edge' ? b : null;
+        const other = edge === a ? b : a;
+        if (edge && (other.kind === 'edge' || !edge.el.contains(other.el))) continue;
+        const x1 = Math.max(a.x1, b.x1);
+        const x2 = Math.min(a.x2, b.x2);
+        if (x2 - x1 < 0.5 * Math.min(a.x2 - a.x1, b.x2 - b.x1)) continue;
+        const between = content.some((r) => r.bottom > a.y + 1 && r.top < b.y - 1 && r.right > x1 && r.left < x2);
+        if (!between) add('double-divider', b.el, `a line ${round(b.y - a.y)}px below another line with nothing between them (${path(a.el)})`);
+      }
+    }
+  }
+
+  function checkListEdges() {
+    const HEADING = 'h1, h2, h3, h4, h5, h6, [role="heading"], legend, caption';
+    for (const el of elements) {
+      const kids = [...el.children].filter(visible);
+      if (kids.length < 3) continue;
+      const sig = (k) => `${k.tagName}.${k.classList[0] || ''}`;
+      const tally = {};
+      for (const k of kids) tally[sig(k)] = (tally[sig(k)] || 0) + 1;
+      const [best, n] = Object.entries(tally).sort((a, b) => b[1] - a[1])[0];
+      const rows = kids.filter((k) => sig(k) === best);
+      const boxes = rows.map((row) => row.getBoundingClientRect());
+      const stacked = boxes.every((box, i) => i === 0 || box.top >= boxes[i - 1].bottom - 1);
+      if (n < 3 || n < kids.length * 0.6 || !stacked) continue;
+
+      const lefts = rows.map((row) => {
+        const rs = textRectsIn(row);
+        return rs.length ? rs[0].left : null;
+      });
+      const known = lefts.filter((x) => x !== null).map(round);
+      if (known.length >= 3) {
+        const freq = {};
+        for (const x of known) freq[x] = (freq[x] || 0) + 1;
+        const [modeKey, modeCount] = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
+        const mode = Number(modeKey);
+        if (modeCount >= known.length * 0.6) {
+          rows.forEach((row, i) => {
+            if (lefts[i] !== null && Math.abs(lefts[i] - mode) > 1 && Math.abs(lefts[i] - mode) < 48) {
+              add('row-text-off-edge', row, `text starts ${round(lefts[i] - mode)}px from the other rows' text edge`);
+            }
+          });
+        }
+      }
+
+      const inside = kids.slice(0, kids.indexOf(rows[0])).reverse().find((k) => k.matches(HEADING));
+      const sibling = el.previousElementSibling && el.previousElementSibling.matches(HEADING) ? el.previousElementSibling : null;
+      const heading = inside || sibling;
+      const bulleted = rows[0].tagName === 'LI' && getComputedStyle(rows[0]).listStyleType !== 'none';
+      if (!heading || bulleted) continue;
+      const headText = textRectsIn(heading)[0];
+      const leads = rows
+        .map((row, i) => {
+          const rs = contentRectsIn(row).filter((r) => r.left >= boxes[i].left - 0.5 && r.right <= boxes[i].right + 0.5);
+          return rs.length ? Math.min(...rs.map((r) => r.left)) : null;
+        })
+        .filter((x) => x !== null);
+      if (!headText || !leads.length) continue;
+      const off = headText.left - Math.min(...leads);
+      if (Math.abs(off) > 1 && Math.abs(off) <= 48) add('heading-off-row-edge', heading, `heading text starts ${round(off)}px from its rows' content edge`);
+    }
+  }
+
+  function checkConcentricRadii() {
+    const CORNERS = [
+      ['TopLeft', (o, r) => [r.left - o.left, r.top - o.top]],
+      ['TopRight', (o, r) => [o.right - r.right, r.top - o.top]],
+      ['BottomRight', (o, r) => [o.right - r.right, o.bottom - r.bottom]],
+      ['BottomLeft', (o, r) => [r.left - o.left, o.bottom - r.bottom]],
+    ];
+    const rounded = (el) => surface(el) && CORNERS.some(([c]) => px(getComputedStyle(el)[`border${c}Radius`]) > 0);
+    for (const el of elements) {
+      if (el === root || !ownBackground(el)) continue;
+      const r = el.getBoundingClientRect();
+      const s = getComputedStyle(el);
+      if (px(s.borderTopLeftRadius) >= Math.min(r.width, r.height) / 2 - 1) continue;
+      let outer = el.parentElement;
+      while (outer && !rounded(outer)) outer = outer === root ? null : outer.parentElement;
+      if (!outer) continue;
+      const o = outer.getBoundingClientRect();
+      if (r.width < o.width * 0.5) continue;
+      const os = getComputedStyle(outer);
+      const clips = os.overflow !== 'visible' || os.overflowX !== 'visible' || os.overflowY !== 'visible';
+      for (const [corner, gaps] of CORNERS) {
+        const outerRadius = px(os[`border${corner}Radius`]);
+        const [dx, dy] = gaps(o, r);
+        if (outerRadius <= 0 || dx < 0 || dy < 0 || dx > outerRadius || dy > outerRadius) continue;
+        const inset = Math.max(dx, dy);
+        if (clips && inset <= 1) continue;
+        const expected = Math.max(outerRadius - inset, 0);
+        const inner = px(s[`border${corner}Radius`]);
+        if (Math.abs(inner - expected) > 2) {
+          add('radius-not-concentric', el, `${corner} radius ${round(inner)}px at ${round(inset)}px inside a ${round(outerRadius)}px corner, expected about ${round(expected)}px`);
+        }
+      }
+    }
+  }
+
+  checkLeadingVisuals();
+  checkPadding();
+  checkDoubleDividers();
+  checkListEdges();
+  checkConcentricRadii();
+  for (const [check, n] of Object.entries(counts)) {
+    if (n > PER_CHECK) findings.push({ check, at: '', detail: `${n - PER_CHECK} more not listed` });
+  }
   return findings;
-})();
+})()

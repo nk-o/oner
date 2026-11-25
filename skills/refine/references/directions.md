@@ -62,7 +62,8 @@ system cannot express the direction, ask for the exact addition.
   without a role to the nearest token. A product surface rarely needs more than three or four
   sizes, two or three weights, and one or two accents besides the state colors.
 - Match the complexity to the task. A tool used all day may need its density, so a cut that
-  slows an expert is a proposal, not a fix.
+  slows an expert is a proposal, not a fix, unless it is one of the overload removals in step 3
+  of the skill.
 
 ## Clarify
 

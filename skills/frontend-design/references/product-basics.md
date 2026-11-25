@@ -20,10 +20,8 @@ values are, and a screen that breaks one reads as unfinished. They are not a sty
 
 ## Spacing and shape
 
-- Padding is symmetric as the user sees it: the same above the first line as below the last,
-  and the same left and right. Measure from the text, not from the box, per **Composition** in
-  `design-review`.
-- The gap between groups is at least twice the gap inside a group. Peers sit at equal gaps.
+- Padding is symmetric as the user sees it, and groups sit further apart than their members.
+  **Composition** in `design-review` measures both.
 - A rounded surface inside a rounded surface keeps `outer radius = inner radius + inset`. A hover
   fill inside a rounded panel follows the same rule, on the first and last row too.
 - One line separates two things. A list inside a section that already ends in a divider drops
@@ -36,8 +34,8 @@ values are, and a screen that breaks one reads as unfinished. They are not a sty
   them.
 - One size for secondary text under a heading. Two lines under a heading in two sizes is one
   line too many.
-- Numbers that line up in columns or change in place use tabular figures.
-- A heading has more space above it than below it.
+- Tabular figures, heading spacing, and wrapping follow **Text, images, and layout** in
+  `design-review`'s interface checks.
 
 ## Density
 
@@ -47,21 +45,21 @@ are the usual answers:
 - A list row carries what the user scans the list for: a leading visual, the name, one
   secondary line at most, a status, and the one value or date the list is sorted by. Every
   other field belongs to the record's detail.
-- A row shows one date: the one that answers the list's question, such as last activity. Recent
-  times read relative ("2h ago") with the exact time in a tooltip.
-- A column whose values say what they are, such as names, dates, and amounts, needs no header.
-  A small table inside a labelled panel section usually needs none.
-- A detail header holds the identity: the name, one line of key facts, the status at the
-  right, and the actions. Counts and totals go below it as small stats, not into it.
-- A known entity with a recognizable mark, such as a payment provider, a country, or a website,
-  may show as its mark with the name in a tooltip, when the screen shows it in every row.
+- A row shows one date: the one that answers the list's question, such as last activity. A
+  relative time ("2h ago") may carry the exact time in a tooltip, because the row already shows
+  the value and the tooltip only sharpens it. A value shown nowhere else never lives in a
+  tooltip alone.
+- A column whose values say what they are, such as names, dates, and amounts, needs no visible
+  header. Keep its header cells for screen readers, visually hidden.
+- A detail header holds the identity: the name, one line of key facts, the status, and the
+  actions. Counts and totals go below it as small stats, not into it.
 - Text that restates a control, a heading, or a value next to it goes: a line under a button
   that repeats the button, a caption that repeats the heading, a note on what the system does
   by itself.
 - Color marks state, in small doses: a dot or a tinted badge. Neutrals carry the rest. A
   status with no action for the user can stay neutral.
-- A field's label goes when the design shows none and the field's purpose is plain, such as the
-  email on a sign-in form. The placeholder names it and `aria-label` carries the name.
+- A field may go without a visible label, per **Forms and actions** in `design-review`'s
+  interface checks.
 
 ## Loading and change
 
@@ -73,10 +71,3 @@ are the usual answers:
   first.
 - An action revealed on hover has a visible form on touch, such as an icon button at the row's
   end or a menu.
-
-## Sources
-
-Concentric radius and symmetric padding follow
-[interface-design](https://github.com/Dammyjay93/interface-design), tabular figures and
-structural skeletons follow [ui-skills baseline-ui](https://github.com/ibelick/ui-skills),
-both MIT. The rest comes from corrections users made more than once on dense product screens.

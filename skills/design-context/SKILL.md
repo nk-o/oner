@@ -29,7 +29,7 @@ the task and reuse it across prototypes, code, and Figma.
    code for its markup and its name before the first edit, and find its duplicates on other
    screens. A duplicate is an element of the same visual pattern, whatever data it shows: a
    list row, a panel header, a stat card, a badge, a destructive action, an empty state, a
-   loading state. A list of sites in a side panel and a list of customers on a page are both
+   loading state. A list of files in a side panel and a list of members on a page are both
    list rows, so a correction to row spacing, dividers, hover, or alignment reaches both. A
    place that shows the same data in another pattern, such as a card and a table row of one
    record, is not one. The duplicates move onto one shared component as part of the request,

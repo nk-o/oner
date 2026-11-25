@@ -70,14 +70,14 @@ all of them:
 - Use the product's tokens, components, and type scale. A new color, font, radius, shadow, or
   token is a decision. Bring it with the exact value and the job it would do, per **Habits to
   question** in `frontend-design`.
-- When the user calls the target overloaded, cluttered, or too busy, removing what fails
-  **Every element has a job** in `frontend-design` is the fix, not a proposal: text that
-  restates a control, a heading, or a value, a second date, a secondary column, or a field
-  the record's detail view or a tooltip already shows. Move it there when nothing shows it
-  yet. Removing an action, or information the product would then show nowhere, is a product
+- Removing or hiding an action, a field, an option, or information people rely on is a product
   decision. List it as a proposal with what users would lose, and apply it only when approved.
-  A disclosure is for reference material the task needs sometimes. Folding the excess into one
-  leaves the overload on the screen.
+- One exception. When the user calls the target overloaded, cluttered, or too busy, removing
+  what fails **Every element has a job** in `frontend-design` is the fix: text that restates a
+  control, a heading, or a value, a second date, or a secondary column or field that the
+  record's detail view already shows. A value nothing else shows moves into that detail view,
+  never into a tooltip alone, since touch has no hover. A disclosure is for reference material
+  the task needs sometimes, and folding the excess into one leaves the overload on the screen.
 - Factual copy, claims, and data stay. Wording changes belong to clarify, and claims change
   only when the user supplies new ones.
 

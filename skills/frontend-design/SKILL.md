@@ -173,8 +173,9 @@ into the product after they pick it. An open-ended
 
 Build fully, render it with every fixture from **Before the first edit**, then run
 `design-review` on the rendered result, its **Look first** and its component crops included,
-before reporting visible UI done. A product screen that breaks a rule in
-[product basics](references/product-basics.md) is not done.
+before reporting visible UI done. A change that breaks a rule in
+[product basics](references/product-basics.md) is not done. A break the screen already had
+is a proposal, per the removal test in `design-review`.
 Include an ordinary laptop height when viewport sizing, sticky chrome, or a large hero is
 involved, and reuse `break-ui` evidence for the same surface. A prototype has the same
 interaction floor as a working screen.

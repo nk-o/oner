@@ -225,6 +225,7 @@ the rules in `AGENTS.md`.
 | [anthropics/skills](https://github.com/anthropics/skills) | `frontend-design`, extended with a branch for screens inside an existing product; the fresh-reader check in `docs`, from `doc-coauthoring` |
 | [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | `refine` and its five directions; `break-api` and the cases in `break-ui`, from its `harden`; the product UI rules, templated habits, and bounded screenshot rounds in `frontend-design`; the P0 to P3 levels and per-change verdicts in `improve-ui` |
 | [juliusbrussee/caveman](https://github.com/juliusbrussee/caveman) | `commit-message`, from `caveman-commit` |
+| [Dammyjay93/interface-design](https://github.com/Dammyjay93/interface-design), [ibelick/ui-skills](https://github.com/ibelick/ui-skills) | the concentric radius and symmetric padding rules, tabular figures, and structural skeletons in `frontend-design`'s product basics |
 | Diátaxis, the Google, Microsoft, and GitLab documentation style guides, GitHub Docs' screenshot guidelines, Shopify's release-notes rules | the article types, procedure rules, screenshot rules, and metadata limits in `docs` |
 | Anthropic's prompting guides for Opus 5, Opus 5.5, and Fable 5.1 | the writing and reporting rules in `AGENTS.md`, and the named design defaults in `frontend-design` |
 

@@ -16,10 +16,12 @@ review; they do not prescribe a framework or aesthetic.
   of text or control, less each line's half-leading and any margin a child adds. Top and
   bottom that differ by more than 4px are a finding; fix the margin or line-height that adds
   it.
-- Run [geometry.js](../scripts/geometry.js) in the rendered page: evaluate the file's text as
-  one expression through the driver (`page.evaluate(source)` in Playwright, the host's
-  preview evaluate, or the `verify-<app>` CLI, which gets an `eval` command when it lacks one).
-  Set `globalThis.geometryRoot` to a selector first to scope it. It returns findings for an
+- Run [geometry.js](../scripts/geometry.js) in the rendered page: evaluate the file's trimmed
+  text as one expression through a driver the session already has, such as Playwright's
+  `page.evaluate(source)`, the host's preview evaluate, or the `verify-<app>` CLI. Where none
+  can evaluate, the review names these measurements as unverified; a build run that owns the
+  CLI adds an `eval` command per that skill's rules. Set `globalThis.geometryRoot` to a
+  selector first to scope it. It returns findings for an
   avatar or icon off its first text line, uneven vertical padding, two dividers with nothing
   between them, a row whose text leaves its list's edge, a heading off its rows' edge, and a
   rounded fill whose radius is not the outer radius minus its inset. Hover a row before
