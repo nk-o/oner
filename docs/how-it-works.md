@@ -11,7 +11,7 @@
 | `agents/` | subagent definitions. `oneshot-worker` writes one task of a plan, `oneshot-reviewer` reviews the finished change, and `oneshot-qa` runs the test plan as a user would. |
 | `mods/` | Claude Code mods, one folder per mod. `weekly-pace` shows the weekly usage limit under the prompt against how much today can spend, and warns when the five-hour window nears its limit. |
 | `bin/build.mjs`, `build/` | the build. It has no dependencies. |
-| `bin/ui.mjs`, `ui/`, `panel/` | the panel: today's work across agents and pull requests, stats, the local skill editor, and settings. It reads no secrets of its own, and writes only to `config.json`, `local/`, and a cache of numbers. |
+| `bin/ui.mjs`, `bin/oner.mjs`, `ui/`, `panel/` | the panel: today's work across agents and pull requests, stats, the local skill editor, and settings. It reads no secrets of its own, and writes only to `config.json`, `local/`, and a cache of numbers. |
 | `bin/status.mjs` | what is configured, installed, and available on this machine. |
 | `bin/update-check.mjs`, `bin/session-start.mjs` | session-start hooks: the update check, and the context for agents whose hooks take JSON. |
 | `bin/devservers.mjs` | the dev server reaper. Agent hooks run it to stop dev servers in linked worktrees that sat idle, sooner under memory pressure, and agents run its `gate` before a server or a heavy check. |
@@ -31,13 +31,15 @@ each agent's copy gets its own paths. `{{reply_language}}` comes from `config.js
 `{{effort_build}}` and `{{effort_review}}`, the reasoning effort `oneshot-worker` and
 `oneshot-reviewer` run at in Claude Code and Codex, whatever level the session started with.
 
-Each agent's directory holds `.agent-config-manifest.json`, which lists every file the build
-wrote there and every hook or settings key it owns. The build deletes only files on that list, so
-your own skills and anything the agent puts there stay. `enabled: false` for an agent removes what
-the build put there, and a new `dir` moves it. `.build-state.json` records which directories the
-checkout installed into for each home directory, and which agents the last build skipped, so
-the hooks retry a skipped agent and report it until it installs. A worktree of this repository
-has no such file, so it never rebuilds over the main checkout's install.
+Each agent's directory holds `.agent-config-manifest.json`, which lists every file the build wrote
+there and every hook or settings key it owns. The build deletes only files on that list, so your
+own skills and anything the agent puts there stay. `enabled: false` for an agent removes what the
+build put there, and a new `dir` moves it. The build also links `~/.local/bin/oner` to
+`bin/oner.mjs`, which opens the panel. It replaces only a link whose target no longer exists, and
+leaves anything else at that path alone. `.build-state.json` records which directories the
+checkout installed into for each home directory, and which agents the last build skipped, so the
+hooks retry a skipped agent and report it until it installs. A worktree of this repository has no
+such file, so it never rebuilds over the main checkout's install.
 
 The Cursor CLI reads no user-level rules file, so its `sessionStart` hook passes the rules in as
 context. Past Cursor's 10,000-character limit, it passes a pointer to them instead. OpenCode and

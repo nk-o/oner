@@ -50,8 +50,9 @@ skills also use `jq`, `lsof`, and the GitHub CLI `gh`.
 
 ## Day to day
 
-- **The panel.** `node bin/ui.mjs --open` opens it, or press `oner` under the prompt in Claude Code. It
-  serves on `127.0.0.1` and stays up until you stop it.
+- **The panel.** Run `oner` in a terminal, or press `oner` under the prompt in Claude Code. The
+  build links the command into `~/.local/bin`. The panel serves on `127.0.0.1` and stays up until
+  you stop it.
 - **Settings.** Ask your agent to change one, or open the Settings tab of the panel. Both edit
   `config.json` and rebuild.
 - **Updates.** Once a day, at session start, oner checks for new commits in the background. The

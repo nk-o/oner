@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
+import { chmodSync, mkdirSync, mkdtempSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { mergeTables, mergeTopKeys } from '../build/codex-config.mjs';
 import { readFileSync } from 'node:fs';
 import { listSkills, validateConfig } from '../build/config.mjs';
-import { executorsTable, mergeSettings } from '../build/install.mjs';
+import { build, executorsTable, mergeSettings } from '../build/install.mjs';
+import { TARGETS } from '../build/targets.mjs';
 import { renderFile, renderText, tokenValues, walk } from '../build/render.mjs';
 
 const personal = 'model = "gpt"\n\n[mcp_servers.node_repl]\ncommand = "node_repl"\n';
@@ -155,4 +158,50 @@ test('no text names an agent file by extension, since each agent host stores it 
   const texts = [resolve('AGENTS.md'), ...walk(resolve('skills')).map((f) => f.abs)];
   const hits = texts.flatMap((f) => [...readFileSync(f, 'utf8').matchAll(file)].map((m) => `${f}: ${m[0]}`));
   assert.deepEqual(hits, []);
+});
+
+test('the build links the oner command once and leaves a command it does not own', (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'oner-command-')));
+  const home = process.env.HOME;
+  process.env.HOME = join(root, 'home');
+  t.after(() => {
+    process.env.HOME = home;
+    rmSync(root, { recursive: true, force: true });
+  });
+  const repo = join(root, 'oner');
+  mkdirSync(join(repo, 'bin'), { recursive: true });
+  writeFileSync(join(repo, 'bin', 'oner.mjs'), '');
+  const targets = Object.fromEntries(Object.keys(TARGETS).map((name) => [name, { enabled: false, dir: join(root, name) }]));
+  const config = validateConfig({ targets }, repo);
+  const link = join(root, 'home', '.local', 'bin', 'oner');
+  const command = (auto = false) => build(repo, config, { auto }).filter((line) => line.startsWith('command: '));
+
+  assert.match(command()[0], /^command: linked \(.+\/\.local\/bin\/oner\)/);
+  assert.equal(readlinkSync(link), join(repo, 'bin', 'oner.mjs'));
+  assert.deepEqual(command(), [`command: up to date (${link})`]);
+  assert.deepEqual(command(true), []);
+
+  const other = join(root, 'other.mjs');
+  writeFileSync(other, '');
+  rmSync(link);
+  symlinkSync(other, link);
+  assert.deepEqual(command(), [`command: ${link} links to ${other}, left as it is`]);
+  assert.equal(readlinkSync(link), other);
+
+  rmSync(other);
+  assert.match(command()[0], new RegExp(`^command: relinked from ${other}, which no longer exists`));
+  assert.equal(readlinkSync(link), join(repo, 'bin', 'oner.mjs'));
+
+  rmSync(link);
+  writeFileSync(link, 'mine\n');
+  assert.deepEqual(command(), [`command: ${link} is not a link, left as it is`]);
+  assert.equal(readFileSync(link, 'utf8'), 'mine\n');
+
+  rmSync(link);
+  chmodSync(dirname(link), 0o555);
+  try {
+    assert.match(command()[0], /^command: could not link .+: EACCES/);
+  } finally {
+    chmodSync(dirname(link), 0o755);
+  }
 });
