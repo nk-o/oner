@@ -44,7 +44,7 @@ const RENAMED = { improve: 'improve-code' };
 // Returns the config with every default filled in and every dir absolute:
 // { language, disabledSkills, effort: { <stage>: <level> }, reviewers: { <provider>: { enabled, ... } },
 //   reviewBots: { <bot>: <mode> }, browser, attribution, telemetry, guard, autoCompact: <tokens> | null, parallel,
-//   oneshotRelease: 'pr' | 'production', executors: { <provider>: { enabled, tiers: { <tier>: { model, effort? } } } },
+//   oneshotRelease: 'pr' | 'production', executors: { <provider>: { enabled, tiers: { <tier>: { model, effort? } } } }, assignments: [{ work, executor }],
 //   targets: { <name>: { enabled, dir } } }
 export function loadConfig(repoDir) {
   return validateConfig(readRawConfig(repoDir), repoDir);
@@ -161,7 +161,7 @@ export function validateConfig(raw, repoDir) {
   }
 
   const executorsIn = objectAt(raw.executors, 'executors', at);
-  onlyKeys(executorsIn, Object.keys(EXECUTORS), 'executors', at);
+  onlyKeys(executorsIn, [...Object.keys(EXECUTORS), 'assign'], 'executors', at);
   const executors = {};
   for (const [name, spec] of Object.entries(EXECUTORS)) {
     const path = `executors.${name}`;
@@ -183,6 +183,19 @@ export function validateConfig(raw, repoDir) {
     }
     executors[name] = { enabled: e.enabled ?? spec.defaultEnabled, tiers };
   }
+  const assignIn = executorsIn.assign ?? [];
+  if (!Array.isArray(assignIn)) throw at('executors.assign', 'must be a list of { "work": "...", "executor": "..." }');
+  const builders = Object.keys(executors).filter((name) => executors[name].enabled && executors[name].tiers.build);
+  const assignments = assignIn.map((item, i) => {
+    const path = `executors.assign.${i}`;
+    const a = objectAt(item, path, at);
+    onlyKeys(a, ['work', 'executor'], path, at);
+    const work = typeof a.work === 'string' ? a.work.trim() : '';
+    if (!work || /[|\r\n]/.test(work)) throw at(`${path}.work`, 'must be one line naming the kind of work, without "|"');
+    if (assignIn.slice(0, i).some((b) => typeof b?.work === 'string' && b.work.trim() === work)) throw at(`${path}.work`, `repeats an earlier entry, "${work}"`);
+    if (!builders.includes(a.executor)) throw at(`${path}.executor`, `must be an enabled executor with a build model: ${builders.join(', ')}. Enable it, or remove or reassign this entry`);
+    return { work, executor: a.executor };
+  });
 
   const targetsIn = objectAt(raw.targets, 'targets', at);
   onlyKeys(targetsIn, Object.keys(TARGETS), 'targets', at);
@@ -201,7 +214,7 @@ export function validateConfig(raw, repoDir) {
     targets[name] = { enabled: t.enabled ?? (spec.alwaysOn || existsSync(dir)), explicit: t.enabled !== undefined, dir };
   }
 
-  return { language: raw.language?.trim() ?? 'English', localRepository, disabledSkills: disabled, effort, reviewers, reviewBots, ...switches, autoCompact: compact.tokens ?? null, oneshotRelease: oneshot.release ?? 'pr', parallel: orchestration.parallel ?? 4, executors, targets };
+  return { language: raw.language?.trim() ?? 'English', localRepository, disabledSkills: disabled, effort, reviewers, reviewBots, ...switches, autoCompact: compact.tokens ?? null, oneshotRelease: oneshot.release ?? 'pr', parallel: orchestration.parallel ?? 4, executors, assignments, targets };
 }
 
 export function listSkills(repoDir) {
