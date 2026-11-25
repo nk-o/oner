@@ -101,10 +101,14 @@ function linkCommand(repo, auto) {
     if (current === source) return auto ? null : `up to date (${link})`;
     if (existsSync(current)) return `${link} links to ${current}, left as it is`;
   }
-  mkdirSync(binDir, { recursive: true });
-  const temp = `${link}.${randomBytes(4).toString('hex')}`;
-  symlinkSync(source, temp);
-  renameSync(temp, link);
+  try {
+    mkdirSync(binDir, { recursive: true });
+    const temp = `${link}.${randomBytes(4).toString('hex')}`;
+    symlinkSync(source, temp);
+    renameSync(temp, link);
+  } catch (err) {
+    return `could not link ${link}: ${err.message}`;
+  }
   return `${current ? `relinked from ${current}, which no longer exists` : 'linked'} (${link})${hint}`;
 }
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { mergeTables, mergeTopKeys } from '../build/codex-config.mjs';
 import { readFileSync } from 'node:fs';
@@ -196,4 +196,12 @@ test('the build links the oner command once and leaves a command it does not own
   writeFileSync(link, 'mine\n');
   assert.deepEqual(command(), [`command: ${link} is not a link, left as it is`]);
   assert.equal(readFileSync(link, 'utf8'), 'mine\n');
+
+  rmSync(link);
+  chmodSync(dirname(link), 0o555);
+  try {
+    assert.match(command()[0], /^command: could not link .+: EACCES/);
+  } finally {
+    chmodSync(dirname(link), 0o755);
+  }
 });
