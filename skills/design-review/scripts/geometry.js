@@ -111,9 +111,14 @@
         const d = getComputedStyle(node).display;
         if (d.includes('flex') || d.includes('grid') || node.tagName === 'TR' || node.tagName === 'LI') row = node;
       }
-      if (!row || row.getBoundingClientRect().height > 160) continue;
+      if (!row) continue;
+      let cell = v;
+      while (cell.parentElement !== row) cell = cell.parentElement;
+      let group = textRectsIn(cell).length ? cell : cell.nextElementSibling;
+      while (group && !textRectsIn(group).length) group = group.nextElementSibling;
+      if (!group) continue;
       const rowBox = row.getBoundingClientRect();
-      const beside = textRectsIn(row)
+      const beside = textRectsIn(group)
         .filter((t) => t.left >= r.right - 2)
         .sort((a, b) => a.top - b.top);
       if (beside.length < 2) continue;
@@ -131,7 +136,9 @@
       const box = el.getBoundingClientRect();
       const s = getComputedStyle(el);
       if (box.height > 160 || px(s.paddingTop) + px(s.paddingBottom) === 0) continue;
-      const inside = contentRectsIn(el).filter((r) => r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5);
+      const inside = contentRectsIn(el).filter(
+        (r) => r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5 && r.right > box.left && r.left < box.right,
+      );
       if (!inside.length) continue;
       const top = Math.min(...inside.map((r) => r.top)) - box.top - px(s.borderTopWidth);
       const bottom = box.bottom - Math.max(...inside.map((r) => r.bottom)) - px(s.borderBottomWidth);
@@ -157,7 +164,7 @@
       for (let j = i + 1; j < lines.length && lines[j].y - lines[i].y <= 32; j++) {
         const a = lines[i];
         const b = lines[j];
-        if (a.el === b.el || b.y - a.y < 0.5) continue;
+        if (a.el === b.el || b.y - a.y < 1) continue;
         const edge = a.kind === 'edge' ? a : b.kind === 'edge' ? b : null;
         const other = edge === a ? b : a;
         if (edge && (other.kind === 'edge' || !edge.el.contains(other.el))) continue;
@@ -204,13 +211,16 @@
       }
 
       const inside = kids.slice(0, kids.indexOf(rows[0])).reverse().find((k) => k.matches(HEADING));
-      const sibling = el.previousElementSibling && el.previousElementSibling.matches(HEADING) ? el.previousElementSibling : null;
-      const heading = inside || sibling;
-      const bulleted = rows[0].tagName === 'LI' && getComputedStyle(rows[0]).listStyleType !== 'none';
+      const prev = el !== root && root.contains(el.previousElementSibling) ? el.previousElementSibling : null;
+      const wrapper = prev && !prev.matches(HEADING) && textRectsIn(prev).length <= 3 ? prev.querySelector(HEADING) : null;
+      const heading = inside || (prev && prev.matches(HEADING) ? prev : wrapper);
+      const marker = getComputedStyle(rows[0]);
+      const bulleted = marker.display === 'list-item' && marker.listStyleType !== 'none';
       if (!heading || bulleted) continue;
       const headText = textRectsIn(heading)[0];
       const leads = rows
         .map((row, i) => {
+          if (surface(row)) return boxes[i].left;
           const rs = contentRectsIn(row).filter((r) => r.left >= boxes[i].left - 0.5 && r.right <= boxes[i].right + 0.5);
           return rs.length ? Math.min(...rs.map((r) => r.left)) : null;
         })
@@ -228,9 +238,11 @@
       ['BottomRight', (o, r) => [o.right - r.right, o.bottom - r.bottom]],
       ['BottomLeft', (o, r) => [r.left - o.left, o.bottom - r.bottom]],
     ];
-    const rounded = (el) => surface(el) && CORNERS.some(([c]) => px(getComputedStyle(el)[`border${c}Radius`]) > 0);
+    const clips = (el) => ['overflow', 'overflowX', 'overflowY'].some((k) => getComputedStyle(el)[k] !== 'visible');
+    const rounded = (el) => (surface(el) || clips(el)) && CORNERS.some(([c]) => px(getComputedStyle(el)[`border${c}Radius`]) > 0);
+    const painted = (el) => ownBackground(el) || /inset/.test(getComputedStyle(el).boxShadow);
     for (const el of elements) {
-      if (el === root || !ownBackground(el)) continue;
+      if (el === root || !painted(el)) continue;
       const r = el.getBoundingClientRect();
       const s = getComputedStyle(el);
       if (px(s.borderTopLeftRadius) >= Math.min(r.width, r.height) / 2 - 1) continue;
@@ -240,15 +252,16 @@
       const o = outer.getBoundingClientRect();
       if (r.width < o.width * 0.5) continue;
       const os = getComputedStyle(outer);
-      const clips = os.overflow !== 'visible' || os.overflowX !== 'visible' || os.overflowY !== 'visible';
+      const clipped = clips(outer);
       for (const [corner, gaps] of CORNERS) {
         const outerRadius = px(os[`border${corner}Radius`]);
         const [dx, dy] = gaps(o, r);
-        if (outerRadius <= 0 || dx < 0 || dy < 0 || dx > outerRadius || dy > outerRadius) continue;
+        if (outerRadius <= 0 || dx < 0 || dy < 0) continue;
         const inset = Math.max(dx, dy);
-        if (clips && inset <= 1) continue;
+        if (inset > outerRadius / 2) continue;
         const expected = Math.max(outerRadius - inset, 0);
         const inner = px(s[`border${corner}Radius`]);
+        if (clipped && inset <= 1 && inner < expected) continue;
         if (Math.abs(inner - expected) > 2) {
           add('radius-not-concentric', el, `${corner} radius ${round(inner)}px at ${round(inset)}px inside a ${round(outerRadius)}px corner, expected about ${round(expected)}px`);
         }

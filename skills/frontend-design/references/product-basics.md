@@ -47,8 +47,8 @@ are the usual answers:
   other field belongs to the record's detail.
 - A row shows one date: the one that answers the list's question, such as last activity. A
   relative time ("2h ago") may carry the exact time in a tooltip, because the row already shows
-  the value and the tooltip only sharpens it. A value shown nowhere else never lives in a
-  tooltip alone.
+  the value and the tooltip only sharpens it. Data the user reads off a row, such as an email or
+  an amount, is never in a tooltip alone, since touch has no hover.
 - A column whose values say what they are, such as names, dates, and amounts, needs no visible
   header. Keep its header cells for screen readers, visually hidden.
 - A detail header holds the identity: the name, one line of key facts, the status, and the

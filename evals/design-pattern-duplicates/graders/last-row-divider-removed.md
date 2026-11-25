@@ -1,5 +1,5 @@
 ---
 type: regex
 target: trace
-pattern: '"role":"assistant"[^\n]*(last-child|last-of-type|:not\(:last|\+\s*\.[\w-]+-row)[^\n]*border'
+pattern: '"name":"(Edit|MultiEdit|Write)"[^\n]*(last-child|last-of-type|:not\(:(last|first)|\+\s*\.[\w-]+|~\s*\.[\w-]+)[^\n]*border'
 ---

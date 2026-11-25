@@ -7,7 +7,8 @@ const source = readFileSync(new URL('../skills/design-review/scripts/geometry.js
 
 function loadPlaywright() {
   const require = createRequire(import.meta.url);
-  for (const id of [process.env.PLAYWRIGHT_CORE, 'playwright-core', 'playwright'].filter(Boolean)) {
+  if (process.env.PLAYWRIGHT_CORE) return require(process.env.PLAYWRIGHT_CORE);
+  for (const id of ['playwright-core', 'playwright']) {
     try {
       return require(id);
     } catch {}
@@ -58,6 +59,15 @@ const cases = [
   ['last row fill with the panel radius', 'radius-not-concentric',
     `<div class="panel"><div style="padding:8px">First</div><div style="padding:8px">Middle</div><div class="fill" style="border-radius:12px">Last</div></div>`,
     `<div class="panel"><div style="padding:8px">First</div><div style="padding:8px">Middle</div><div class="fill" style="border-radius:8px">Last</div></div>`],
+  ['avatar centered on a nine-line comment', 'leading-visual-off-first-line',
+    `<div class="row" style="align-items:center"><div class="av"></div><div>${'<div>line</div>'.repeat(9)}</div></div>`,
+    `<div class="row" style="align-items:flex-start"><div class="av" style="margin-top:-4px"></div><div>${'<div>line</div>'.repeat(9)}</div></div>`],
+  ['heading in a header wrapper off the rows edge', 'heading-off-row-edge',
+    `<header><h4 style="margin:0">Sites</h4></header><div>${['a', 'b', 'c'].map((x) => `<div class="row" style="padding:8px 12px"><span class="av"></span><span>${x}.example</span></div>`).join('')}</div>`,
+    `<header><h4 style="margin:0;padding-left:12px">Sites</h4></header><div>${['a', 'b', 'c'].map((x) => `<div class="row" style="padding:8px 12px"><span class="av"></span><span>${x}.example</span></div>`).join('')}</div>`],
+  ['heading off flex list items', 'heading-off-row-edge',
+    `<h4 style="margin:0">Sites</h4><ul style="margin:0;padding:0">${['a', 'b', 'c'].map((x) => `<li class="row" style="padding:8px 12px"><span class="av"></span><span>${x}.example</span></li>`).join('')}</ul>`,
+    `<h4 style="margin:0;padding-left:12px">Sites</h4><ul style="margin:0;padding:0">${['a', 'b', 'c'].map((x) => `<li class="row" style="padding:8px 12px"><span class="av"></span><span>${x}.example</span></li>`).join('')}</ul>`],
   ['square fill in a rounded corner', 'radius-not-concentric',
     `<div class="panel" style="border-radius:20px"><div class="fill">First</div></div>`,
     `<div class="panel" style="border-radius:20px"><div class="fill" style="border-radius:16px">First</div></div>`],
@@ -88,13 +98,34 @@ test('geometry.js finds each planted defect and nothing on its fixed twin', { sk
   }
 });
 
+const clean = [
+  ['an icon on its label beside a taller second column', `<div class="row" style="align-items:center;width:400px"><div class="av" style="width:16px;height:16px"></div><div style="flex:1">Acme</div><div><div>$1,200</div><div>3 orders</div></div></div>`],
+  ['a collapsed bordered table', `<table style="border-collapse:collapse;border:1px solid #ddd;width:300px"><tr><td style="border-bottom:1px solid #ddd">One</td></tr><tr><td style="border-bottom:1px solid #ddd">Two</td></tr></table>`],
+  ['a square header clipped by a rounded wrapper', `<div class="panel" style="padding:0"><div style="border-radius:12px;overflow:hidden"><div style="background:#eee;padding:8px">Header</div><div style="padding:8px">Body</div></div></div>`],
+  ['a heading aligned to bordered cards', `<section><h4 style="margin:0">Settings</h4>${['A', 'B', 'C'].map((x) => `<div class="cardrow" style="border:1px solid #ddd;padding:24px;margin-top:8px">${x}</div>`).join('')}</section>`],
+  ['a rounded button at the padding of a card', `<div style="background:#f4f4f5;border-radius:12px;padding:12px;width:300px"><p style="margin:0 0 8px">Text</p><button style="border-radius:8px;width:100%;background:#fff;border:0;padding:8px">Go</button></div>`],
+];
+
+test('geometry.js reports nothing on common clean layouts', { skip: playwright ? false : reason }, async () => {
+  const browser = await playwright.chromium.launch();
+  try {
+    const page = await browser.newPage({ deviceScaleFactor: 2 });
+    for (const [name, body] of clean) assert.deepEqual(await measure(page, body), [], name);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('geometry.js measures the root it is scoped to', { skip: playwright ? false : reason }, async () => {
   const browser = await playwright.chromium.launch();
   try {
     const page = await browser.newPage();
-    const body = `<div id="sec" class="line" style="padding-bottom:12px"><div class="line">One</div><div class="line">Two</div></div>`;
-    const found = (await measure(page, body, '#sec')).map((f) => f.check);
+    const doubled = `<div class="line" style="padding-bottom:12px"><div class="line">One</div><div class="line">Two</div></div>`;
+    const body = `<div id="sec">${doubled}</div><div id="clean"><p>Clean</p></div>`;
+    const found = (await measure(page, `<div id="sec" class="line" style="padding-bottom:12px"><div class="line">One</div><div class="line">Two</div></div>`, '#sec')).map((f) => f.check);
     assert.ok(found.includes('double-divider'), JSON.stringify(found));
+    assert.deepEqual(await measure(page, body, '#clean'), []);
+    assert.ok((await measure(page, body)).length > 0, 'the unscoped page reports the doubled divider');
   } finally {
     await browser.close();
   }

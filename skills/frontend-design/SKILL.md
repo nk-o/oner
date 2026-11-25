@@ -123,7 +123,8 @@ which one.
 Write from the user's side. Name what people recognize and control, not implementation
 details. Actions say what happens, such as "Save changes". Keep that vocabulary through the
 flow. Labels label, examples demonstrate, and errors explain recovery. A persistent control
-keeps one label across records. A value that varies per record goes into its tooltip or menu.
+keeps one label across records. A value that varies per record goes into its tooltip or menu
+when the record shows it elsewhere too.
 
 Use plain verbs, concise copy, and the product's voice. Preserve factual copy when changing
 visual treatment. Long text and translations are inputs, not reasons to shorten the content
