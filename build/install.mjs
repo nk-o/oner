@@ -318,7 +318,7 @@ function renderOutputs(ctx, spec, dir, config, writes) {
   }
 
   if (out.has(join(spec.skills, 'lead', 'SKILL.md'))) {
-    out.set(join(spec.skills, 'lead', 'executors.md'), { data: Buffer.from(executorsTable(config.executors)), mode: 0o644 });
+    out.set(join(spec.skills, 'lead', 'executors.md'), { data: Buffer.from(executorsTable(config.executors, config.assignments)), mode: 0o644 });
   }
 
   if (out.has(join(spec.skills, 'pr-wait', 'SKILL.md'))) {
@@ -404,7 +404,7 @@ function providersEnv(reviewers, vendor) {
   return lines.join('\n') + '\n';
 }
 
-export function executorsTable(executors) {
+export function executorsTable(executors, assignments = []) {
   const enabled = Object.keys(EXECUTORS).filter((name) => executors[name].enabled);
   const rows = enabled.flatMap((name) =>
     EXECUTOR_TIERS.filter((tier) => executors[name].tiers[tier])
@@ -414,6 +414,10 @@ export function executorsTable(executors) {
   if (rows.length) lines.push('| Executor | Tier | Model | Effort |', '| --- | --- | --- | --- |', ...rows, '');
   else lines.push('No enabled executor has a model, so every stage runs on the session\'s own provider and model.', '');
   for (const name of idle) lines.push(`${name} is enabled with no build model, so it runs no stage. Set \`executors.${name}.build.model\` in config.json to use it.`, '');
+  if (assignments.length) {
+    lines.push('## Assignments', '', 'The user\'s standing split of work, from `executors.assign` in config.json.', '',
+      '| Work | Executor |', '| --- | --- |', ...assignments.map((a) => `| ${a.work} | ${a.executor} |`), '');
+  }
   return lines.join('\n');
 }
 

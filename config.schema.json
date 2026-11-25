@@ -467,6 +467,27 @@
               }
             }
           }
+        },
+        "assign": {
+          "description": "The standing split of work between executors. lead applies each entry as if the user had said it in the session, and the user's words in the session still win. Empty by default, so every stage stays on the session's own provider.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["work", "executor"],
+            "properties": {
+              "work": {
+                "description": "The kind of work, in plain words, such as \"code, API, infrastructure\".",
+                "type": "string",
+                "pattern": "^[^|\\n]+$"
+              },
+              "executor": {
+                "description": "An enabled executor with a build model.",
+                "enum": ["claude", "codex", "grok", "cursor"]
+              }
+            }
+          }
         }
       }
     },

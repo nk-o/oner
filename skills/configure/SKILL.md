@@ -72,7 +72,9 @@ stages to. Each takes `enabled` and a model per tier, `lead`, `build`, and `ligh
 `{ "model": "...", "effort": "..." }`. Claude and Codex are on by default, Grok and Cursor off,
 and Cursor has no default models. Turn on only the providers the user pays for. The build
 writes the enabled ones into `{{skills_dir}}/lead/executors.md`. `light` stays read-only
-whatever model it names.
+whatever model it names. `executors.assign` holds the user's standing split of work, a list of
+`{ "work": "...", "executor": "..." }`, which `lead` applies in every session. Without it every
+stage stays on the session's own provider.
 
 ## Review bots
 

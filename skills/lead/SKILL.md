@@ -115,7 +115,9 @@ each, so a tier is a starting point, not a ranking.
 
 When the user's words assign kinds of work to executors or to this session ("visual work
 stays with you", "backend to another provider"), that assignment wins over the tiers for every
-stage and delegate it covers, and the stage map shows each stage's executor. Work assigned to
+stage and delegate it covers. The **Assignments** table in executors.md is the user's standing
+split: apply each row as if the user had said it here, unless their words in this session say
+otherwise. The stage map at the stop shows each stage's executor and model. Work assigned to
 this session goes to a delegate on this session's provider at its `lead` row, else its `build`
 row, else the session's own model. An assignment to
 an executor that is not enabled, or that the host cannot start, is one line at the stop naming
