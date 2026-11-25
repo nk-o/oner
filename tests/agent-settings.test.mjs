@@ -131,6 +131,18 @@ test('the executor table lists enabled executors only, and says when one has no 
   assert.match(executorsTable(none.executors), /No enabled executor has a model/);
 });
 
+test('a standing assignment reaches the executor table, and one to an executor that runs no stage fails', () => {
+  const repo = resolve('.');
+  const assign = [{ work: 'code, API, infrastructure', executor: 'codex' }, { work: ' screens and copy ', executor: 'claude' }];
+  const config = validateConfig({ executors: { assign } }, repo);
+  assert.match(executorsTable(config.executors, config.assignments), /\| Work \| Executor \|\n\| --- \| --- \|\n\| code, API, infrastructure \| codex \|\n\| screens and copy \| claude \|/);
+  assert.doesNotMatch(executorsTable(validateConfig({}, repo).executors, []), /\| Work \|/);
+  assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code', executor: 'grok' }] } }, repo), /executors\.assign\.0\.executor: must be an enabled executor with a build model: claude, codex/);
+  assert.throws(() => validateConfig({ executors: { codex: { enabled: false }, assign: [{ work: 'code', executor: 'codex' }] } }, repo), /executors\.assign\.0\.executor: must be an enabled executor/);
+  assert.throws(() => validateConfig({ executors: { assign: [{ work: 'a | b', executor: 'codex' }] } }, repo), /executors\.assign\.0\.work: must be one line/);
+  assert.throws(() => validateConfig({ executors: { assign: { work: 'code', executor: 'codex' } } }, repo), /executors\.assign: must be a list/);
+});
+
 test('a disabled skill that was merged or renamed keeps the config valid, and an unknown one still fails', () => {
   const repo = resolve('.');
   assert.deepEqual(validateConfig({ skills: { disabled: ['gardener', 'architecture-scan', 'deslop'] } }, repo).disabledSkills, ['deslop']);
