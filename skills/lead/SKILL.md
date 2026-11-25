@@ -133,11 +133,10 @@ per stage in the series log's **Gate** when there is no tracker.
 fails twice on the same error, gets its stage started again on a fresh delegate by the tiers
 alone, the session's own provider first, skipping every executor that already failed on this
 stage. Record the new executor where the stop recorded the old one, swap the executor label on
-the stage's sub-issue, and add one line to the series log naming the failure. The stage stays
-there, and the next stage tries its recommended executor again. A stage the user's words tie to
-one executor never moves. Its failure, or the failure of every enabled executor the host can
-start on any other stage, runs `series.mjs wait decision "<each executor and its failure>"
---stage <id>` and asks the user.
+the stage's sub-issue when it has one, and add one line to the series log naming the failure.
+The stage stays there, and the next stage tries its recommended executor again. Once every
+enabled executor the host can start has failed on the stage, run `series.mjs wait decision
+"<each executor and its failure>" --stage <id>` and ask the user.
 
 Start each delegate per **Delegating** in `AGENTS.md`. Where the host starts other providers'
 delegates and lists their ids, such as T3 Code's `delegate_task` and `orchestrator_capabilities`,

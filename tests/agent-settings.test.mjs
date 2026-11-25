@@ -142,7 +142,7 @@ test('a recommendation reaches the executor table, and one to an executor that r
   const noBuild = validateConfig({ executors: { cursor: { enabled: true }, assign: [{ work: 'ui', executor: 'cursor' }] } }, repo);
   assert.match(executorsTable(noBuild.executors, noBuild.assignments), /cursor has no build or lead model, so its rows fall back to the tiers/);
   const leadOnly = validateConfig({ executors: { cursor: { enabled: true, lead: { model: 'cursor-x' } }, assign: [{ work: 'ui', executor: 'cursor' }] } }, repo);
-  assert.match(executorsTable(leadOnly.executors, leadOnly.assignments), /cursor has only a lead model, so its rows reach screen stages alone/);
+  assert.match(executorsTable(leadOnly.executors, leadOnly.assignments), /cursor is enabled with only a lead model, so it runs screen stages alone\.[^\n]*\n\n## Recommendations[\s\S]*\| ui \| cursor \|\n$/);
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code', executor: ['codex'] }] } }, repo), /executors\.assign\.0\.executor: must be one of/);
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code', executor: 'gemini' }] } }, repo), /executors\.assign\.0\.executor: must be one of: claude, codex, grok, cursor/);
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'a | b', executor: 'codex' }] } }, repo), /executors\.assign\.0\.work: must be one line/);
