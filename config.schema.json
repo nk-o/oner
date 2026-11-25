@@ -480,7 +480,7 @@
               "work": {
                 "description": "The kind of work, in plain words, such as \"code, API, infrastructure\".",
                 "type": "string",
-                "pattern": "^[^|\\n]+$"
+                "pattern": "^[^|\\r\\n]+$"
               },
               "executor": {
                 "description": "An enabled executor with a build model.",

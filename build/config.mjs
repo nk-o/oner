@@ -191,8 +191,9 @@ export function validateConfig(raw, repoDir) {
     const a = objectAt(item, path, at);
     onlyKeys(a, ['work', 'executor'], path, at);
     const work = typeof a.work === 'string' ? a.work.trim() : '';
-    if (!work || /[|\n]/.test(work)) throw at(`${path}.work`, 'must be one line naming the kind of work, without "|"');
-    if (!builders.includes(a.executor)) throw at(`${path}.executor`, `must be an enabled executor with a build model: ${builders.join(', ')}`);
+    if (!work || /[|\r\n]/.test(work)) throw at(`${path}.work`, 'must be one line naming the kind of work, without "|"');
+    if (assignIn.slice(0, i).some((b) => typeof b?.work === 'string' && b.work.trim() === work)) throw at(`${path}.work`, `repeats an earlier entry, "${work}"`);
+    if (!builders.includes(a.executor)) throw at(`${path}.executor`, `must be an enabled executor with a build model: ${builders.join(', ')}. Enable it, or remove or reassign this entry`);
     return { work, executor: a.executor };
   });
 

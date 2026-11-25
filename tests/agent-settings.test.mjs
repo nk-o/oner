@@ -140,6 +140,8 @@ test('a standing assignment reaches the executor table, and one to an executor t
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code', executor: 'grok' }] } }, repo), /executors\.assign\.0\.executor: must be an enabled executor with a build model: claude, codex/);
   assert.throws(() => validateConfig({ executors: { codex: { enabled: false }, assign: [{ work: 'code', executor: 'codex' }] } }, repo), /executors\.assign\.0\.executor: must be an enabled executor/);
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'a | b', executor: 'codex' }] } }, repo), /executors\.assign\.0\.work: must be one line/);
+  assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code\rui', executor: 'codex' }] } }, repo), /executors\.assign\.0\.work: must be one line/);
+  assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code', executor: 'claude' }, { work: ' code', executor: 'codex' }] } }, repo), /executors\.assign\.1\.work: repeats an earlier entry, "code"/);
   assert.throws(() => validateConfig({ executors: { assign: { work: 'code', executor: 'codex' } } }, repo), /executors\.assign: must be a list/);
 });
 
