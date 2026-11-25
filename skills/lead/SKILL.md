@@ -116,17 +116,24 @@ each, so a tier is a starting point, not a ranking.
 
 When the user's words assign kinds of work to executors or to this session ("visual work
 stays with you", "backend to another provider"), that assignment wins over the tiers for every
-stage and delegate it covers. The **Assignments** table in executors.md is the user's standing
-split: apply each row as if the user had said it here, unless their words in this session say
-otherwise. Work assigned to an executor by name, this session's provider included, runs on its
-`build` row, or on its `lead` row when the stage's main output is a screen and that row exists.
-Work the user's words keep with this session goes to a delegate on this session's provider at
-its `lead` row, else its `build` row, else the session's own model. An assignment to
-an executor that is not enabled, or that the host cannot start, is one line at the stop naming
+stage and delegate it covers. The **Recommendations** table in executors.md is the user's
+preferred split, set once in config: follow a row for the work it names, and set it aside for a
+stage it fits poorly, with one line at the stop saying why. The user's words in this session
+win over a row. Work that goes to an executor by name, this session's provider included, runs
+on its `build` row, or on its `lead` row when the stage's main output is a screen and that row
+exists. Work the user's words keep with this session goes to a delegate on this session's
+provider at its `lead` row, else its `build` row, else the session's own model. A choice of an
+executor that is not enabled, or that the host cannot start, is one line at the stop naming
 the executor used instead.
 
 The executor the stop approves for each stage is recorded in `tracker.json`, or as one line
 per stage in the series log's **Gate** when there is no tracker.
+
+**When an executor fails.** A delegate that cannot start, stops on a usage or rate limit, or
+fails twice on the same error, gets its stage started again on a fresh delegate by the tiers
+alone, the session's own provider first. Record the new executor where the stop recorded the
+old one, with one line in the series log naming the failure. The stage stays there, and the next
+stage tries its recommended executor again.
 
 Start each delegate per **Delegating** in `AGENTS.md`. Where the host starts other providers'
 delegates and lists their ids, such as T3 Code's `delegate_task` and `orchestrator_capabilities`,
@@ -169,7 +176,7 @@ Work step 5 of `series.md` as the coordinator, with these writes on top of its a
 A session sent here for a program that is already running, by the hook or by the user, skips
 steps 1 to 4, whose answers are in `program.json` and the series log's **Gate**. Read the
 series log's `## Now` and `tracker.json`, then work step 5. Each stage keeps the executor
-recorded at the stop. Only a stage added after the stop takes one per step 4.
+recorded for it. Only a stage added after the stop takes one per step 4.
 
 ## 6. Report
 

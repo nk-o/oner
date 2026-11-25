@@ -131,14 +131,17 @@ test('the executor table lists enabled executors only, and says when one has no 
   assert.match(executorsTable(none.executors), /No enabled executor has a model/);
 });
 
-test('a standing assignment reaches the executor table, and one to an executor that runs no stage fails', () => {
+test('a recommendation reaches the executor table, and one to an executor that runs no stage falls back', () => {
   const repo = resolve('.');
   const assign = [{ work: 'code, API, infrastructure', executor: 'codex' }, { work: ' screens and copy ', executor: 'claude' }];
   const config = validateConfig({ executors: { assign } }, repo);
-  assert.match(executorsTable(config.executors, config.assignments), /\| Work \| Executor \|\n\| --- \| --- \|\n\| code, API, infrastructure \| codex \|\n\| screens and copy \| claude \|/);
+  assert.match(executorsTable(config.executors, config.assignments), /## Recommendations[\s\S]*\| Work \| Executor \|\n\| --- \| --- \|\n\| code, API, infrastructure \| codex \|\n\| screens and copy \| claude \|\n$/);
   assert.doesNotMatch(executorsTable(validateConfig({}, repo).executors, []), /\| Work \|/);
-  assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code', executor: 'grok' }] } }, repo), /executors\.assign\.0\.executor: must be an enabled executor with a build model: claude, codex/);
-  assert.throws(() => validateConfig({ executors: { codex: { enabled: false }, assign: [{ work: 'code', executor: 'codex' }] } }, repo), /executors\.assign\.0\.executor: must be an enabled executor/);
+  const off = validateConfig({ executors: { codex: { enabled: false }, assign: [{ work: 'code', executor: 'codex' }, { work: 'ui', executor: 'cursor' }] } }, repo);
+  assert.match(executorsTable(off.executors, off.assignments), /codex is off, so its rows fall back to the tiers\.\n\ncursor is off, so its rows fall back/);
+  const noBuild = validateConfig({ executors: { cursor: { enabled: true }, assign: [{ work: 'ui', executor: 'cursor' }] } }, repo);
+  assert.match(executorsTable(noBuild.executors, noBuild.assignments), /cursor has no build model, so its rows fall back to the tiers/);
+  assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code', executor: 'gemini' }] } }, repo), /executors\.assign\.0\.executor: must be one of: claude, codex, grok, cursor/);
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'a | b', executor: 'codex' }] } }, repo), /executors\.assign\.0\.work: must be one line/);
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code\rui', executor: 'codex' }] } }, repo), /executors\.assign\.0\.work: must be one line/);
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code', executor: 'claude' }, { work: ' code', executor: 'codex' }] } }, repo), /executors\.assign\.1\.work: repeats an earlier entry, "code"/);

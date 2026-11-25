@@ -415,8 +415,10 @@ export function executorsTable(executors, assignments = []) {
   else lines.push('No enabled executor has a model, so every stage runs on the session\'s own provider and model.', '');
   for (const name of idle) lines.push(`${name} is enabled with no build model, so it runs no stage. Set \`executors.${name}.build.model\` in config.json to use it.`, '');
   if (assignments.length) {
-    lines.push('## Assignments', '', 'The user\'s standing split of work, from `executors.assign` in config.json.', '',
+    lines.push('## Recommendations', '', 'The user\'s preferred split of work, from `executors.assign` in config.json. They guide step 4 of the lead skill, which decides.', '',
       '| Work | Executor |', '| --- | --- |', ...assignments.map((a) => `| ${a.work} | ${a.executor} |`), '');
+    const unusable = [...new Set(assignments.map((a) => a.executor))].filter((name) => !executors[name].enabled || !executors[name].tiers.build);
+    for (const name of unusable) lines.push(`${name} ${executors[name].enabled ? 'has no build model' : 'is off'}, so its rows fall back to the tiers.`, '');
   }
   return lines.join('\n');
 }
