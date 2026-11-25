@@ -27,11 +27,17 @@ the task and reuse it across prototypes, code, and Figma.
    intent. Do not invent an audience or a brand from CSS.
 4. When the task reworks an existing element, such as a customer card or a popover, search the
    code for its markup and its name before the first edit, and find its duplicates on other
-   screens. A duplicate is the same element in the same role. A place that shows the same data
-   in another role, such as a row in a list, is not one. The duplicates move onto one shared
-   component as part of the request, not as a follow-up. A difference a duplicate needs, such
-   as a field or an action only it has, stays as a variant of that component. A duplicate left
-   apart names its reason in the report.
+   screens. A duplicate is an element of the same visual pattern, whatever data it shows: a
+   list row, a panel header, a stat card, a badge, a destructive action, an empty state, a
+   loading state. A list of sites in a side panel and a list of customers on a page are both
+   list rows, so a correction to row spacing, dividers, hover, or alignment reaches both. A
+   place that shows the same data in another pattern, such as a card and a table row of one
+   record, is not one. The duplicates move onto one shared component as part of the request,
+   not as a follow-up. A difference a duplicate needs, such as a field or an action only it
+   has, stays as a variant of that component. A duplicate left apart names its reason in the
+   report. A new behavior requested for one place, such as a navigation pattern for one panel,
+   stays in that place. This step covers how a pattern looks, not what the user asked one place
+   to do.
 
 The current request wins over saved guidance. `DESIGN.md` governs durable visual decisions;
 the existing implementation supplies evidence and available components. If they disagree,
@@ -81,6 +87,14 @@ product's palette and components. Apple is one possible reference, never the def
 For other kinds of work, consider a relevant screen from GOV.UK, Stripe, Linear, a publication,
 or a specialist product, and inspect it before citing it. These are candidates to study, not
 presets to apply. Prefer the user's own accepted screens whenever they answer the task.
+
+A reference the user sends as screenshots, such as "make the lists like this product", is
+broken down before any edit. For each component kind it shows (a list row, a detail header, a
+stat card, a badge, a nested detail view), write its anatomy in the run's notes: the slots in
+order, which slot leads, which is muted, what is aligned to what, and what the reference leaves
+out. Apply that anatomy to every element of the same pattern in the target, per step 4 of
+**Read before designing**, in the product's own tokens. A screen the anatomy does not fit is a
+proposal, not a silent exception.
 
 If rendered access is unavailable, state which properties remain unverified and use available
 source evidence. Do not fabricate measured values or the reference author's rationale.

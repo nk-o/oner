@@ -36,7 +36,9 @@ prototypes. Skipping prototypes skips the comparison, not the design.
    it with that recommendation.
 2. Write the element list: every text, control, status, and icon with its job, starting from
    the fewest that complete the task, per **Every element has a job**. A rare action goes
-   behind one menu, not into every row.
+   behind one menu, not into every row. For a product screen, read
+   [product basics](references/product-basics.md) now: a list row, a detail header, and a
+   loading state each have a floor there that the list must meet.
 3. Pick the fixtures per steps 1 and 2 of `break-ui`: the typical case, the most items a real
    account reaches, the longest values, and empty. Read the element list against each. A
    structure that holds only for three short rows changes now, before any code.
@@ -170,8 +172,9 @@ into the product after they pick it. An open-ended
 ## Look at what you built
 
 Build fully, render it with every fixture from **Before the first edit**, then run
-`design-review` on the rendered result, its **Look first** included, before reporting visible
-UI done.
+`design-review` on the rendered result, its **Look first** and its component crops included,
+before reporting visible UI done. A product screen that breaks a rule in
+[product basics](references/product-basics.md) is not done.
 Include an ordinary laptop height when viewport sizing, sticky chrome, or a large hero is
 involved, and reuse `break-ui` evidence for the same surface. A prototype has the same
 interaction floor as a working screen.

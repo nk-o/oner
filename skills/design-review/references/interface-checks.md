@@ -16,11 +16,23 @@ review; they do not prescribe a framework or aesthetic.
   of text or control, less each line's half-leading and any margin a child adds. Top and
   bottom that differ by more than 4px are a finding; fix the margin or line-height that adds
   it.
+- Run [geometry.js](../scripts/geometry.js) in the rendered page: evaluate the file's text as
+  one expression through the driver (`page.evaluate(source)` in Playwright, the host's
+  preview evaluate, or the `verify-<app>` CLI, which gets an `eval` command when it lacks one).
+  Set `globalThis.geometryRoot` to a selector first to scope it. It returns findings for an
+  avatar or icon off its first text line, uneven vertical padding, two dividers with nothing
+  between them, a row whose text leaves its list's edge, a heading off its rows' edge, and a
+  rounded fill whose radius is not the outer radius minus its inset. Hover a row before
+  running it to measure the hover fill. Each finding is a candidate: open its crop and keep it
+  when the crop shows it.
 
 ## Forms and actions
 
-- A visible label names the field. Clicking it focuses the input. Placeholder text is an
-  example, not its only name. Types, autocomplete, and input mode fit the requested data.
+- Every field has an accessible name. A visible label is one choice: where the design shows
+  none, such as a sign-in email or a search box, the placeholder names the field and
+  `aria-label` carries the same name. Do not add a label the design left out. Where a label is
+  shown, clicking it focuses the input. Types, autocomplete, and input mode fit the requested
+  data.
 - Forms support Enter where submission is appropriate. Pasting and password managers work.
 - Validation preserves entered data and identifies the affected field with a useful recovery
   action. Async feedback distinguishes loading, failure, and completion.

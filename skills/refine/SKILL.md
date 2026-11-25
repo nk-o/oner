@@ -56,7 +56,9 @@ neighbors use one". A cause is something you can point at, not an impression. Cl
   system, so propose it.
 - **Concept mismatch.** The structure or flow itself is wrong for the task. Stop and propose
   `frontend-design` for a redesign or `prototype` to compare directions. Do not make a redesign
-  look like a refinement.
+  look like a refinement. A request that reshapes what several screens show, such as "every
+  panel is overloaded, rework them like this reference", is this kind from the start: run
+  `prototype` on the most used screen, then carry the picked direction to the rest.
 
 Done when every edit you plan traces to a named cause.
 
@@ -68,8 +70,14 @@ all of them:
 - Use the product's tokens, components, and type scale. A new color, font, radius, shadow, or
   token is a decision. Bring it with the exact value and the job it would do, per **Habits to
   question** in `frontend-design`.
-- Removing or hiding an action, a field, an option, or information people rely on is a product
+- When the user calls the target overloaded, cluttered, or too busy, removing what fails
+  **Every element has a job** in `frontend-design` is the fix, not a proposal: text that
+  restates a control, a heading, or a value, a second date, a secondary column, or a field
+  the record's detail view or a tooltip already shows. Move it there when nothing shows it
+  yet. Removing an action, or information the product would then show nowhere, is a product
   decision. List it as a proposal with what users would lose, and apply it only when approved.
+  A disclosure is for reference material the task needs sometimes. Folding the excess into one
+  leaves the overload on the screen.
 - Factual copy, claims, and data stay. Wording changes belong to clarify, and claims change
   only when the user supplies new ones.
 

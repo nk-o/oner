@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: design-pattern-duplicates
+description: >-
+  design-context SKILL.md step 4 "A duplicate is an element of the same visual pattern, whatever
+  data it shows ... a correction to row spacing, dividers, hover, or alignment reaches both". The
+  user reports a doubled divider under the customer list. The site list in the customer panel is
+  the same row pattern with other data and the same doubled divider, so both lose it. Mining
+  pattern C1 (a correction applied to one list while the same row pattern stays broken
+  elsewhere), corrected by users more than once.
+context:
+  scaffold_script: fixture.sh
+---
