@@ -92,6 +92,7 @@ export function status(repo) {
     oneshotRelease: config.oneshotRelease,
     parallel: config.parallel,
     executors,
+    assignments: config.assignments,
     skills,
   };
 }

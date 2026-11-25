@@ -73,8 +73,9 @@ stages to. Each takes `enabled` and a model per tier, `lead`, `build`, and `ligh
 and Cursor has no default models. Turn on only the providers the user pays for. The build
 writes the enabled ones into `{{skills_dir}}/lead/executors.md`. `light` stays read-only
 whatever model it names. `executors.assign` holds the user's standing split of work, a list of
-`{ "work": "...", "executor": "..." }`, which `lead` applies in every session. Without it every
-stage stays on the session's own provider.
+`{ "work": "...", "executor": "..." }`, which `lead` applies in every session. Without it `lead`
+picks by tier, which keeps a stage on the session's own provider whenever that provider has a
+`build` model.
 
 ## Review bots
 

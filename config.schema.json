@@ -469,7 +469,7 @@
           }
         },
         "assign": {
-          "description": "The standing split of work between executors. lead applies each entry as if the user had said it in the session, and the user's words in the session still win. Empty by default, so every stage stays on the session's own provider.",
+          "description": "The standing split of work between executors. lead applies each entry as if the user had said it in the session, and the user's words in the session still win. Empty by default, so lead picks each stage's executor by tier.",
           "type": "array",
           "default": [],
           "items": {
