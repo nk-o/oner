@@ -1,17 +1,17 @@
 # Product basics
 
 The floor for any product screen: a dashboard, an account, a settings page, a list, a detail
-panel. The project's `DESIGN.md` and tokens set the values and the choices, such as which fields
-a row shows or how a date reads. These principles hold whatever those are, and a screen that
-breaks one reads as unfinished. They are not a style.
+panel. The project's `DESIGN.md` and tokens set the values, and its specs set what each screen
+shows. These principles hold whatever those are, and a screen that breaks one reads as
+unfinished. They are not a style.
 
 ## Alignment
 
 - One column has one left edge. A section heading, its rows' content, and the dividers between
   them start on the same line. A hover fill may extend past that edge, by the same amount on
   both sides, while the text stays on it.
-- An item only some rows have reserves its slot in every row, so all rows' text starts on one
-  edge.
+- An item at the start of only some rows reserves its slot in every row, so all rows' text
+  starts on one edge.
 - A visual beside text, such as an avatar, a logo, or an icon, centers on the first line of
   that text, not on the whole block, unless it is as tall as the block.
 - Text of different sizes on one line shares a baseline.
@@ -30,18 +30,22 @@ breaks one reads as unfinished. They are not a style.
 ## Type
 
 - Weight follows hierarchy. A control or a label is not heavier than the heading it sits under.
-- Text in one role keeps one size and one weight across the screen.
+- Text in one role keeps one size and one weight across the screen, apart from the weight step
+  light text on a dark surface takes.
 - Tabular figures, heading spacing, and wrapping follow **Text, images, and layout** in
   `design-review`'s interface checks.
 
 ## Density
 
 - A summary, such as a row, a card, or a header, shows what the user scans it for. Everything
-  else lives in the record's detail. The project's `DESIGN.md` names what each summary keeps.
-- Each value appears once on a screen, per **Every element has a job** in `frontend-design`.
-- Color marks state, in small doses. Neutrals carry the rest.
+  else lives in the record's detail.
+- A second copy of a value in one view, or text that restates the control, heading, or value
+  beside it, needs its own reader, such as the table behind a chart that touch and screen
+  readers use, per **Every element has a job** in `frontend-design`.
 - Data the user reads is never in a tooltip alone, since touch has no hover. A tooltip may
   sharpen a value the screen already shows.
+- A table keeps its header cells for screen readers, visually hidden where the design shows
+  none.
 - A field may go without a visible label, per **Forms and actions** in `design-review`'s
   interface checks.
 

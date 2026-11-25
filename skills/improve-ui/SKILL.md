@@ -142,7 +142,7 @@ Write each finding as a row in `run.md`:
 | --- | --- |
 | spacing, alignment, overlap, overflow, clipping, text with no way to read the rest | a new token, color, font, radius, or shadow |
 | grouping, order within a row, and gaps of controls the page already has, in CSS with the markup unchanged | which controls a page has |
-| on a surface the user called overloaded, text, a repeated value, a column, or a field that fails "Every element has a job" and stays reachable in the record's detail view, per step 3 of `refine` | removing an action, or information the product would then show nowhere |
+| on a surface the user called overloaded, text, a column, or a field that fails "Every element has a job" and whose value the screen or the record's detail view still shows, per step 3 of `refine` | removing an action, or information the product would then show nowhere |
 | contrast below the requirement, with a value the system already has | removing, hiding, or moving an action, a field, or information people use, outside the overload case above |
 | a missing loading, empty, error, or disabled state, an error with no retry | a change to navigation, the sections a page has, or the order of a flow |
 | accessible names, visible focus, keyboard reach, target size | copy that states a fact, a claim, a limit, or a price |
