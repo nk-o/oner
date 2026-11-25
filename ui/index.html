@@ -470,7 +470,7 @@ function draftFrom(s) {
 
 const tilde = (p) => (p === state.home ? "~" : p.startsWith(state.home + "/") ? "~" + p.slice(state.home.length) : p);
 const present = (t) => t.enabled || t.cliFound || t.dirExists || t.installedFrom;
-const dirty = () => JSON.stringify(draft) !== JSON.stringify(draftFrom(state));
+const dirty = () => Object.keys(changes()).length > 0;
 
 // Only what the user changed is sent, so every setting they never touched keeps
 // following its default, such as an agent installed later.
@@ -495,7 +495,7 @@ function changes() {
   for (const key of ["browser", "attribution", "telemetry", "guard", "autoCompact", "localRepository"]) {
     if (draft[key] !== base[key]) out[key] = draft[key];
   }
-  const assign = draft.assignments.map((a) => ({ work: a.work.trim(), executor: a.executor })).filter((a) => a.work);
+  const assign = draft.assignments.map((a) => ({ work: a.work.trim(), executor: a.executor }));
   if (JSON.stringify(assign) !== JSON.stringify(base.assignments)) out.assign = assign;
   if (JSON.stringify(draft.disabledSkills) !== JSON.stringify(base.disabledSkills)) out.disabledSkills = draft.disabledSkills;
   return out;
@@ -562,7 +562,12 @@ function renderSplit() {
         el("select", { "aria-label": `Agent for kind of work ${i + 1}`, onchange: (e) => { a.executor = e.target.value; refreshBar(); } },
           state.executors.map((x) => el("option", { value: x.name, selected: x.name === a.executor }, x.enabled ? x.label : `${x.label} (off)`))),
         el("button", { type: "button", class: "plain danger", "aria-label": `Remove kind of work ${i + 1}`,
-          onclick: () => { draft.assignments.splice(i, 1); renderSplit(); refreshBar(); } }, "Remove"))));
+          onclick: () => {
+            draft.assignments.splice(i, 1);
+            renderSplit();
+            refreshBar();
+            ($("split").querySelectorAll('input[type="text"]')[i] ?? $("split").querySelector("button.btn")).focus();
+          } }, "Remove"))));
   const add = el("div", { class: "row" },
     el("span"),
     el("div", { class: "sub" }, rows.length ? "" : "No preference set. lead picks by tier, starting with the agent that runs the session."),

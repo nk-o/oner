@@ -146,6 +146,7 @@ test('a recommendation reaches the executor table, and one to an executor that r
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code\rui', executor: 'codex' }] } }, repo), /executors\.assign\.0\.work: must be one line/);
   assert.throws(() => validateConfig({ executors: { assign: [{ work: 'code', executor: 'claude' }, { work: ' code', executor: 'codex' }] } }, repo), /executors\.assign\.1\.work: repeats an earlier entry, "code"/);
   assert.throws(() => validateConfig({ executors: { assign: { work: 'code', executor: 'codex' } } }, repo), /executors\.assign: must be a list/);
+  assert.throws(() => validateConfig({ executors: { assign: [{ work: '  ', executor: 'codex' }] } }, repo), /executors\.assign\.0\.work: is empty/);
 });
 
 test('a disabled skill that was merged or renamed keeps the config valid, and an unknown one still fails', () => {
