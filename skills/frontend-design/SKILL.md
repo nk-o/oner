@@ -37,8 +37,7 @@ prototypes. Skipping prototypes skips the comparison, not the design.
 2. Write the element list: every text, control, status, and icon with its job, starting from
    the fewest that complete the task, per **Every element has a job**. A rare action goes
    behind one menu, not into every row. For a product screen, read
-   [product basics](references/product-basics.md) now: a list row, a detail header, and a
-   loading state each have a floor there that the list must meet.
+   [product basics](references/product-basics.md) now, and hold the list to it.
 3. Pick the fixtures per steps 1 and 2 of `break-ui`: the typical case, the most items a real
    account reaches, the longest values, and empty. Read the element list against each. A
    structure that holds only for three short rows changes now, before any code.
