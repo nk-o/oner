@@ -417,8 +417,12 @@ export function executorsTable(executors, assignments = []) {
   if (assignments.length) {
     lines.push('## Recommendations', '', 'The user\'s preferred split of work, from `executors.assign` in config.json. They guide step 4 of the lead skill, which decides.', '',
       '| Work | Executor |', '| --- | --- |', ...assignments.map((a) => `| ${a.work} | ${a.executor} |`), '');
-    const unusable = [...new Set(assignments.map((a) => a.executor))].filter((name) => !executors[name].enabled || !executors[name].tiers.build);
-    for (const name of unusable) lines.push(`${name} ${executors[name].enabled ? 'has no build model' : 'is off'}, so its rows fall back to the tiers.`, '');
+    for (const name of new Set(assignments.map((a) => a.executor))) {
+      const { enabled, tiers } = executors[name];
+      if (!enabled) lines.push(`${name} is off, so its rows fall back to the tiers.`, '');
+      else if (!tiers.build && tiers.lead) lines.push(`${name} has only a lead model, so its rows reach screen stages alone and the rest fall back to the tiers.`, '');
+      else if (!tiers.build) lines.push(`${name} has no build or lead model, so its rows fall back to the tiers.`, '');
+    }
   }
   return lines.join('\n');
 }

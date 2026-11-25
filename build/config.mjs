@@ -193,7 +193,7 @@ export function validateConfig(raw, repoDir) {
     if (!work) throw at(`${path}.work`, 'is empty, name the kind of work');
     if (/[|\r\n]/.test(work)) throw at(`${path}.work`, 'must be one line naming the kind of work, without "|"');
     if (assignIn.slice(0, i).some((b) => typeof b?.work === 'string' && b.work.trim() === work)) throw at(`${path}.work`, `repeats an earlier entry, "${work}"`);
-    if (!Object.hasOwn(EXECUTORS, a.executor)) throw at(`${path}.executor`, `must be one of: ${Object.keys(EXECUTORS).join(', ')}`);
+    if (typeof a.executor !== 'string' || !Object.hasOwn(EXECUTORS, a.executor)) throw at(`${path}.executor`, `must be one of: ${Object.keys(EXECUTORS).join(', ')}`);
     return { work, executor: a.executor };
   });
 
