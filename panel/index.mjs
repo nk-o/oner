@@ -8,12 +8,12 @@ import { codexSource, queryCodex } from './sources/codex.mjs';
 import { githubSource, localDate } from './sources/github.mjs';
 import { serversSource } from './sources/servers.mjs';
 import { createSizes, worktreesSource } from './sources/worktrees.mjs';
-import { claudeStatsSource, codexStatsSource, historyStart, prStatsSource, windowStart } from './stats.mjs';
+import { claudeStatsSource, codexStatsSource, grokStatsSource, historyStart, prStatsSource, windowStart } from './stats.mjs';
 import { assemble } from './today.mjs';
 
 const WORK = ['claude', 'codex', 'github', 'asks'];
 const MACHINE = ['worktrees', 'servers'];
-const STATS = ['stats-claude', 'stats-codex', 'stats-prs'];
+const STATS = ['stats-claude', 'stats-codex', 'stats-grok', 'stats-prs'];
 const REPOS_TTL = 10 * 60 * 1000;
 
 // The repositories worth scanning are the ones agents worked in lately.
@@ -39,7 +39,7 @@ function createRepos({ records, codexDir, self, clock }) {
 
 const brief = ({ items, data, ...view }) => view;
 
-export function createPanel({ repo, claudeDir, codexDir, rebuild, clock = Date.now, store = desktopStore(), sizes = createSizes() }) {
+export function createPanel({ repo, claudeDir, codexDir, grokDir, rebuild, clock = Date.now, store = desktopStore(), sizes = createSizes() }) {
   const records = createRecords(store);
   const repos = createRepos({ records, codexDir, self: repo, clock });
   const prStats = prStatsSource({ cacheFile: join(repo, '.panel-stats-prs.json') });
@@ -53,6 +53,7 @@ export function createPanel({ repo, claudeDir, codexDir, rebuild, clock = Date.n
       serversSource({ repos }),
       claudeStatsSource({ claudeDir, cacheFile: join(repo, '.panel-stats.json') }),
       codexStatsSource({ codexDir }),
+      grokStatsSource({ grokDir }),
       prStats,
     ],
     { clock },

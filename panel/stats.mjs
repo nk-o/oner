@@ -1,5 +1,5 @@
 import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { repoLabel } from './repos.mjs';
@@ -9,7 +9,7 @@ import { localDate, searchTime } from './sources/github.mjs';
 
 const WINDOW_DAYS = 30;
 const HISTORY_DAYS = 400;
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 
 export const windowStart = (now) => {
   const day = new Date(now);
@@ -115,7 +115,7 @@ function saveCache(file, cache) {
 export function aggregate(summaries, since) {
   const first = localDate(since);
   const daily = {};
-  const at = (day) => (daily[day] ??= { sessions: 0, models: {}, repos: {} });
+  const at = (day) => (daily[day] ??= { sessions: 0, tokens: 0, models: {}, repos: {} });
   for (const s of summaries) {
     if (s.entry === 'sdk-cli') continue;
     if (!s.sub && s.turns && s.day >= first) at(s.day).sessions++;
@@ -125,8 +125,10 @@ export function aggregate(summaries, since) {
       for (const [model, row] of Object.entries(models)) {
         const m = (entry.models[model] ??= { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
         for (const key of Object.keys(m)) m[key] += row[key];
+        const processed = row.input + row.output + row.cacheRead + row.cacheWrite;
+        entry.tokens += processed;
         const repo = s.repo ?? 'other';
-        entry.repos[repo] = (entry.repos[repo] ?? 0) + row.output;
+        entry.repos[repo] = (entry.repos[repo] ?? 0) + processed;
       }
     }
   }
@@ -185,10 +187,12 @@ export function codexStatsSource({ codexDir }) {
     timeout: 30_000,
     async read({ signal, now }) {
       const since = Math.floor(historyStart(now) / 1000);
+      // tokens_used is the thread's total_tokens: input with cached input, plus output.
       const rows = await queryCodex(
         codexDir,
-        `select date(created_at, 'unixepoch', 'localtime') as day, cwd, model, count(*) as threads, sum(tokens_used) as tokens
-         from threads where source in ('vscode', 'cli') and created_at >= ${since} group by day, cwd, model`,
+        `select date(created_at, 'unixepoch', 'localtime') as day, cwd, model,
+         sum(source in ('vscode', 'cli')) as threads, sum(tokens_used) as tokens
+         from threads where (source in ('vscode', 'cli') or source like '{"subagent"%') and created_at >= ${since} group by day, cwd, model`,
         signal,
       );
       const daily = {};
@@ -200,6 +204,63 @@ export function codexStatsSource({ codexDir }) {
         entry.models[model] = (entry.models[model] ?? 0) + row.tokens;
         const repo = repoLabel(row.cwd) || 'other';
         entry.repos[repo] = (entry.repos[repo] ?? 0) + row.tokens;
+      }
+      return { data: { daily } };
+    },
+  };
+}
+
+async function readJson(file) {
+  try {
+    return JSON.parse(await readFile(file, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+// Grok keeps each session as sessions/<cwd>/<id>/ with summary.json and usage.json.
+// A headless session is another program's helper, as sdk-cli is for Claude, so it counts
+// nothing. A subagent adds tokens, not a session. totalTokens is input with cached input,
+// plus output, and each turn's tokens go on the day it ended.
+export function grokStatsSource({ grokDir }) {
+  return {
+    id: 'stats-grok',
+    label: 'Grok',
+    interval: 10 * 60 * 1000,
+    timeout: 60_000,
+    async read({ signal, now }) {
+      const root = join(grokDir, 'sessions');
+      const folders = await readdir(root, { withFileTypes: true }).catch(() => null);
+      if (!folders) throw new SourceOff('Grok is not on this machine');
+      const since = historyStart(now);
+      const daily = {};
+      const at = (day) => (daily[day] ??= { sessions: 0, tokens: 0, models: {}, repos: {} });
+      for (const folder of folders) {
+        if (!folder.isDirectory()) continue;
+        for (const session of await readdir(join(root, folder.name), { withFileTypes: true }).catch(() => [])) {
+          if (signal?.aborted) throw signal.reason;
+          if (!session.isDirectory()) continue;
+          const dir = join(root, folder.name, session.name);
+          const summary = await readJson(join(dir, 'summary.json'));
+          if (!summary || summary.session_kind === 'headless') continue;
+          const usage = await readJson(join(dir, 'usage.json'));
+          const turns = Array.isArray(usage?.turns) ? usage.turns : [];
+          if (!turns.length) continue;
+          const repo = repoLabel(summary.info?.cwd) || 'other';
+          const started = Date.parse(summary.created_at);
+          if (summary.session_kind !== 'subagent' && started >= since) at(localDate(started)).sessions++;
+          for (const turn of turns) {
+            const ended = Date.parse(turn.endedAt);
+            if (!(ended >= since)) continue;
+            const entry = at(localDate(ended));
+            for (const [model, row] of Object.entries(turn.modelUsage ?? {})) {
+              const tokens = row.totalTokens ?? (row.inputTokens ?? 0) + (row.outputTokens ?? 0);
+              entry.tokens += tokens;
+              entry.models[model] = (entry.models[model] ?? 0) + tokens;
+              entry.repos[repo] = (entry.repos[repo] ?? 0) + tokens;
+            }
+          }
+        }
       }
       return { data: { daily } };
     },

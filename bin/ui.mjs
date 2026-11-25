@@ -267,6 +267,7 @@ if (openBrowser) {
     repo,
     claudeDir: config?.targets.claude.dir ?? join(homedir(), '.claude'),
     codexDir: config?.targets.codex.dir ?? join(homedir(), '.codex'),
+    grokDir: config?.targets.grok.dir ?? join(homedir(), '.grok'),
     rebuild,
   }));
 }
