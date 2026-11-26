@@ -4,10 +4,11 @@ description: >-
   Carries one task from idea to an open pull request in one run, stopping at most once, early,
   for decisions the user could answer differently, and on into production when the release
   setting says so. Work whose parts must reach production in order becomes a series of pull
-  requests. Use when the user hands over a defect, a small change, a polish of a working screen in
-  a direction they name, a new behavior, or work that needs several pull requests, by name or in plain words, a question about something that
-  fails included. A question about how something works, a one-line edit, a review of shipped
-  code, or work already under way in the chat goes the ordinary way.
+  requests. Use when the user hands over a defect, a small change, a change to how a working
+  screen looks, feels, or moves in a direction they name, a new behavior, or work that needs
+  several pull requests, by name or in plain words, a question about something that fails
+  included. A question about how something works, a one-line edit, a review of shipped code, or
+  work already under way in the chat goes the ordinary way.
 argument-hint: "[feature idea, ticket, bug report, or question]"
 ---
 
@@ -361,8 +362,8 @@ is not a second copy of it. Its length follows the result, per **Talking to me**
 
 - **The outcome and the link.** One sentence on what now works or what is fixed, the PR link,
   and the run log's path. When nothing below applies, this line is the whole report.
-- **The captures.** When the change reaches a screen, the After captures from `media/`, taken on
-  the head that ships, beside their Before, embedded as images where the host renders them, so the result is seen without
+- **The captures.** When the change reaches a screen, the After captures from `media/` beside
+  their Before, embedded as images where the host renders them, so the result is seen without
   opening the pull request.
 - **The proof.** The one check the outcome rests on, as the output it printed, only when a line
   below is there too.

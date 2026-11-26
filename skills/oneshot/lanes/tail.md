@@ -149,8 +149,10 @@ the run log for a review.
   pauses. Its own
   `prod-review` of the fixes runs only for a fix past a few lines when round two below will
   skip. Re-run
-  `green-repo` after the fixes, then commit them. When a **QA pass** `Not approve` was among the
-  findings, run the QA pass once more on the committed head. That is its last run.
+  `green-repo` after the fixes, then commit them. A fix that changes what an After capture
+  shows takes that capture again on the new head, so the pull request and the report show what
+  ships. When a **QA pass** `Not approve` was among the findings, run the QA pass once more on
+  the committed head. That is its last run.
 
   Put `git diff <Base>...HEAD --shortstat` into the run log's **Review** before the fixes and
   again after their commit, write `Round 2 base. <the sha HEAD was at before the fixes>` beside
