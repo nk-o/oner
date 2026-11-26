@@ -84,7 +84,7 @@ what it stopped.
 
 Before you start a dev server, a full build, a full test run, or a browser test, run
 `{{repo_dir}}/bin/devservers.mjs gate`. Exit 0 means go. Exit 75 means memory pressure stayed
-elevated after it stopped the idle servers. Then stop the servers this task started, do the work
+critical after it stopped the idle servers. Then stop the servers this task started, do the work
 that needs neither, and run the gate again before the heavy step. The report says which check
 waited and for how long.
 

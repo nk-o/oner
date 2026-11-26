@@ -13,8 +13,8 @@ const USAGE = `Usage: devservers.mjs <command> [--idle <duration>] [--root <dir>
 Commands:
   status            every dev server in a linked worktree: checkout, port, memory, clients, idle time
   reap [--dry-run]  stop the servers idle past the limit for the current memory pressure
-  gate [--wait <s>] exit 0 while memory pressure is normal. Otherwise stop idle servers, wait up
-                    to <s> seconds (default 120) for pressure to drop, and exit 75 if it has not
+  gate [--wait <s>] stop idle servers under pressure and exit 0 unless pressure is critical.
+                    Then wait up to <s> seconds (default 120) for it to drop, and exit 75 if it has not
   hook              for agent hooks: start a background reap, at most once a minute
 
 Idle limits: 30m at normal memory pressure, 5m at warning, 1m at critical. A server is active
@@ -359,21 +359,17 @@ function status({ roots }) {
 }
 
 function gate(opts) {
-  let level = pressure();
-  if (level === 'normal') {
-    console.log('ok memory pressure normal');
-    return 0;
-  }
   const deadline = Date.now() + opts.wait * 1000;
+  let level = pressure();
   for (;;) {
-    locked(() => reap({ ...opts, quiet: true }, level));
-    level = pressure();
-    if (level === 'normal') {
-      console.log('ok memory pressure back to normal');
+    if (level !== 'normal') locked(() => reap({ ...opts, quiet: true }, level));
+    if (level !== 'critical') {
+      console.log(`ok memory pressure ${level}`);
       return 0;
     }
     if (Date.now() >= deadline) break;
     sleep(Math.min(5000, deadline - Date.now()));
+    level = pressure();
   }
   console.log(`memory pressure is ${level}. Defer the dev server, build, full test run, or browser test, and stop the servers this task started.`);
   for (const s of discover(opts.roots).servers) console.log(`  running ${describe(s)} ${s.clients} client(s)`);
