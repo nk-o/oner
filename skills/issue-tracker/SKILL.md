@@ -31,6 +31,13 @@ makes.
   the user asks.
 - **Dropped.** Work dropped before it ships puts the issue back to the status it had.
 
+## Priority
+
+Create an issue with no priority. Set or change one only when the user names it for that issue
+or for the plan it belongs to. Urgent is for something broken for users right now. In Linear it
+sends the assignee an urgent notification and can start an SLA, whose breach notices fill the
+inbox. A date the user gives goes in the due date. Set an SLA only when the user asks for one.
+
 ## The pull request
 
 A pull request that finishes the issue ends its body with the keyword the tracker closes on
