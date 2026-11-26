@@ -260,7 +260,7 @@ usually one small script that imports what the app ships and calls the function 
 
 - I give a task in plain words, without naming a skill. Pick its route from this table by the
   request alone, before reading any code. The first row that matches wins. A route that starts a
-  flow (`oneshot`, `lead`, `brainstorm`, `prototype`, `refine`) is named in the reply's first
+  flow (`oneshot`, `lead`, `brainstorm`, `prototype`) is named in the reply's first
   line and started in the same turn: the route's skill is the first tool call. That line is how I
   stop a flow I did not mean.
 
@@ -268,12 +268,12 @@ usually one small script that imports what the app ships and calls the function 
   | --- | --- |
   | A question about how something works or why it is built this way, an analysis, "brainstorm X" | an answer, or `brainstorm` for "brainstorm X". Nothing is written. A question about something that fails, such as "why does X break?", and a report or ticket of a failure to look into, go on down the table to the first row their subject fits: the look-and-feel row, else the defect row. |
   | Work that needs several pull requests, or names a tracker project or initiative | `lead`, which plans it with me in the tracker or runs the plan I approved |
-  | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open or the request reshapes what several screens show, `refine` when it names a direction and keeps the structure. Both stop before a pull request, and `oneshot` ships only what I pick. |
+  | How something that exists looks, feels, or moves, even when it is called broken | `prototype` when the direction is open or the request reshapes what several screens show, which stops for my pick, and `oneshot` ships only what I pick. `oneshot`, refine lane, when it names a direction and keeps the structure. |
   | A defect, a question about one, a report or ticket of one to look into, or a small change | `oneshot`, whose lane table picks fix or feature. The run finds the cause and goes on to the fix. |
   | New or changed behavior | `oneshot`, feature lane. Its gate asks the decisions that are mine. |
 
-- When I say I am away, a route that runs `oneshot` runs as its **Away**. `prototype` and
-  `refine` still stop for my pick.
+- When I say I am away, a route that runs `oneshot` runs as its **Away**. `prototype` still
+  stops for my pick.
 
 - The route line names the skill, such as "`oneshot`, fix lane", and comes before any tool
   call, a search included. An answer and a one-line edit start no flow and get no route line.

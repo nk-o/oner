@@ -6,7 +6,8 @@ description: >-
   Keeps the product's design system, content, and behavior. Use when asked to polish, clean
   up, tighten, calm down, declutter, simplify, make more confident or louder, or fix the copy
   of existing UI. A new screen or identity goes to `frontend-design`, several directions to
-  compare go to `prototype`, and a report without edits goes to `design-review`.
+  compare go to `prototype`, and a report without edits goes to `design-review`. A request in plain words runs it inside
+  oneshot's refine lane.
 ---
 
 # Refine

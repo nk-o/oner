@@ -76,7 +76,7 @@ so you can stop it:
 | --- | --- |
 | A question about how something works, or "brainstorm X" | an answer, or `brainstorm`, with nothing written |
 | Work that takes several pull requests, or a tracker project | `lead`, which plans it with you or runs the plan you approved |
-| How something looks, feels, or moves | `prototype` or `refine`, and the build after you pick |
+| How something looks, feels, or moves | `prototype`, and the build after you pick, or `oneshot`'s refine lane when you name the direction |
 | A bug, a question or ticket about one, or a small change | `oneshot`, on to the fix |
 | A new or changed behavior | `oneshot`, which stops at its gate for your decisions |
 
@@ -89,8 +89,8 @@ after that runs without asking: the spec, the implementation, the project's chec
 in the running product, review by several models, fixes for what the review proves, the pull
 request, and a watch on it until checks and review bots are through. By default it does not
 merge unless you tell it to. Set `oneshot.release` to `production` in `config.json` and a run also merges the pull
-request once it is ready and checks production after the deploy: a fix, feature, refactor, or
-performance run whose gate had nothing to ask, got your answers, or follows a plan you approved.
+request once it is ready and checks production after the deploy: a fix, refine, feature,
+refactor, or performance run whose gate had nothing to ask, got your answers, or follows a plan you approved.
 A review of an existing pull request never merges.
 
 Work whose parts must reach production one after another becomes a series. With your authorization, each stage is
