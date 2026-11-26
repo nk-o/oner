@@ -219,7 +219,7 @@ and go on with the rest of the lane.
 
 | The task | Lane |
 | --- | --- |
-| A read-only question: how something works, why it is built this way, whether a claim holds. A question about something that fails is a defect, the next row | [`lanes/investigation.md`](lanes/investigation.md) |
+| A read-only question: how something works, why it is built this way, whether a claim holds. A question about something that fails takes one of the next two rows | [`lanes/investigation.md`](lanes/investigation.md) |
 | How an existing surface looks, feels, or moves, in a direction the task names and keeping its structure, even when it is called broken | [`lanes/refine.md`](lanes/refine.md) |
 | A defect that exists now and can be made to happen | [`lanes/fix.md`](lanes/fix.md) |
 | New or changed behavior | [`lanes/feature.md`](lanes/feature.md) |
