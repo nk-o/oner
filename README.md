@@ -76,7 +76,7 @@ so you can stop it:
 | --- | --- |
 | A question about how something works, or "brainstorm X" | an answer, or `brainstorm`, with nothing written |
 | Work that takes several pull requests, or a tracker project | `lead`, which plans it with you or runs the plan you approved |
-| How something looks, feels, or moves | `prototype` or `refine`, and the build after you pick |
+| How something looks, feels, or moves | `prototype`, and the build after you pick, or `oneshot`'s refine lane when you name the direction |
 | A bug, a question or ticket about one, or a small change | `oneshot`, on to the fix |
 | A new or changed behavior | `oneshot`, which stops at its gate for your decisions |
 

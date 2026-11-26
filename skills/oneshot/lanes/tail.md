@@ -23,7 +23,7 @@ the run log for a review.
   migration below that does not apply or takes a used version number. A row that did not hold and a defect a review shows are
   findings for Resolve, and every result goes into the run log's **Checks**. Verify what the gate promised, on the
   surface a user would touch, not on a proxy: the acceptance criteria for a feature, the
-  reproduction from step 1 for a fix, the measurement for a perf change, the failing input each `FIX` named for a
+  reproduction from step 1 for a fix, the causes from step 1 for a refine, the measurement for a perf change, the failing input each `FIX` named for a
   review. When the repository has a project skill named `verify-<app>` under
   `.claude/skills/`, drive the surface through its CLI with `--out` set to the run folder's
   `media/`, and add a command it lacks to the CLI rather than writing a one-off script. Without
@@ -89,7 +89,7 @@ the run log for a review.
 
   **QA pass.** When the change reaches a screen a user sees, or a flow through one, a reader who
   did not write the change runs the test plan: the cases the lane picked before the edit
-  (feature lane step 4, the fix lane's reproduction) and the acceptance criteria. Where the host
+  (feature lane step 4, the fix lane's reproduction, the refine lane's causes) and the acceptance criteria. Where the host
   has subagents, the reader is `oneshot-qa`, a fresh delegate on the `light` tier of this
   session's executor in `{{skills_dir}}/lead/executors.md`, else on the host's smallest model.
   Without subagents it is a separate pass that follows the `oneshot-qa` definition in
@@ -187,7 +187,7 @@ the run log for a review.
   the series takes the PR from here, per [`series.md`](series.md).
 - **Release.** This install's release setting is `{{oneshot_release}}`. The step runs in an
   `oneshot-auto` run whatever the conditions below say. In any other run the lane must be fix,
-  feature, refactor, or perf, so the pull request is this run's own, and one of these must hold,
+  refine, feature, refactor, or perf, so the pull request is this run's own, and one of these must hold,
   read from the run log: **Gate** quotes the user's standing consent to merge or release this
   run, per **Standing consent** in the skill, and nothing the user said after it, such as an
   answer that stops at the pull request, takes it back, whatever the `Outcome.` line reads; or

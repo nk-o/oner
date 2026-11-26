@@ -24,8 +24,8 @@ log as a checklist, and runs the skills already in this set. What it adds is the
 **One stop at most.** The run pauses at the gate and nowhere else. The gate can take several
 rounds of questions when many decisions are open, and it is still one stop. In the feature and
 plan lanes the gate is `brainstorm`'s phase 2, and in a series it also approves the stage map
-and the release, per [`lanes/series.md`](lanes/series.md). In the fix, perf, refactor, and
-review lanes it posts one screen holding what the lane's gate step lists. A decision the user's
+and the release, per [`lanes/series.md`](lanes/series.md). In the fix, refine, perf, refactor,
+and review lanes it posts one screen holding what the lane's gate step lists. A decision the user's
 words, the project's rules or principles, or the codebase already settle is not open, per
 **Decisions** in `AGENTS.md`: log it under **Assumptions** with its source. A tracker issue in
 scope settles only its goal, its acceptance criteria, and its `Fixed` lines. Check the rest
@@ -220,6 +220,7 @@ and go on with the rest of the lane.
 | The task | Lane |
 | --- | --- |
 | A read-only question: how something works, why it is built this way, whether a claim holds. A question about something that fails is a defect, the next row | [`lanes/investigation.md`](lanes/investigation.md) |
+| How an existing surface looks, feels, or moves, in a direction the task names and keeping its structure, even when it is called broken | [`lanes/refine.md`](lanes/refine.md) |
 | A defect that exists now and can be made to happen | [`lanes/fix.md`](lanes/fix.md) |
 | New or changed behavior | [`lanes/feature.md`](lanes/feature.md) |
 | A behavior-preserving change of shape | [`lanes/refactor.md`](lanes/refactor.md) |
@@ -280,7 +281,7 @@ The file holds the run:
 ```markdown
 # <slug>
 
-Lane. fix | feature | refactor | perf | review | plan | series
+Lane. fix | refine | feature | refactor | perf | review | plan | series
 Branch. <branch>
 Base. <the sha HEAD was at when the run opened>
 Issue. <the tracker issue's id and link, and its status before the run, or none>
@@ -360,6 +361,9 @@ is not a second copy of it. Its length follows the result, per **Talking to me**
 
 - **The outcome and the link.** One sentence on what now works or what is fixed, the PR link,
   and the run log's path. When nothing below applies, this line is the whole report.
+- **The captures.** When the change reaches a screen, the After captures from `media/` beside
+  their Before, embedded as images where the host renders them, so the result is seen without
+  opening the pull request.
 - **The proof.** The one check the outcome rests on, as the output it printed, only when a line
   below is there too.
 - **Assumptions** the user might overturn, one line each, no evidence attached. They approved

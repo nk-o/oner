@@ -15,7 +15,7 @@ unless the work becomes a series and you authorize its release, or the release s
 You do not have to name it. Write a bug, a change, or a feature in plain words, and the route
 table in `AGENTS.md` **Whole tasks** starts `oneshot`, naming the route in the first line of the
 reply. A question about something that fails starts it too, unless it is about how
-something looks, feels, or moves, which starts `prototype` or `refine`. A question about how something
+something looks, feels, or moves, which starts `prototype`, or the refine lane when it names the direction. A question about how something
 works, a one-line edit, and work already under way in the chat go the ordinary way,
 and a skill you name wins over the table.
 
@@ -24,7 +24,7 @@ and a skill you name wins over the table.
 `oneshot.release` in `config.json` sets where a run ends:
 
 - `pr`, the default. The run ends at a pull request that is ready to merge.
-- `production`. A fix, feature, refactor, or performance run whose gate had nothing to ask,
+- `production`. A fix, refine, feature, refactor, or performance run whose gate had nothing to ask,
   got your answers, or follows a plan you approved goes on to a **Release** step after the
   watch. It merges the pull request once it is ready,
   waits for the repository's own pipeline to deploy, and runs the read-only production checks it
@@ -39,11 +39,13 @@ and a skill you name wins over the table.
 
 ## Lanes
 
-A run takes one of seven lanes:
+A run takes one of eight lanes:
 
 - **Investigation.** A read-only answer, with no pull request.
 - **Fix**, **feature**, and **refactor.** Each records what must not change before it edits, and
   the shared tail checks that again in the running product.
+- **Refine.** Runs `refine` on a working screen in the direction you named, and ships the
+  before and after captures in the pull request.
 - **Performance.** Measured before and after.
 - **Review to act on.** A pull request's own threads and checks, or findings pasted in.
 - **Plan.** Thinks a feature through and ends at a pull request that holds only the spec.
