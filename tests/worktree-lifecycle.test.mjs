@@ -1047,6 +1047,15 @@ test('the gate passes at normal pressure and holds at critical after stopping id
   assert.ok(await until(() => !alive(s.child.pid)));
 });
 
+test('the gate passes at warning pressure after stopping idle servers', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const s = await devServer(dir); f.launch(dir, s.port);
+  const warning = reaper(f, ['gate', '--wait', '0s', '--idle', '0s'], 'warning');
+  assert.equal(warning.status, 0, warning.stdout);
+  assert.match(warning.stdout, /ok memory pressure warning/);
+  assert.ok(await until(() => !alive(s.child.pid)));
+});
+
 test('a Next.js telemetry flush left behind by a stopped server is stopped', async () => {
   const f = fixture(); const dir = f.worktree('feature');
   const script = join(dir, 'node_modules/next/dist/telemetry/detached-flush.js');
