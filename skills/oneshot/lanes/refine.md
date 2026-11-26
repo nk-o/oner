@@ -5,9 +5,10 @@ keeps the surface's structure. `refine` does the design work, and this lane ship
 
 1. **Find the causes.** Run `refine` steps 1 and 2. Save its captures into the run folder's
    `media/`, at the widths and with the data the Verify step will use, because they become the
-   pull request's Before. A cause fixed at a shared owner also gets a Before of one other screen
-   that uses that owner. Write the target, its duplicates, the direction, and each cause with
-   its `file:line` into the run log. A cause `refine` classifies as a concept mismatch ends the
+   pull request's Before. For motion or a gesture, the Before is a recording of the
+   interaction, because a still shows no timing. A cause fixed at a shared owner also gets a
+   Before of one other screen that uses that owner. Write the target, its duplicates, the
+   direction, and each cause with its `file:line` into the run log. A cause `refine` classifies as a concept mismatch ends the
    lane: set `Status. stopped: concept mismatch`, and report `prototype` or `frontend-design` as
    the next step.
 2. **Gate.** The screen: the direction, the causes, the edits you intend, and the proposals

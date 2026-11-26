@@ -1,5 +1,5 @@
 ---
 type: tool_used
 tool: Skill
-input_match: 'oneshot|prototype'
+input_match: 'oneshot'
 ---

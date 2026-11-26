@@ -2,8 +2,8 @@ schema_version: "1.1"
 name: route-look-and-feel
 description: >-
   How an existing control moves, even when the user calls it broken, routes to the refine lane
-  of oneshot when the request names the direction, or to prototype when it does not, and not to
-  the fix lane. Rule: AGENTS.md, Whole tasks, route table row "How something that exists looks,
+  of oneshot when the request names the direction, as this one does, and not to the fix lane
+  or to prototype. Rule: AGENTS.md, Whole tasks, route table row "How something that exists looks,
   feels, or moves, even when it is called broken | `prototype` ... `oneshot`, refine lane, when
   it names a direction and keeps the structure". Mining pattern R2.
 context:
