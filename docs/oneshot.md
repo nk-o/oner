@@ -31,8 +31,8 @@ and a skill you name wins over the table.
   finds. When nothing tells which commit production runs, it merges and reports production as
   not verified, after watching the deploy. A gate that took its own recommendations while you
   were away, or an answer that chose to stop at the pull request, ends the run at the pull
-  request, unless you said to merge it. On either setting, a fix, feature, refactor, or
-  performance run you told to merge it yourself goes on to the same **Release** step, and so does
+  request, unless you said to merge it. On either setting, a fix, refine, feature, refactor,
+  or performance run you told to merge it yourself goes on to the same **Release** step, and so does
   one you tell after its report. A review run on an existing pull request never merges it. The hard stops still stop, and a series still
   asks for its own release authorization, unless the release setting is `production` and you
   answered the gate or approved the plan it runs.

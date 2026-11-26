@@ -4,8 +4,8 @@ description: >-
   Carries one task from idea to an open pull request in one run, stopping at most once, early,
   for decisions the user could answer differently, and on into production when the release
   setting says so. Work whose parts must reach production in order becomes a series of pull
-  requests. Use when the user hands over a defect, a small change, a new behavior, or work that
-  needs several pull requests, by name or in plain words, a question about something that
+  requests. Use when the user hands over a defect, a small change, a polish of a working screen in
+  a direction they name, a new behavior, or work that needs several pull requests, by name or in plain words, a question about something that
   fails included. A question about how something works, a one-line edit, a review of shipped
   code, or work already under way in the chat goes the ordinary way.
 argument-hint: "[feature idea, ticket, bug report, or question]"
