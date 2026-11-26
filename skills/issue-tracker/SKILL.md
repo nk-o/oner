@@ -27,7 +27,8 @@ makes.
   Change no other text in the description.
 - **Comments.** Comment only at a milestone: the pull request is open, the work is blocked on
   someone other than the user, or it is finished or dropped. The last comment says what
-  shipped and names the work found outside the issue. That work becomes a new issue only when
+  shipped, names each part of the description the work did not follow and why, and names the
+  work found outside the issue. That work becomes a new issue only when
   the user asks.
 - **Dropped.** Work dropped before it ships puts the issue back to the status it had.
 
