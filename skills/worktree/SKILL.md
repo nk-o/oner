@@ -83,7 +83,8 @@ under warning memory pressure, 1 under critical. Its `status` lists what runs, a
 what it stopped.
 
 Before you start a dev server, a full build, a full test run, or a browser test, run
-`{{repo_dir}}/bin/devservers.mjs gate`. Exit 0 means go. Exit 75 means memory pressure stayed
+`{{repo_dir}}/bin/devservers.mjs gate`, joined to the heavy command with `&&`, never `;`, so
+exit 75 stops it. Exit 0 means go. Exit 75 means memory pressure stayed
 critical after it stopped the idle servers. Then stop the servers this task started, do the work
 that needs neither, and run the gate again before the heavy step. The report says which check
 waited and for how long.

@@ -106,7 +106,9 @@ pushes, or deploys. You do, one command at a time, and run `next` again.
    stage's Verify step names the production checks it must pass, and each stage in
    `program.json` carries them as its own `accept`. A check that only proves production runs
    the merge passes every stage, so `next` holds a merge until the stage has one, or an
-   `acceptWaived` reason when no read-only check can see what the stage ships. Every migration is
+   `acceptWaived` reason when no read-only check can see what the stage ships. A check reads
+   a response into a variable before matching it, because `curl | grep -q` under `pipefail`
+   fails on a match when `grep` closes the pipe early. Every migration is
    forward-compatible: the code each stage ships works on the schema before and after its
    migration, so a deploy can run while the previous release is live, and no stage relies on
    a down migration. Then move the run folder to the primary checkout, the first entry of
