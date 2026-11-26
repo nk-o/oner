@@ -27,7 +27,10 @@ plan lanes the gate is `brainstorm`'s phase 2, and in a series it also approves 
 and the release, per [`lanes/series.md`](lanes/series.md). In the fix, perf, refactor, and
 review lanes it posts one screen holding what the lane's gate step lists. A decision the user's
 words, the project's rules or principles, or the codebase already settle is not open, per
-**Decisions** in `AGENTS.md`: log it under **Assumptions** with its source. With no open
+**Decisions** in `AGENTS.md`: log it under **Assumptions** with its source. A tracker issue in
+scope settles only its goal, its acceptance criteria, and its `Fixed` lines. Check the rest
+against the code before the gate, per the same section, and bring what the check finds to the
+gate like any other decision. With no open
 decision left, post the screen as a status note, say `gate: nothing to settle`, and keep going
 in the same turn. Otherwise ask the open decisions with the question routing in `AGENTS.md`,
 recommended option first. A series' release authorization is consent, not a decision, so

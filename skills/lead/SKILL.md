@@ -20,8 +20,9 @@ steps and add only what the tracker and the executors change. **Layers** in the
 
 ## 1. Take the plan
 
-Done when the series log is open and the plan is in the tracker and read back, or in the
-program folder when the session has no tracker tool or no home in it.
+Done when the series log is open, the plan is in the tracker and read back, or in the
+program folder when the session has no tracker tool or no home in it, and each owner issue
+of a plan you did not write in this session has been checked against the code.
 
 Outside a **Dry run**, open the series log before anything else: the run log of `oneshot` step
 1, with `Lane. series`, a `Lead.` line, **Requests**, and a **Lane** holding this skill's steps,
@@ -30,15 +31,20 @@ built, by this session or a delegate, before `series.mjs next` printed its `star
 The series log keeps its `Lead.` line when step 4 of `series.md` moves it.
 
 - **The user asks you to run a tracker project, milestone, or issue.** That request approves
-  the plan written there. Read the owner issues, their blocked-by relations, and the decisions
-  document.
+  the plan's outcomes, their order, and its `Fixed` lines, not every step it proposes. Read
+  the owner issues, their blocked-by relations, and the decisions document, then check each
+  owner issue against the code per **Decisions** in `AGENTS.md`. A finding the rules there
+  settle goes under **Assumptions** in the series log with its source. Every other finding
+  goes to the stop in step 2 as a question with a recommendation.
 - **No approved plan yet**, such as a request with no tracker plan, or a plan the user asks
   you to write or change. Run `brainstorm` with the user first. Its phase 2 settles the
   decisions, and **Decide the split** in `series.md` sets where one pull request ends. Its exit
   is not a stop here: its offers and its closing line give way to the next sentence. Then
   write the plan into the tracker: a project, one milestone per outcome a user gets, one owner
   issue per outcome with blocked-by relations for the order, and the decisions as a document
-  on the project. The owner layer carries no path, commit, or code.
+  on the project. An owner issue states its outcome and how to tell it is met. A line the user
+  wants built exactly as written goes under a `Fixed` heading, and a way to build the outcome
+  is written as a proposal. The owner layer carries no path, commit, or code.
 
 With no tracker tool in the session, the plan stays in the program folder, and the rest runs
 as an oneshot series with no tracker writes and no `tracker.json`. A tracker tool that works

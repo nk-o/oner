@@ -80,6 +80,13 @@
   a pattern the codebase follows settle it, or when every option but one is worse on every
   count. Take it and name its source in the report. Ask only where I could reasonably pick
   differently.
+- A tracker issue or document counts as my words for its goal, its acceptance criteria, and
+  the lines under a `Fixed` heading, or the same word in the issue's language. The way it
+  proposes to get there is a proposal written against older code. Before building on it,
+  check it against the code: what is already done, what the code contradicts, and what it
+  adds that a user would notice and the goal does not need, such as a setting, a toggle, or a
+  limit. Each finding is a decision under the rules above. A `Fixed` line is built as written
+  unless the code makes it impossible or it contradicts another `Fixed` line.
 - Internal names, file layout, test structure, and the choice between two implementations
   that behave the same are yours. Settle them and report them settled instead of asking.
 - Do not build the guess and present it finished. Building it has already made the decision.
