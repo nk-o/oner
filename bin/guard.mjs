@@ -5,14 +5,15 @@
 // directory, or a repository root or anything above it). It stops what would lose local work (a
 // hard reset, a forced clean, discarding every change, a forced delete of a branch whose commits
 // are nowhere else, a stash drop, any other force-push) until the agent has checked it and runs
-// it again with ONER_GUARD=checked in front.
+// the line again with `ONER_GUARD=checked;` at its start.
 //
 // It catches an agent's mistake, not an attacker: a command written to a file and run by another
 // interpreter is out of its reach. Within the line it reads, it follows the shell: quotes and
 // $'...', $(...), backticks and <(...), here-documents fed to a shell, bash -c and eval, git
 // aliases, and every directory a cd can leave the shell in, counting a cd that may fail or that
 // runs in a subshell or a pipeline. Anything else passes untouched. A line it fails to read is
-// stopped the same way, and input it cannot parse at all passes to the host's own check.
+// stopped until the agent splits it, and input it cannot parse at all passes to the host's own
+// check.
 //
 // It refuses only what is certain: a command that reaches a protected path in every directory
 // and with every value the shell can have at that point. When only some of them reach it, it
@@ -500,8 +501,11 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
   const vars = new Map(inherited);
   const commands = lex(String(command));
   let verdict = null;
+  // A refusal wins. Every stop is kept in the reason, so the agent checks each one.
   const take = (found) => {
-    if (found && (!verdict || found[0] === 'deny')) verdict = found;
+    if (!found || verdict?.[0] === 'deny') return;
+    if (!verdict || found[0] === 'deny') verdict = found;
+    else if (!verdict[1].split('; ').includes(found[1])) verdict = ['ask', `${verdict[1]}; ${found[1]}`];
   };
   const addTop = (dir) => {
     const top = git(dir, ['rev-parse', '--show-toplevel']);
@@ -670,14 +674,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const cwd = input.cwd && existsSync(input.cwd) ? input.cwd : process.cwd();
       verdict = decide(input.tool_input?.command ?? '', cwd);
     } catch {
-      verdict = ['ask', 'this command is too nested or unusual for it to read'];
+      verdict = ['split', 'this command is too nested or unusual for it to read'];
     }
-    const checked = /(^|[\s;&|(])ONER_GUARD=checked(?=\s)/.test(input.tool_input?.command ?? '');
+    const checked = /^\s*ONER_GUARD=checked[;\s]/.test(input.tool_input?.command ?? '');
     if (verdict && !(verdict[0] === 'ask' && checked)) {
       const [found, why] = verdict;
-      const reason = found === 'deny'
-        ? `Blocked by the oner guard: ${why}. Reach the goal another way.`
-        : `Stopped by the oner guard: ${why}. Check yourself that this loses no work, and do not ask the user. When it is safe, run the same command again with ONER_GUARD=checked in front of it.`;
+      const reason = {
+        deny: `Blocked by the oner guard: ${why}. Reach the goal another way.`,
+        split: `Stopped by the oner guard: ${why}. Run it as several simpler commands.`,
+        ask: `Stopped by the oner guard: ${why}. Check yourself that this loses no work, and do not ask the user. When it is safe, run the same line again with \`ONER_GUARD=checked;\` at its start.`,
+      }[found];
       process.stdout.write(JSON.stringify({
         hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason },
       }));

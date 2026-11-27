@@ -45,12 +45,14 @@ function output(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
   return r.stdout ? JSON.parse(r.stdout).hookSpecificOutput : null;
 }
 
-// 'ask' names a stop the agent clears by checking and rerunning; the host is never asked.
+// 'ask' names a stop the agent clears by checking and rerunning, 'split' one it clears by
+// splitting the line; the host is never asked.
 function verdict(command, options) {
   const out = output(command, options);
   if (!out) return 'pass';
   assert.equal(out.permissionDecision, 'deny', `${command} asks the user`);
-  return out.permissionDecisionReason.includes('ONER_GUARD=checked') ? 'ask' : 'deny';
+  const why = out.permissionDecisionReason;
+  return why.includes('ONER_GUARD=checked') ? 'ask' : why.includes('simpler commands') ? 'split' : 'deny';
 }
 
 const rows = [
@@ -173,7 +175,7 @@ const rows = [
   ['env -u FOO rm -rf ~', 'deny'],
   ['nice -n 5 rm -rf ~', 'deny'],
   ['time -p git push --force origin main', 'deny'],
-  [`${"bash -c '".repeat(1)}${'eval '.repeat(12)}rm -rf ~'`, 'ask'],
+  [`${"bash -c '".repeat(1)}${'eval '.repeat(12)}rm -rf ~'`, 'split'],
   // Third review round: directories created on the way, returns, conditions, local variables.
   [`mkdir -p ${root}/fresh && cd ${root}/fresh && rm -rf /`, 'deny'],
   [`git clone ${remote} ${root}/fresh2 && cd ${root}/fresh2 && git push --force origin main`, 'deny'],
@@ -195,7 +197,7 @@ const rows = [
   ['for d in $(git push --force origin main); do echo "$d"; done', 'deny'],
   ["cat <<'EOF' | bash\nrm -rf ~\nEOF", 'deny'],
   ['cd /dev/null && (true); rm -rf *', 'ask'],
-  [`for d in ${Array.from({ length: 40 }, (_, n) => `d${n}`).join(' ')} "$HOME"; do rm -rf "$d"; done`, 'ask'],
+  [`for d in ${Array.from({ length: 40 }, (_, n) => `d${n}`).join(' ')} "$HOME"; do rm -rf "$d"; done`, 'split'],
   ['export OUT=dist; rm -rf "$OUT"', 'pass'],
   [`env -C .. rm -rf ${repo.split('/').pop()}`, 'deny'],
   // Fifth review round: where env -C expands words, which assignments replace a value.
@@ -256,11 +258,17 @@ test('the agent clears a stop by checking and rerunning, on every host, and a re
   for (const args of [[], ['--host', 'codex']]) {
     assert.equal(verdict('git reset --hard origin/main', { args }), 'ask');
     assert.equal(verdict('ONER_GUARD=checked git reset --hard origin/main', { args }), 'pass');
-    assert.equal(verdict('cd . && ONER_GUARD=checked git stash drop', { args }), 'pass');
+    assert.equal(verdict('ONER_GUARD=checked; for a in 1; do git stash drop; done', { args }), 'pass');
+    assert.equal(verdict('cd . && ONER_GUARD=checked git stash drop', { args }), 'ask');
     assert.equal(verdict('ONER_GUARD=checked git push --force origin main', { args }), 'deny');
     assert.equal(verdict('git push -u origin feature', { args }), 'pass');
   }
   assert.equal(verdict('ONER_GUARD=checkedx git stash drop'), 'ask');
+  assert.equal(verdict('git commit -m "ONER_GUARD=checked here"; git reset --hard'), 'ask');
+  const unreadable = 'for a in 1 2 3 4 5 6; do for b in 1 2 3 4 5 6; do rm -rf /tmp/x$a$b; done; done; git push --force origin main';
+  assert.equal(verdict(`ONER_GUARD=checked; ${unreadable}`), 'split');
+  const both = output('git stash drop; git reset --hard').permissionDecisionReason;
+  assert.match(both, /stash/); assert.match(both, /hard reset/);
   assert.match(output('git stash drop').permissionDecisionReason, /stash/);
   assert.doesNotMatch(output('git push --force origin main').permissionDecisionReason, /user/);
 });
