@@ -52,7 +52,9 @@ test('an open run gets its local work approved and leaves the rest to the user',
   assert.equal(f.ask('Write', { file_path: join(f.root, 'scratch', 'x.md') }, { scratchpad_dir: join(f.root, 'scratch') }), 'allow');
   assert.equal(f.ask('Read', { file_path: join(f.repo, 'README.md') }), 'allow');
   for (const command of ['pnpm test', 'git commit -m "Add the thing"', 'git push -u origin feature',
-    'git push --force-with-lease origin feature', 'rm -rf node_modules dist', 'cat vercel.json', 'node -e "1"']) {
+    'git push --force-with-lease origin feature', 'rm -rf node_modules dist', 'cat vercel.json', 'node -e "1"',
+    'git push --force origin feature', 'git push -f origin feature', 'git push origin :feature', 'git push origin --delete feature',
+    'rm -rf "$OUT/build"', 'make && rm -r "$HOME/x"']) {
     assert.equal(bash(command), 'allow', command);
   }
 
@@ -66,9 +68,9 @@ test('an open run gets its local work approved and leaves the rest to the user',
   for (const command of ['sudo rm -rf build', 'ssh deploy@example.test', 'npx vercel deploy --prod', 'bash -c "kubectl apply -f k8s"',
     'terraform apply', 'npm publish', 'pnpm -r publish', 'pnpm deploy', 'npm run release:prod', 'gh release create v1', 'gh api -X DELETE repos/o/r',
     'gh workflow run deploy.yml', 'gh pr merge 7 --squash', 'gh pr merge 7 --squash --match-head-commit abc1234',
-    'git push --force origin feature', 'git push -f origin feature', 'git push origin main', 'git push origin HEAD:main',
-    'git push origin :feature', 'git push origin --delete feature', 'rm -rf ~/Library/Caches', 'rm -rf /tmp/x',
-    'rm -rf ../other', 'rm -rf .', 'make && rm -r "$HOME/x"']) {
+    'git push origin main', 'git push origin HEAD:main', 'git push --force origin main', 'git push origin --delete main',
+    'git push origin :main', 'git push --mirror origin', 'rm -rf ~/Library/Caches', 'rm -rf /tmp/x',
+    'rm -rf ../other', 'rm -rf .']) {
     assert.equal(bash(command), 'ask', command);
   }
 });
