@@ -16,17 +16,28 @@ const g = (cwd, ...args) => execFileSync('git', ['-C', cwd, ...args], { encoding
 execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote]);
 mkdirSync(repo);
 g(repo, 'init', '-q', '-b', 'main');
-writeFileSync(join(repo, 'tracked.test.mjs'), 'export {};\n');
-writeFileSync(join(repo, '.gitignore'), 'ignored.mjs\n');
-writeFileSync(join(repo, 'ignored.mjs'), 'export {};\n');
-writeFileSync(join(repo, 'untracked.mjs'), 'export {};\n');
-writeFileSync(join(repo, '2'), 'two\n');
-writeFileSync(join(root, 'outside.mjs'), 'export {};\n');
-g(repo, 'add', 'tracked.test.mjs', '.gitignore');
-g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '-m', 'init');
+g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '--allow-empty', '-m', 'init');
 g(repo, 'remote', 'add', 'origin', remote);
 g(repo, 'push', '-q', '-u', 'origin', 'main');
 g(repo, 'remote', 'set-head', 'origin', 'main');
+const commit = (file) => {
+  writeFileSync(join(repo, file), `${file}\n`);
+  g(repo, 'add', file);
+  g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '-m', file);
+};
+// A branch squash-merged into main, a branch pushed but not merged, and one that exists only here.
+g(repo, 'switch', '-q', '-c', 'squashed');
+commit('squashed.txt');
+g(repo, 'switch', '-q', 'main');
+g(repo, 'merge', '-q', '--squash', 'squashed');
+g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '-m', 'squashed (#1)');
+g(repo, 'push', '-q', 'origin', 'main');
+g(repo, 'switch', '-q', '-c', 'pushed');
+commit('pushed.txt');
+g(repo, 'push', '-q', 'origin', 'pushed');
+g(repo, 'switch', '-q', '-c', 'unpushed', 'main');
+commit('unpushed.txt');
+g(repo, 'switch', '-q', 'main');
 
 function verdict(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
   const r = spawnSync(process.execPath, [hook, ...args], { input: JSON.stringify({ tool_name, tool_input: { command }, cwd }), encoding: 'utf8' });
@@ -35,24 +46,6 @@ function verdict(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
 }
 
 const rows = [
-  ["cat > tracked.test.mjs <<'EOF'\nx\nEOF", 'ask'],
-  ["cat > new.mjs <<'EOF'\nx\nEOF", 'pass'],
-  ['echo x >> tracked.test.mjs', 'pass'],
-  ['cmd > /tmp/out.txt', 'pass'],
-  ['echo x >| tracked.test.mjs', 'ask'],
-  ['echo x &> tracked.test.mjs', 'ask'],
-  ['echo x &>> tracked.test.mjs', 'pass'],
-  ['echo x 2>tracked.test.mjs', 'ask'],
-  ['echo x >&2', 'pass'],
-  ['>tracked.test.mjs', 'ask'],
-  ['echo x | tee tracked.test.mjs', 'ask'],
-  ['echo x | tee -a tracked.test.mjs', 'pass'],
-  ['echo x | tee --append tracked.test.mjs', 'pass'],
-  ['echo x | tee 2>/dev/null', 'pass'],
-  ['echo x | tee 2 >/dev/null', 'ask'],
-  ['echo x > untracked.mjs', 'ask'],
-  ['echo x > ignored.mjs', 'pass'],
-  [`echo x > '${join(root, 'outside.mjs')}'`, 'pass'],
   ['git push --force origin main', 'deny'],
   ['git push -f', 'deny'],
   ['git push -f origin HEAD', 'deny'],
@@ -70,6 +63,24 @@ const rows = [
   ['git checkout -- .', 'ask'],
   ['git restore .', 'ask'],
   ['git branch -D old-work', 'ask'],
+  ['git branch -D squashed', 'pass'],
+  ['2>&1 git push --force origin main', 'deny'],
+  ['git 2>/dev/null push --force origin main', 'deny'],
+  ['2>/dev/null git reset --hard', 'ask'],
+  ['git branch -D pushed', 'ask'],
+  ['git branch -D unpushed', 'ask'],
+  ['git branch -D pushed unpushed', 'ask'],
+  ['git branch -D -r origin/pushed', 'ask'],
+  ['git branch -D -- squashed', 'pass'],
+  ['git branch -D -- squashed -other', 'ask'],
+  ['git --git-dir=.git branch -D squashed', 'ask'],
+  ['GIT_DIR=.git git branch -D squashed', 'ask'],
+  ['env GIT_DIR=.git git branch -D squashed', 'ask'],
+  ["GIT_DIR=.git bash -c 'git branch -D squashed'", 'ask'],
+  ['GIT_PAGER=cat git branch -D squashed', 'pass'],
+  ["git -c 'alias.zap=!git branch -D' zap squashed", 'pass'],
+  ["git -c 'alias.zap=!git branch -D' --git-dir=.git zap squashed", 'ask'],
+  [`git branch -D ${Array(11).fill('squashed').join(' ')}`, 'ask'],
   ['git stash drop', 'ask'],
   ['git push --force-with-lease origin feature', 'ask'],
   ['git push -d origin feature', 'ask'],

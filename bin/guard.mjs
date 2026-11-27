@@ -3,8 +3,8 @@
 // `guard.enabled` is on. It refuses what would destroy shared history or the machine (a
 // force-push or delete of the default branch, a mirror push, a recursive delete of /, the home
 // directory, or a repository root or anything above it) and asks before what would lose local
-// work (a hard reset, a forced clean, discarding every change, a forced branch delete, a stash
-// drop, any other force-push).
+// work (a hard reset, a forced clean, discarding every change, a forced delete of a branch
+// whose commits are nowhere else, a stash drop, any other force-push).
 //
 // It catches an agent's mistake, not an attacker: a command written to a file and run by another
 // interpreter is out of its reach. Within the line it reads, it follows the shell: quotes and
@@ -20,7 +20,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, resolve, sep } from 'node:path';
+import { resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // Wrappers that run the command after them: the options of theirs that take a value, and how
@@ -100,25 +100,24 @@ const ANSI = { n: '\n', t: '\t', r: '\r', a: '\x07', b: '\b', e: '\x1b', E: '\x1
 // here-documents it reads.
 export function lex(src) {
   const commands = [];
-  let current = { words: [], op: null, depth: 0, nested: [], heredocs: [], truncations: [] };
+  let current = { words: [], op: null, depth: 0, nested: [], heredocs: [] };
   let word = null;
   let depth = 0;
   let pending = [];
-  let redirect = null;
+  let skipWord = false;
   const endWord = () => {
     if (word !== null) {
-      if (redirect === null) current.words.push(word);
-      else if (redirect === '>' || redirect === '>|' || redirect === '&>') current.truncations.push(word);
-      redirect = null;
+      if (skipWord) skipWord = false;
+      else current.words.push(word);
     }
     word = null;
   };
   const endCommand = (op) => {
     endWord();
-    redirect = null;
+    skipWord = false;
     current.op = op;
-    if (current.words.length || current.nested.length || current.truncations.length) commands.push(current);
-    current = { words: [], op: null, depth, nested: [], heredocs: [], truncations: [] };
+    if (current.words.length || current.nested.length) commands.push(current);
+    current = { words: [], op: null, depth, nested: [], heredocs: [] };
   };
   const add = (text) => { word = (word ?? '') + text; };
   for (let i = 0; i < src.length; i++) {
@@ -227,13 +226,7 @@ export function lex(src) {
     if (c === '&' && next === '&') { endCommand('&&'); i++; continue; }
     if (c === '|' && next === '|') { endCommand('||'); i++; continue; }
     if (c === '|') { endCommand('|'); if (next === '&') i++; continue; }
-    if (c === '&' && next === '>') {
-      endWord();
-      const start = i++;
-      if (src[i + 1] === '>') i++;
-      redirect = src.slice(start, i + 1);
-      continue;
-    }
+    if (c === '&' && next === '>') { endWord(); i++; if (src[i + 1] === '>') i++; skipWord = true; continue; }
     if (c === '&') { endCommand('&'); continue; }
     if (c === ';') { endCommand(';'); while (src[i + 1] === ';' || src[i + 1] === '&') i++; continue; }
     if (c === '(') {
@@ -244,14 +237,14 @@ export function lex(src) {
     }
     if (c === ')') { endCommand(')'); depth = Math.max(0, depth - 1); current.depth = depth; continue; }
     if (c === '<' || c === '>') {
-      if (redirect === null && word !== null && /^\d+$/.test(word)) {
+      // A number right before the operator is the file descriptor it redirects, not a word.
+      if (!skipWord && word !== null && /^\d+$/.test(word)) {
         const start = i - word.length;
         if (src.slice(start, i) === word && (start === 0 || /[\s;|&()]/.test(src[start - 1]))) word = null;
       }
       endWord();
-      const start = i;
       while (src[i + 1] === '>' || src[i + 1] === '&' || src[i + 1] === '|') i++;
-      redirect = src.slice(start, i + 1);
+      skipWord = true;
       continue;
     }
     if (/\s/.test(c)) { endWord(); continue; }
@@ -353,7 +346,31 @@ function checkPush(args, cwd, config) {
   return ['ask', del || colon ? 'this deletes a remote branch' : 'this force-pushes, which replaces commits on the remote'];
 }
 
-function checkGit(w, cwd, depth) {
+// Whether deleting a local branch loses no work: a default branch that stays holds its
+// commits, or every file the branch changed already reads the same there, as after a squash
+// merge. Another remote-tracking branch is no proof, since the remote may have dropped it.
+function keptElsewhere(dir, name, deleting) {
+  const tip = git(dir, ['rev-parse', '--verify', '--quiet', `refs/heads/${name}^{commit}`]);
+  if (!tip) return false;
+  const bases = defaultBranches(dir).flatMap((b) => [`refs/remotes/origin/${b}`, `refs/heads/${b}`])
+    .filter((ref) => !deleting.some((other) => ref === `refs/heads/${other}`));
+  if (git(dir, ['for-each-ref', '--count=1', '--contains', tip, '--format=x', ...bases])) return true;
+  return bases.some((base) => {
+    const fork = git(dir, ['merge-base', base, tip]);
+    if (!fork) return false;
+    const changed = spawnSync('git', ['-C', dir, 'diff', '--name-only', '-z', '--no-renames', fork, tip], { encoding: 'utf8' });
+    if (changed.status !== 0) return false;
+    const paths = changed.stdout.split('\0').filter(Boolean).map((path) => `:(literal)${path}`);
+    const same = spawnSync('git', ['-C', dir, 'diff', '--quiet', '--no-ext-diff', '--no-textconv', base, tip, '--', ...paths]);
+    return same.status === 0;
+  });
+}
+
+// Variables that point git at a repository other than the one in its directory.
+const LOCATORS = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
+
+// `located` is true when GIT_DIR or a similar variable can point git at another repository.
+function checkGit(w, cwd, depth, located = false) {
   let i = 1;
   let dir = cwd;
   const config = {};
@@ -362,7 +379,10 @@ function checkGit(w, cwd, depth) {
     else if (w[i] === '-c') {
       const [key, ...value] = (w[++i] ?? '').split('=');
       config[key.toLowerCase()] = value.length ? value.join('=') : 'true';
-    } else if (['--git-dir', '--work-tree', '--namespace'].includes(w[i])) i++;
+    } else if (['--git-dir', '--work-tree', '--namespace'].includes(w[i])) {
+      located ||= w[i] !== '--namespace';
+      i++;
+    } else if (/^--(git-dir|work-tree)=/.test(w[i])) located = true;
     i++;
   }
   const sub = w[i];
@@ -370,9 +390,9 @@ function checkGit(w, cwd, depth) {
   if (sub && !GIT_BUILTINS.has(sub) && !['push', 'reset', 'clean', 'checkout', 'switch', 'restore', 'branch', 'stash'].includes(sub)) {
     const alias = config[`alias.${sub.toLowerCase()}`] ?? git(dir, ['config', '--get', `alias.${sub}`]);
     if (alias) {
-      if (alias.startsWith('!')) return decide(`${alias.slice(1)} ${args.join(' ')}`, dir, null, depth + 1);
+      if (alias.startsWith('!')) return decide(`${alias.slice(1)} ${args.join(' ')}`, dir, null, depth + 1, located ? new Map([['GIT_DIR', [dir]]]) : undefined);
       const words = lex(alias)[0]?.words ?? [];
-      return checkGit(['git', ...Object.entries(config).flatMap(([k, v]) => ['-c', `${k}=${v}`]), ...words, ...args], dir, depth + 1);
+      return checkGit(['git', ...Object.entries(config).flatMap(([k, v]) => ['-c', `${k}=${v}`]), ...words, ...args], dir, depth + 1, located);
     }
   }
   const wide = args.some((a) => a === '.' || a === ':/' || a === '*');
@@ -393,7 +413,15 @@ function checkGit(w, cwd, depth) {
     case 'branch': {
       const del = long(args, '--delete', 5) || short(args, 'd') || short(args, 'D');
       const force = long(args, '--force', 4) || short(args, 'f') || short(args, 'D');
-      return del && force ? ['ask', 'this deletes a branch that may hold unmerged commits'] : null;
+      if (!del || !force) return null;
+      const end = args.indexOf('--');
+      const options = end < 0 ? args : args.slice(0, end);
+      const names = [...options.filter((a) => !a.startsWith('-')), ...(end < 0 ? [] : args.slice(end + 1))];
+      const remote = long(options, '--remotes', 4) || short(options, 'r');
+      // Each name costs several git calls, and the hook has 5 s in all.
+      const checkable = !remote && !located && names.length && names.length <= 10;
+      if (checkable && names.every((name) => keptElsewhere(dir, name, names))) return null;
+      return ['ask', 'this deletes a branch that may hold unmerged commits'];
     }
     case 'stash':
       return args[0] === 'drop' || args[0] === 'clear' ? ['ask', 'this deletes stashed changes, and other sessions share the stash'] : null;
@@ -462,21 +490,6 @@ function stripPrefixes(w, chdir = []) {
   }
 }
 
-function checkTruncations(targets, dir, vars, shellDir = dir) {
-  for (const target of targets) {
-    for (const expanded of expandAll(target, shellDir, vars)) {
-      const path = resolve(dir, expanded);
-      try { if (!statSync(path).isFile()) continue; } catch { continue; }
-      const physical = real(path);
-      const parent = dirname(physical);
-      if (git(parent, ['rev-parse', '--is-inside-work-tree']) !== 'true') continue;
-      if (git(parent, ['check-ignore', '--', physical])) continue;
-      return ['ask', `this truncates ${path}, an existing file in a git working tree`];
-    }
-  }
-  return null;
-}
-
 // Walks the commands with every directory the shell can be in at each one. A cd counts for
 // certain only when it runs unconditionally, outside a subshell or a pipeline, into a
 // directory that exists. Otherwise its target joins the directories already possible.
@@ -535,7 +548,6 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     }
     const branches = open.filter((item) => item.skippable).length;
     take(across(here, (dir) => strongest(entry.nested.map((script) => inner(script, dir)))));
-    take(across(here, (dir) => checkTruncations(entry.truncations, dir, vars)));
     if (verdict?.[0] === 'deny') return verdict;
     // An assignment that surely runs replaces the value. One inside a compound command, a
     // subshell, or a pipeline, or after && or ||, can be skipped or confined, so it only joins
@@ -577,6 +589,12 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     }
     const chdir = [];
     const w = stripPrefixes(entry.words, chdir);
+    // A prefix such as GIT_DIR=... reaches git, a shell, or an eval after it, so it joins the
+    // values the name can have from here on.
+    for (const word of entry.words) {
+      const key = LOCATORS.find((name) => word.startsWith(`${name}=`));
+      if (key) vars.set(key, [...(vars.get(key) ?? [process.env[key]]), word.slice(key.length + 1) || '.']);
+    }
     const name = w[0]?.split('/').pop();
     // Pairs of the directory a command runs in and the one its words were expanded in.
     const at = here.flatMap((dir) => (chdir.length
@@ -624,18 +642,11 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       const flag = w.findIndex((a, n) => n > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
       if (flag > 0 && w[flag + 1] !== undefined) take(across(here, (dir) => inner(w[flag + 1], dir)));
     } else if (name === 'eval') take(across(here, (dir) => inner(w.slice(1).join(' '), dir)));
-    else if (name === 'git') take(across(at, ([dir]) => checkGit(w, dir, depth)));
-    else if (name === 'rm') take(across(at, ([dir, shellDir]) => checkRm(w, dir, [...tops], vars, shellDir)));
-    else if (name === 'tee') {
-      const args = w.slice(1);
-      const end = args.indexOf('--');
-      const options = end === -1 ? args : args.slice(0, end);
-      if (!short(options, 'a') && !options.includes('--append')) {
-        const targets = options.filter((arg) => !arg.startsWith('-'));
-        if (end !== -1) targets.push(...args.slice(end + 1));
-        take(across(at, ([dir, shellDir]) => checkTruncations(targets, dir, vars, shellDir)));
-      }
+    else if (name === 'git') {
+      const located = LOCATORS.some((key) => (vars.get(key) ?? [process.env[key]]).some(Boolean));
+      take(across(at, ([dir]) => checkGit(w, dir, depth, located)));
     }
+    else if (name === 'rm') take(across(at, ([dir, shellDir]) => checkRm(w, dir, [...tops], vars, shellDir)));
     if (verdict?.[0] === 'deny') return verdict;
     if (chain && entry.op !== '&&') {
       dirs = new Set([...dirs, ...chain]);
