@@ -23,7 +23,9 @@ const browserRule = (agent) =>
   "no login can use the host's built-in browser, such as T3 Code's preview.\n\n" +
   `Start every session with \`--agent-name "${agent}"\`, \`--project\` set to the repository's ` +
   'directory name, and `--name` set to the task in a few words. The window overlay shows them, so ' +
-  'the user can tell parallel agent windows apart.';
+  'the user can tell parallel agent windows apart.\n\n' +
+  "On a page that lists customers, orders, or other people's records, read only hrefs or a URL " +
+  'pattern through a filter that masks ids, and never print `bsk snapshot` or VOM text of the list.';
 
 export const TARGETS = {
   claude: {
