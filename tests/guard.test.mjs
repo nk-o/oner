@@ -39,10 +39,18 @@ g(repo, 'switch', '-q', '-c', 'unpushed', 'main');
 commit('unpushed.txt');
 g(repo, 'switch', '-q', 'main');
 
-function verdict(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
+function output(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
   const r = spawnSync(process.execPath, [hook, ...args], { input: JSON.stringify({ tool_name, tool_input: { command }, cwd }), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
-  return r.stdout ? JSON.parse(r.stdout).hookSpecificOutput.permissionDecision : 'pass';
+  return r.stdout ? JSON.parse(r.stdout).hookSpecificOutput : null;
+}
+
+// 'ask' names a stop the agent clears by checking and rerunning; the host is never asked.
+function verdict(command, options) {
+  const out = output(command, options);
+  if (!out) return 'pass';
+  assert.equal(out.permissionDecision, 'deny', `${command} asks the user`);
+  return out.permissionDecisionReason.includes('ONER_GUARD=checked') ? 'ask' : 'deny';
 }
 
 const rows = [
@@ -244,9 +252,15 @@ test('a tool other than Bash, and input the hook cannot read, pass untouched', (
   assert.deepEqual([r.status, r.stdout], [0, '']);
 });
 
-test('in Codex, which cannot ask, what would ask is refused and the rest is unchanged', () => {
-  const codex = { args: ['--host', 'codex'] };
-  assert.equal(verdict('git reset --hard origin/main', codex), 'deny');
-  assert.equal(verdict('git push --force origin main', codex), 'deny');
-  assert.equal(verdict('git push -u origin feature', codex), 'pass');
+test('the agent clears a stop by checking and rerunning, on every host, and a refusal stays', () => {
+  for (const args of [[], ['--host', 'codex']]) {
+    assert.equal(verdict('git reset --hard origin/main', { args }), 'ask');
+    assert.equal(verdict('ONER_GUARD=checked git reset --hard origin/main', { args }), 'pass');
+    assert.equal(verdict('cd . && ONER_GUARD=checked git stash drop', { args }), 'pass');
+    assert.equal(verdict('ONER_GUARD=checked git push --force origin main', { args }), 'deny');
+    assert.equal(verdict('git push -u origin feature', { args }), 'pass');
+  }
+  assert.equal(verdict('ONER_GUARD=checkedx git stash drop'), 'ask');
+  assert.match(output('git stash drop').permissionDecisionReason, /stash/);
+  assert.doesNotMatch(output('git push --force origin main').permissionDecisionReason, /user/);
 });
