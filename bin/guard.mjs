@@ -3,8 +3,8 @@
 // `guard.enabled` is on. It refuses what would destroy shared history or the machine (a
 // force-push or delete of the default branch, a mirror push, a recursive delete of /, the home
 // directory, or a repository root or anything above it) and asks before what would lose local
-// work (a hard reset, a forced clean, discarding every change, a forced branch delete, a stash
-// drop, any other force-push).
+// work (a hard reset, a forced clean, discarding every change, a forced delete of a branch
+// whose commits are nowhere else, a stash drop, any other force-push).
 //
 // It catches an agent's mistake, not an attacker: a command written to a file and run by another
 // interpreter is out of its reach. Within the line it reads, it follows the shell: quotes and
@@ -341,6 +341,20 @@ function checkPush(args, cwd, config) {
   return ['ask', del || colon ? 'this deletes a remote branch' : 'this force-pushes, which replaces commits on the remote'];
 }
 
+// Whether deleting a local branch loses no work: a remote-tracking branch or the default
+// branch holds its commits, or merging it into the default branch changes no file, as after a
+// squash merge.
+function keptElsewhere(dir, name) {
+  const tip = git(dir, ['rev-parse', '--verify', '--quiet', `refs/heads/${name}^{commit}`]);
+  if (!tip) return false;
+  const bases = defaultBranches(dir).flatMap((b) => [`refs/remotes/origin/${b}`, `refs/heads/${b}`]).filter((ref) => ref !== `refs/heads/${name}`);
+  if (git(dir, ['for-each-ref', '--count=1', '--contains', tip, '--format=x', 'refs/remotes/', ...bases])) return true;
+  return bases.some((base) => {
+    const tree = git(dir, ['rev-parse', '--verify', '--quiet', `${base}^{tree}`]);
+    return tree && git(dir, ['merge-tree', '--write-tree', base, tip]).split('\n')[0] === tree;
+  });
+}
+
 function checkGit(w, cwd, depth) {
   let i = 1;
   let dir = cwd;
@@ -381,7 +395,11 @@ function checkGit(w, cwd, depth) {
     case 'branch': {
       const del = long(args, '--delete', 5) || short(args, 'd') || short(args, 'D');
       const force = long(args, '--force', 4) || short(args, 'f') || short(args, 'D');
-      return del && force ? ['ask', 'this deletes a branch that may hold unmerged commits'] : null;
+      if (!del || !force) return null;
+      const names = args.filter((a) => !a.startsWith('-'));
+      const remote = long(args, '--remotes', 4) || short(args, 'r');
+      if (!remote && names.length && names.every((name) => keptElsewhere(dir, name))) return null;
+      return ['ask', 'this deletes a branch that may hold unmerged commits'];
     }
     case 'stash':
       return args[0] === 'drop' || args[0] === 'clear' ? ['ask', 'this deletes stashed changes, and other sessions share the stash'] : null;
