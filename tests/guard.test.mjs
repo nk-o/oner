@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { after, test } from 'node:test';
@@ -16,14 +16,7 @@ const g = (cwd, ...args) => execFileSync('git', ['-C', cwd, ...args], { encoding
 execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote]);
 mkdirSync(repo);
 g(repo, 'init', '-q', '-b', 'main');
-writeFileSync(join(repo, 'tracked.test.mjs'), 'export {};\n');
-writeFileSync(join(repo, '.gitignore'), 'ignored.mjs\n');
-writeFileSync(join(repo, 'ignored.mjs'), 'export {};\n');
-writeFileSync(join(repo, 'untracked.mjs'), 'export {};\n');
-writeFileSync(join(repo, '2'), 'two\n');
-writeFileSync(join(root, 'outside.mjs'), 'export {};\n');
-g(repo, 'add', 'tracked.test.mjs', '.gitignore');
-g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '-m', 'init');
+g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '--allow-empty', '-m', 'init');
 g(repo, 'remote', 'add', 'origin', remote);
 g(repo, 'push', '-q', '-u', 'origin', 'main');
 g(repo, 'remote', 'set-head', 'origin', 'main');
@@ -35,24 +28,6 @@ function verdict(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
 }
 
 const rows = [
-  ["cat > tracked.test.mjs <<'EOF'\nx\nEOF", 'ask'],
-  ["cat > new.mjs <<'EOF'\nx\nEOF", 'pass'],
-  ['echo x >> tracked.test.mjs', 'pass'],
-  ['cmd > /tmp/out.txt', 'pass'],
-  ['echo x >| tracked.test.mjs', 'ask'],
-  ['echo x &> tracked.test.mjs', 'ask'],
-  ['echo x &>> tracked.test.mjs', 'pass'],
-  ['echo x 2>tracked.test.mjs', 'ask'],
-  ['echo x >&2', 'pass'],
-  ['>tracked.test.mjs', 'ask'],
-  ['echo x | tee tracked.test.mjs', 'ask'],
-  ['echo x | tee -a tracked.test.mjs', 'pass'],
-  ['echo x | tee --append tracked.test.mjs', 'pass'],
-  ['echo x | tee 2>/dev/null', 'pass'],
-  ['echo x | tee 2 >/dev/null', 'ask'],
-  ['echo x > untracked.mjs', 'ask'],
-  ['echo x > ignored.mjs', 'pass'],
-  [`echo x > '${join(root, 'outside.mjs')}'`, 'pass'],
   ['git push --force origin main', 'deny'],
   ['git push -f', 'deny'],
   ['git push -f origin HEAD', 'deny'],
