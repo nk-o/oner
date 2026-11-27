@@ -25,7 +25,7 @@ const commit = (file) => {
   g(repo, 'add', file);
   g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '-m', file);
 };
-// A branch squash-merged into main, a pushed branch, and a branch whose commit exists only here.
+// A branch squash-merged into main, a branch pushed but not merged, and one that exists only here.
 g(repo, 'switch', '-q', '-c', 'squashed');
 commit('squashed.txt');
 g(repo, 'switch', '-q', 'main');
@@ -64,7 +64,10 @@ const rows = [
   ['git restore .', 'ask'],
   ['git branch -D old-work', 'ask'],
   ['git branch -D squashed', 'pass'],
-  ['git branch -D pushed', 'pass'],
+  ['2>&1 git push --force origin main', 'deny'],
+  ['git 2>/dev/null push --force origin main', 'deny'],
+  ['2>/dev/null git reset --hard', 'ask'],
+  ['git branch -D pushed', 'ask'],
   ['git branch -D unpushed', 'ask'],
   ['git branch -D pushed unpushed', 'ask'],
   ['git branch -D -r origin/pushed', 'ask'],

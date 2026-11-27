@@ -237,6 +237,11 @@ export function lex(src) {
     }
     if (c === ')') { endCommand(')'); depth = Math.max(0, depth - 1); current.depth = depth; continue; }
     if (c === '<' || c === '>') {
+      // A number right before the operator is the file descriptor it redirects, not a word.
+      if (!skipWord && word !== null && /^\d+$/.test(word)) {
+        const start = i - word.length;
+        if (src.slice(start, i) === word && (start === 0 || /[\s;|&()]/.test(src[start - 1]))) word = null;
+      }
       endWord();
       while (src[i + 1] === '>' || src[i + 1] === '&' || src[i + 1] === '|') i++;
       skipWord = true;
@@ -341,14 +346,15 @@ function checkPush(args, cwd, config) {
   return ['ask', del || colon ? 'this deletes a remote branch' : 'this force-pushes, which replaces commits on the remote'];
 }
 
-// Whether deleting a local branch loses no work: a remote-tracking branch or the default
-// branch holds its commits, or every file the branch changed already reads the same on the
-// default branch, as after a squash merge.
-function keptElsewhere(dir, name) {
+// Whether deleting a local branch loses no work: a default branch that stays holds its
+// commits, or every file the branch changed already reads the same there, as after a squash
+// merge. Another remote-tracking branch is no proof, since the remote may have dropped it.
+function keptElsewhere(dir, name, deleting) {
   const tip = git(dir, ['rev-parse', '--verify', '--quiet', `refs/heads/${name}^{commit}`]);
   if (!tip) return false;
-  const bases = defaultBranches(dir).flatMap((b) => [`refs/remotes/origin/${b}`, `refs/heads/${b}`]).filter((ref) => ref !== `refs/heads/${name}`);
-  if (git(dir, ['for-each-ref', '--count=1', '--contains', tip, '--format=x', 'refs/remotes/', ...bases])) return true;
+  const bases = defaultBranches(dir).flatMap((b) => [`refs/remotes/origin/${b}`, `refs/heads/${b}`])
+    .filter((ref) => !deleting.some((other) => ref === `refs/heads/${other}`));
+  if (git(dir, ['for-each-ref', '--count=1', '--contains', tip, '--format=x', ...bases])) return true;
   return bases.some((base) => {
     const fork = git(dir, ['merge-base', base, tip]);
     if (!fork) return false;
@@ -411,7 +417,7 @@ function checkGit(w, cwd, depth, located = false) {
       const remote = long(options, '--remotes', 4) || short(options, 'r');
       // Each name costs several git calls, and the hook has 5 s in all.
       const checkable = !remote && !located && names.length && names.length <= 10;
-      if (checkable && names.every((name) => keptElsewhere(dir, name))) return null;
+      if (checkable && names.every((name) => keptElsewhere(dir, name, names))) return null;
       return ['ask', 'this deletes a branch that may hold unmerged commits'];
     }
     case 'stash':
