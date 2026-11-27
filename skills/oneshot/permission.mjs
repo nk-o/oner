@@ -41,11 +41,13 @@ function git(cwd, args) {
   return r.status === 0 ? r.stdout.trim() : '';
 }
 
-function pushIsSafe(command, defaultBranch, branch, pushConfigured) {
+function pushIsSafe(command, defaultBranch, branch, pushConfigured, pushDefault) {
   for (const m of command.matchAll(/\bgit\b(?:\s+-[Cc]\s+\S+)*\s+push\b([^;&|\n]*)/g)) {
     const args = m[1].replace(/--force-with-lease(=\S+)?|--force-if-includes/g, ' ');
-    if (/(^|\s)(--mirror|--all|--branches|--tags|--prune)(\s|$)/.test(args) || /push\.default=matching/.test(command)) return false;
-    const refs = args.trim().split(/\s+/).filter((t) => t && !t.startsWith('-')).map((t) => t.replace(/^['"]|['"]$/g, ''));
+    if (/(^|\s)(--mirror|--all|--branches|--tags|--prune)(\s|$)/.test(args)) return false;
+    const words = args.trim().split(/\s+/).filter((t) => t && !t.startsWith('-')).map((t) => t.replace(/^['"]|['"]$/g, ''));
+    // --repo names the remote, so every positional word is a refspec.
+    const refs = /--repo[=\s]/.test(args) ? ['', ...words] : words;
     // refs[0] is the remote. Without a refspec, git pushes the current branch. An empty, pattern,
     // or computed destination can reach the default branch, and so can master or main when
     // origin/HEAD is unknown.
@@ -54,6 +56,7 @@ function pushIsSafe(command, defaultBranch, branch, pushConfigured) {
     if (refs.length < 2 && branch === defaultBranch) return false;
     // remote.<name>.push can send a refspec-less push anywhere.
     if (refs.length < 2 && pushConfigured) return false;
+    if (refs.length < 2 && /^(matching|upstream|tracking)$/.test(pushDefault)) return false;
   }
   return true;
 }
@@ -113,7 +116,8 @@ function decide(input, skillsDir) {
     const defaultBranch = git(cwd, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).replace(/^origin\//, '') || 'main';
     const branch = git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
     const pushConfigured = git(cwd, ['config', '--get-regexp', '^remote\\..*\\.push$']) !== '';
-    return pushIsSafe(command, defaultBranch, branch, pushConfigured) && rmIsSafe(command, cwd, writable) &&
+    const pushDefault = command.match(/push\.default=(\w+)/)?.[1] ?? git(cwd, ['config', '--get', 'push.default']);
+    return pushIsSafe(command, defaultBranch, branch, pushConfigured, pushDefault) && rmIsSafe(command, cwd, writable) &&
       mergeIsAuthorized(command, worktrees[0] ?? cwd);
   }
   return false;

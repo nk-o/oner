@@ -76,6 +76,10 @@ test('an open run gets its local work approved and leaves the rest to the user',
     assert.equal(bash(command), 'ask', command);
   }
   assert.equal(bash('git push --force origin'), 'allow');
+  assert.equal(bash('git push --repo=origin main'), 'ask');
+  f.g('config', 'push.default', 'matching');
+  assert.equal(bash('git push --force origin'), 'ask', 'push.default=matching');
+  f.g('config', '--unset', 'push.default');
   f.g('config', 'remote.origin.push', 'refs/heads/feature:refs/heads/main');
   assert.equal(bash('git push --force origin'), 'ask', 'a configured push destination');
 });

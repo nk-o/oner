@@ -11,8 +11,9 @@
 // aliases, and every directory a cd can leave the shell in, counting a cd that may fail or that
 // runs in a subshell or a pipeline. Anything else, a line it fails to read included, passes.
 //
-// It refuses only what is certain: a command that reaches a protected path in every directory
-// and with every value the shell can have at that point.
+// It refuses a command that reaches a protected path in any directory the shell can be in, or
+// with any value a variable is known to have, since a loop runs every item. A name with no known
+// value and a fragment it cannot read count as unknown, and pass.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -330,8 +331,11 @@ function checkPush(args, cwd, config, vars) {
     else if (!a.startsWith('-')) positional.push(a);
   }
   let refs = repo === null ? positional.slice(1) : positional;
-  // Without a refspec, git pushes what remote.<name>.push names, if anything.
+  // Without a refspec, git pushes what remote.<name>.push names, else what push.default picks.
   if (!refs.length) refs = git(cwd, ['config', '--get-all', `remote.${positional[0] ?? 'origin'}.push`]).split('\n').filter(Boolean);
+  const mode = refs.length ? '' : config['push.default'] ?? git(cwd, ['config', '--get', 'push.default']);
+  if (mode === 'matching') refs = [':'];
+  if (mode === 'upstream' || mode === 'tracking') refs = [git(cwd, ['rev-parse', '--abbrev-ref', '@{upstream}']).replace(/^[^/]+\//, '')].filter(Boolean);
   const force = args.some((a) => a.startsWith('--force') || a === '--for') || short(args, 'f');
   const del = long(args, '--delete', 5) || short(args, 'd');
   const current = git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
@@ -401,11 +405,7 @@ function checkRm(w, dir, roots, vars, shellDir = dir) {
 
 // Whether one value of an rm operand reaches /, the home directory, a repository root, or .git.
 function protectedPath(expanded, dir, roots, home) {
-  // A variable with no value here expands to nothing in the shell too.
-  if (expanded.includes('$')) {
-    expanded = expanded.replace(/\$\{?\w+\}?/g, '');
-    if (expanded === '' || expanded.includes('$')) return null;
-  }
+  if (expanded.includes('$')) return null;
   const glob = /(^|\/)\*$/.test(expanded);
   const named = resolve(dir, expanded.replace(/(^|\/)\*$/, '$1'));
   for (const target of new Set([named, real(named)])) {
@@ -519,7 +519,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
         return [name, readable(() => here.flatMap((dir) => expandAll(value.join('='), dir, vars)), [`$${name}`])];
       });
       for (const [name, found] of values) {
-        if (builtin || frozen.has(name)) vars.set(name, [...new Set([...(vars.get(name) ?? [process.env[name]]), ...found])]);
+        if (entry.words[lead] === 'local' || frozen.has(name)) vars.set(name, [...new Set([...(vars.get(name) ?? [process.env[name]]), ...found])]);
         else bind(name, found);
       }
       if (declared[0] && (entry.words[lead] === 'readonly' || flags.some((flag) => flag.includes('r')))) {
@@ -567,7 +567,8 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
         targets.forEach((target) => { seen.add(target); addTop(target); });
         if (entry.op === '&&') chain = new Set(targets);
         else {
-          const certain = !branches && before !== '&&' && before !== '||' && entry.op !== '||' && targets.every(isDir);
+          const bails = entry.op === '||' && ['exit', 'return'].includes(commands[k + 1]?.words[0]);
+          const certain = !branches && before !== '&&' && before !== '||' && (entry.op !== '||' || bails) && targets.every(isDir);
           dirs = certain ? new Set(targets) : new Set([...dirs, ...targets]);
         }
       }
