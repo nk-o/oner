@@ -164,6 +164,7 @@ Then operate the assembled picker in a browser:
 Report actual results and console errors. Without browser execution, state that the
 interaction remains unproven.
 
+Serve a browser preview the user opens per **Dev servers** in the `worktree` skill, as a preview.
 Present the preview URL or file, the picker and its controls, and a short comparison of each
 direction's benefit and cost, without picking a favorite. Stop for the user's choice. It comes
 back as the line from Copy config: the direction, every value the user changed, and under

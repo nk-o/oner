@@ -71,11 +71,16 @@ screen or a design edit after edit. Start only the apps that step needs, with th
 `verify-<app>` start command when it has one. Reuse a server only after confirming that its
 listener belongs to this checkout, and record which processes you started and which you reused.
 
-When that step ends, including on failure, stop the servers you started before you move on to
-review, a pull request, or waiting for CI, and confirm their listeners are gone. Keep one
-running when the user asked for a live preview, and say so in the report. Leave reused servers
-and shared databases running. An open task or an unmerged PR alone does not need a server.
+When that step ends, including on failure, stop the servers you started, other than a preview,
+before you move on to review, a pull request, or waiting for CI, and confirm their listeners are
+gone. Leave reused servers and shared databases running. An open task or an unmerged PR alone does not need a server.
 Stopping keeps the worktree, its port, and its compiler caches, so the next start is warm.
+
+A server whose URL the user is given to open, such as a prototype, is a preview. Start it with
+`{{repo_dir}}/bin/devservers.mjs preview --port <port> -- <start command>`, give the user the
+URL it prints, leave it running, and say so in the report. A server started any other way dies
+when the agent's turn or its background task ends. A preview stays up through an hour without a
+visit, or until critical memory pressure.
 
 Agent hooks run `{{repo_dir}}/bin/devservers.mjs`, which stops a dev server in a linked
 worktree once no client has connected and its processes have used no CPU for 30 minutes, 5

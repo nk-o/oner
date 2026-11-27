@@ -254,7 +254,8 @@ usually one small script that imports what the app ships and calls the function 
 - A dev server runs only while a step needs the running app, to verify a change or to work on a
   screen. Before starting one, or a full build, test run, or browser test, run
   `{{repo_dir}}/bin/devservers.mjs gate` and defer the step while it exits 75. Stop the servers
-  you started when the step ends. **Dev servers** in the `worktree` skill has the rest.
+  you started, other than a preview, when the step ends. **Dev servers** in the `worktree` skill
+  has the rest.
 
 ## Whole tasks
 
