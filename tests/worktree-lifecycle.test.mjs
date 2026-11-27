@@ -1076,11 +1076,11 @@ test('a preview outlives the command that started it and stays up to an hour idl
   const started = spawnSync(process.execPath, [devservers, 'preview', '--port', String(port), '--', process.execPath, '-e', serve], {
     cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
   assert.equal(started.status, 0, started.stderr);
-  assert.match(started.stdout, new RegExp(`http://127\\.0\\.0\\.1:${port}`));
+  assert.match(started.stdout, new RegExp(`http://localhost:${port}`));
   const pid = listener(port); strays.push(pid);
   assert.ok(pid && alive(pid), 'the preview is not listening after its starter exited');
-  const group = (p) => spawnSync('ps', ['-o', 'sess=', '-p', String(p)], { encoding: 'utf8' }).stdout.trim();
-  assert.notEqual(group(pid), group(process.pid), 'the preview shares the starter session, so ending the turn kills it');
+  const group = (p) => spawnSync('ps', ['-o', 'pgid=', '-p', String(p)], { encoding: 'utf8' }).stdout.trim();
+  assert.notEqual(group(pid), group(process.pid), 'the preview shares the starter process group, so ending the turn kills it');
   assert.match(reaper(f, ['reap'], 'warning').stdout, /kept .*preview/);
   ageState(f, 1800);
   await new Promise(r => setTimeout(r, 2000));
