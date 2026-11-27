@@ -44,10 +44,13 @@ function git(cwd, args) {
 function pushIsSafe(command, defaultBranch, branch) {
   for (const m of command.matchAll(/\bgit\b(?:\s+-[Cc]\s+\S+)*\s+push\b([^;&|\n]*)/g)) {
     const args = m[1].replace(/--force-with-lease(=\S+)?|--force-if-includes/g, ' ');
-    if (/(^|\s)(--mirror|--all|--tags|--prune)(\s|$)/.test(args)) return false;
+    if (/(^|\s)(--mirror|--all|--branches|--tags|--prune)(\s|$)/.test(args) || /push\.default=matching/.test(command)) return false;
     const refs = args.trim().split(/\s+/).filter((t) => t && !t.startsWith('-')).map((t) => t.replace(/^['"]|['"]$/g, ''));
-    // refs[0] is the remote. Without a refspec, git pushes the current branch.
-    if (refs.slice(1).some((t) => t.split(':').pop().replace(/^\+?(refs\/heads\/)?/, '') === defaultBranch)) return false;
+    // refs[0] is the remote. Without a refspec, git pushes the current branch. An empty, pattern,
+    // or computed destination can reach the default branch, and so can master or main when
+    // origin/HEAD is unknown.
+    const target = (t) => t.split(':').pop().replace(/^\+?(refs\/heads\/)?/, '').replace(/^(HEAD|@)$/, branch);
+    if (refs.slice(1).some((t) => /^$|[*$`]/.test(target(t)) || [defaultBranch, 'main', 'master'].includes(target(t)))) return false;
     if (refs.length < 2 && branch === defaultBranch) return false;
   }
   return true;

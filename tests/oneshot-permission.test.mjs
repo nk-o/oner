@@ -54,7 +54,7 @@ test('an open run gets its local work approved and leaves the rest to the user',
   for (const command of ['pnpm test', 'git commit -m "Add the thing"', 'git push -u origin feature',
     'git push --force-with-lease origin feature', 'rm -rf node_modules dist', 'cat vercel.json', 'node -e "1"',
     'git push --force origin feature', 'git push -f origin feature', 'git push origin :feature', 'git push origin --delete feature',
-    'rm -rf "$OUT/build"', 'make && rm -r "$HOME/x"']) {
+    'rm -rf "$OUT/build"', 'make && rm -r "$HOME/x"', 'git push -f origin @', 'git push origin HEAD']) {
     assert.equal(bash(command), 'allow', command);
   }
 
@@ -70,7 +70,9 @@ test('an open run gets its local work approved and leaves the rest to the user',
     'gh workflow run deploy.yml', 'gh pr merge 7 --squash', 'gh pr merge 7 --squash --match-head-commit abc1234',
     'git push origin main', 'git push origin HEAD:main', 'git push --force origin main', 'git push origin --delete main',
     'git push origin :main', 'git push --mirror origin', 'rm -rf ~/Library/Caches', 'rm -rf /tmp/x',
-    'rm -rf ../other', 'rm -rf .']) {
+    'rm -rf ../other', 'rm -rf .', "git push --force origin 'refs/heads/*'", "git push origin '+refs/heads/*:refs/heads/*'",
+    'git push --force origin :', 'git push origin +:', 'git push --force --branches origin', 'git push --force origin master',
+    'git push --force origin "$(git branch --show-current)"', 'git -c push.default=matching push --force origin']) {
     assert.equal(bash(command), 'ask', command);
   }
 });

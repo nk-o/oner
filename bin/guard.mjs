@@ -40,10 +40,10 @@ const JOINS = new Set(['then', 'else', 'elif', 'do', '!', '{', '}']);
 const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
 const GIT_BUILTINS = new Set(['status', 'log', 'diff', 'show', 'add', 'commit', 'fetch', 'pull', 'merge', 'rebase', 'rev-parse',
   'remote', 'config', 'tag', 'worktree', 'ls-files', 'grep', 'blame', 'init', 'clone', 'cherry-pick', 'revert', 'mv', 'rm', 'apply',
-  'describe', 'symbolic-ref', 'for-each-ref', 'rev-list', 'shortlog', 'reflog', 'notes', 'submodule', 'archive', 'bisect', 'gc']);
+  'describe', 'symbolic-ref', 'for-each-ref', 'rev-list', 'shortlog', 'reflog', 'notes', 'submodule', 'archive', 'bisect', 'gc',
+  'reset', 'clean', 'checkout', 'switch', 'restore', 'branch', 'stash']);
 const MAX_DEPTH = 8;
 
-class Unreadable extends Error {}
 
 function git(cwd, args) {
   const r = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
@@ -269,7 +269,7 @@ function expandAll(word, dir, vars = new Map()) {
       const found = value(m);
       return found === null ? [text] : found.map((v) => text.slice(0, m.index) + v + text.slice(m.index + m[0].length));
     });
-    if (out.length > 32) throw new Unreadable('too many values to check');
+    if (out.length > 32) throw new Error('too many values to check');
   };
   for (let round = 0; round < 8; round++) {
     const before = out.join('\0');
@@ -307,7 +307,7 @@ function reaches(dst, branch) {
   return pattern.test(`refs/heads/${branch}`);
 }
 
-function checkPush(args, cwd, config) {
+function checkPush(args, cwd, config, vars) {
   const mirrorRemote = Object.entries(config).some(([k, v]) => /^remote\..+\.mirror$/.test(k) && v !== 'false');
   if (long(args, '--mirror', 4) || mirrorRemote) return ['deny', 'a mirror push overwrites every ref on the remote'];
   const positional = [];
@@ -332,8 +332,12 @@ function checkPush(args, cwd, config) {
     plus ||= ref.startsWith('+');
     if (body === ':') { all = true; continue; }
     colon ||= body.startsWith(':');
-    const dst = body.split(':').pop().replace(/^HEAD$/, current);
-    hit ??= main.find((b) => reaches(dst, b)) ?? null;
+    for (const value of expandAll(body.split(':').pop(), cwd, vars)) {
+      const dst = value.replace(/^(HEAD|@)$/, current);
+      // A target this guard cannot work out can be the branch the shell is on.
+      if (/[$`]/.test(dst)) hit ??= main.includes(current) ? current : null;
+      else hit ??= main.find((b) => reaches(dst, b)) ?? null;
+    }
   }
   if (!refs.length && !all) hit = main.includes(current) ? current : null;
   if (all) hit ??= main[0];
@@ -341,7 +345,7 @@ function checkPush(args, cwd, config) {
   return hit ? ['deny', `this rewrites or deletes ${hit}, the default branch`] : null;
 }
 
-function checkGit(w, cwd, depth) {
+function checkGit(w, cwd, depth, vars) {
   let i = 1;
   let dir = cwd;
   const config = {};
@@ -358,12 +362,13 @@ function checkGit(w, cwd, depth) {
   if (sub && !GIT_BUILTINS.has(sub) && sub !== 'push') {
     const alias = config[`alias.${sub.toLowerCase()}`] ?? git(dir, ['config', '--get', `alias.${sub}`]);
     if (alias) {
-      if (alias.startsWith('!')) return decide(`${alias.slice(1)} ${args.join(' ')}`, dir, null, depth + 1);
+      if (alias.startsWith('!')) return decide(`${alias.slice(1)} ${args.join(' ')}`, dir, null, depth + 1,
+        new Map([...vars, ['GIT_DIR', [git(dir, ['rev-parse', '--absolute-git-dir'])]]]));
       const words = lex(alias)[0]?.words ?? [];
-      return checkGit(['git', ...Object.entries(config).flatMap(([k, v]) => ['-c', `${k}=${v}`]), ...words, ...args], dir, depth + 1);
+      return checkGit(['git', ...Object.entries(config).flatMap(([k, v]) => ['-c', `${k}=${v}`]), ...words, ...args], dir, depth + 1, vars);
     }
   }
-  return sub === 'push' ? checkPush(args, dir, config) : null;
+  return sub === 'push' ? checkPush(args, dir, config, vars) : null;
 }
 
 function checkRm(w, dir, roots, vars, shellDir = dir) {
@@ -415,7 +420,7 @@ function stripPrefixes(w, chdir = []) {
 // certain only when it runs unconditionally, outside a subshell or a pipeline, into a
 // directory that exists. Otherwise its target joins the directories already possible.
 export function decide(command, cwd, roots = null, depth = 0, inherited = new Map()) {
-  if (depth > MAX_DEPTH) throw new Unreadable('nested too deep');
+  if (depth > MAX_DEPTH) throw new Error('nested too deep');
   const tops = new Set(roots ?? [git(cwd, ['rev-parse', '--show-toplevel'])].filter(Boolean));
   const vars = new Map(inherited);
   const commands = lex(String(command));
@@ -553,7 +558,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       const flag = w.findIndex((a, n) => n > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
       if (flag > 0 && w[flag + 1] !== undefined) take(across(here, (dir) => inner(w[flag + 1], dir)));
     } else if (name === 'eval') take(across(here, (dir) => inner(w.slice(1).join(' '), dir)));
-    else if (name === 'git') take(across(at, ([dir]) => checkGit(w, dir, depth)));
+    else if (name === 'git') take(across(at, ([dir]) => checkGit(w, dir, depth, vars)));
     else if (name === 'rm') take(across(at, ([dir, shellDir]) => checkRm(w, dir, [...tops], vars, shellDir)));
     if (verdict) return verdict;
     if (chain && entry.op !== '&&') {
