@@ -1071,14 +1071,15 @@ const ageState = (f, seconds) => {
 
 test('a preview outlives the command that started it and stays up to an hour idle', async () => {
   const f = fixture(); const dir = f.worktree('feature');
-  const port = await freePort(); f.launch(dir, port);
-  const serve = `require('http').createServer((q,s)=>s.end('preview')).listen(${port},'127.0.0.1')`;
-  const started = spawnSync(process.execPath, [devservers, 'preview', '--port', String(port), '--', process.execPath, '-e', serve], {
+  const port = await freePort();
+  writeFileSync(join(dir, 'serve.sh'), `"${process.execPath}" -e "require('http').createServer((q,s)=>s.end('preview')).listen(${port},'127.0.0.1')"\n`);
+  const started = spawnSync(process.execPath, [devservers, 'preview', '--port', String(port), '--', 'bash', 'serve.sh'], {
     cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
   assert.equal(started.status, 0, started.stderr);
   assert.match(started.stdout, new RegExp(`http://localhost:${port}`));
   const pid = listener(port); strays.push(pid);
   assert.ok(pid && alive(pid), 'the preview is not listening after its starter exited');
+  assert.equal(await (await fetch(`http://localhost:${port}/`)).text(), 'preview');
   const group = (p) => spawnSync('ps', ['-o', 'pgid=', '-p', String(p)], { encoding: 'utf8' }).stdout.trim();
   assert.notEqual(group(pid), group(process.pid), 'the preview shares the starter process group, so ending the turn kills it');
   assert.match(reaper(f, ['reap'], 'warning').stdout, /kept .*preview/);
@@ -1109,10 +1110,10 @@ test('a preview stops at its idle minute under critical pressure', async () => {
 
 test('a preview whose command exits before it listens fails with its log', () => {
   const f = fixture(); const dir = f.worktree('feature');
-  const started = spawnSync(process.execPath, [devservers, 'preview', '--port', '1', '--wait', '10s', '--', process.execPath, '-e', "console.error('boom'); process.exit(3)"], {
+  const started = spawnSync(process.execPath, [devservers, 'preview', '--port', '1', '--wait', '10s', '--', process.execPath, '-e', "console.error('boom: the cause'); console.log('ok'); process.exit(3)"], {
     cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
   assert.equal(started.status, 1);
-  assert.match(started.stderr, /boom/);
+  assert.match(started.stderr, /boom: the cause\n(.|\n)*ok|ok\n(.|\n)*boom: the cause/);
 });
 
 test('a Next.js telemetry flush left behind by a stopped server is stopped', async () => {

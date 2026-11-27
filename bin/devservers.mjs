@@ -21,7 +21,8 @@ Commands:
                     start a server whose URL the user opens: in its own session, so it outlives
                     the agent's turn and background task, with its output in a log file. It stops
                     after an hour idle, or after the critical limit under critical pressure.
-                    Exits 1 when it does not listen within --wait (default 120)
+                    Any command counts, in any checkout, a shell script included.
+                    Exits 1 when it does not listen within --wait (default 60)
 
 Idle limits: 30m at normal memory pressure, 5m at warning, 1m at critical. A server is active
 while a client holds a connection to its port or its processes use CPU. reap also stops a
@@ -47,7 +48,7 @@ const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 
 const run = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' }, maxBuffer: 64 << 20 });
 
 function parseArgs(argv) {
-  const opts = { command: argv[0], dryRun: false, quiet: false, idle: null, wait: 120, roots: [], port: null, exec: [] };
+  const opts = { command: argv[0], dryRun: false, quiet: false, idle: null, wait: argv[0] === 'preview' ? 60 : 120, roots: [], port: null, exec: [] };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--') {
@@ -184,6 +185,28 @@ function descendants(table, pid) {
   return out;
 }
 
+// Each record names the process `preview` started and its start time, so a reused pid never
+// counts. A record whose process has gone is deleted.
+function previews(table) {
+  const dir = join(STATE, 'previews');
+  const found = [];
+  for (const name of existsSync(dir) ? readdirSync(dir) : []) {
+    if (!name.endsWith('.json')) continue;
+    let record = null;
+    try {
+      record = JSON.parse(readFileSync(join(dir, name), 'utf8'));
+    } catch {}
+    const p = record && table.get(record.pid);
+    if (!p || p.started !== record.started) {
+      rmSync(join(dir, name), { force: true });
+      continue;
+    }
+    const key = `preview-${p.pid}-${Date.parse(p.started) / 1000 || 0}`;
+    found.push({ key, checkout: record.cwd, gone: false, preview: true, root: p.pid, started: p.started, ports: new Set([record.port]), pids: descendants(table, p.pid) });
+  }
+  return found;
+}
+
 // Each server is one process tree: the listener and its ancestors in the same checkout, up to
 // the first agent, interactive shell, or process outside it, then everything under that root.
 export function discover(roots = []) {
@@ -228,6 +251,13 @@ export function discover(roots = []) {
       continue;
     }
     servers.set(key, { key, checkout: checkout.root, gone: checkout.gone, root: root.pid, started: root.started, ports: new Set(ports), pids });
+  }
+
+  // A preview is found by the process `preview` started, whatever it runs and wherever it runs.
+  for (const p of previews(table)) {
+    if (roots.length && !roots.some((r) => inside(p.checkout, r))) continue;
+    for (const [key, s] of servers) if (s.pids.some((pid) => p.pids.includes(pid))) servers.delete(key);
+    servers.set(p.key, p);
   }
 
   const established = lsofPairs(['-nP', '-a', '-u', uid, '-iTCP', '-sTCP:ESTABLISHED', '-Fpn']);
@@ -290,22 +320,6 @@ const mb = (kb) => `${Math.round(kb / 1024)} MB`;
 const minutes = (s) => `${Math.floor(s / 60)}m`;
 const describe = (s) => `${s.checkout}${s.gone ? ' (deleted)' : ''}${s.preview ? ' preview' : ''} port ${[...s.ports].join(',')} pid ${s.root} ${mb(s.rss)} resident`;
 
-// A preview is the process `preview` started, recorded with its start time so a reused pid
-// never counts. A record whose process has gone is deleted.
-function markPreviews(servers, table) {
-  const dir = join(STATE, 'previews');
-  const live = [];
-  for (const name of existsSync(dir) ? readdirSync(dir) : []) {
-    if (!name.endsWith('.json')) continue;
-    try {
-      const record = JSON.parse(readFileSync(join(dir, name), 'utf8'));
-      if (table.get(record.pid)?.started === record.started) live.push(record.pid);
-      else rmSync(join(dir, name), { force: true });
-    } catch {}
-  }
-  for (const s of servers) s.preview = live.some((pid) => s.pids.includes(pid));
-}
-
 function log(line) {
   mkdirSync(STATE, { recursive: true });
   appendFileSync(join(STATE, 'reaped.log'), `${new Date().toISOString()} ${line}\n`);
@@ -337,7 +351,6 @@ function reap({ idle, dryRun, quiet, roots }, level = pressure()) {
   const limit = idle ?? LIMITS[level] ?? LIMITS.normal;
   const { servers, table } = discover(roots);
   sample(servers, !roots.length);
-  markPreviews(servers, table);
   let stopped = 0;
   for (const s of servers) {
     const own = s.preview && level !== 'critical' ? Math.max(limit, PREVIEW_LIMIT) : limit;
@@ -382,7 +395,6 @@ function status({ roots }) {
   const level = pressure();
   const { servers, table } = discover(roots);
   sample(servers, !roots.length);
-  markPreviews(servers, table);
   console.log(`memory pressure ${level}, idle limit ${minutes(LIMITS[level] ?? LIMITS.normal)}`);
   for (const s of servers) console.log(`${s.clients ? 'active' : 'idle  '}  ${describe(s)} ${s.clients} client(s) idle ${minutes(s.idle)}`);
   if (!servers.length) console.log('no dev servers in linked worktrees');
@@ -453,25 +465,25 @@ async function preview({ port, wait, exec }) {
   }
   mkdirSync(join(STATE, 'previews'), { recursive: true });
   const logFile = join(STATE, 'previews', `${port}.log`);
-  const child = spawn(exec[0], exec.slice(1), { detached: true, stdio: ['ignore', openSync(logFile, 'w'), openSync(logFile, 'a')] });
+  const log = openSync(logFile, 'w');
+  const child = spawn(exec[0], exec.slice(1), { detached: true, stdio: ['ignore', log, log] });
   let exit = null;
   child.once('exit', (code, signal) => { exit = signal ?? `code ${code}`; });
   child.once('error', (error) => { exit = error.message; });
+  child.unref();
+  // Recorded before the wait, so the reaper still finds the server if this command is killed.
+  const record = join(STATE, 'previews', `${child.pid}.json`);
+  const started = child.pid && processTable().get(child.pid)?.started;
+  if (started) writeFileSync(record, JSON.stringify({ pid: child.pid, started, port, cwd: process.cwd() }));
   const deadline = Date.now() + wait * 1000;
   while (exit === null && Date.now() < deadline && !(await listening(port))) await new Promise((r) => setTimeout(r, 250));
   if (exit !== null || !(await listening(port))) {
-    if (exit === null) {
-      try {
-        process.kill(-child.pid, 'SIGTERM');
-      } catch {}
-    }
+    if (exit === null) stop({ pids: descendants(processTable(), child.pid) }, processTable());
+    rmSync(record, { force: true });
     console.error(`the preview did not listen on port ${port}: ${exit === null ? `nothing after ${wait}s` : `its command exited, ${exit}`}. The end of ${logFile}:`);
     console.error(readFileSync(logFile, 'utf8').trimEnd().split('\n').slice(-20).join('\n'));
     return 1;
   }
-  const started = processTable().get(child.pid)?.started;
-  writeFileSync(join(STATE, 'previews', `${child.pid}.json`), JSON.stringify({ pid: child.pid, started, port, cwd: process.cwd() }));
-  child.unref();
   console.log(`preview http://localhost:${port} pid ${child.pid} log ${logFile}`);
   return 0;
 }
