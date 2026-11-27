@@ -41,7 +41,7 @@ function git(cwd, args) {
   return r.status === 0 ? r.stdout.trim() : '';
 }
 
-function pushIsSafe(command, defaultBranch, branch) {
+function pushIsSafe(command, defaultBranch, branch, pushConfigured) {
   for (const m of command.matchAll(/\bgit\b(?:\s+-[Cc]\s+\S+)*\s+push\b([^;&|\n]*)/g)) {
     const args = m[1].replace(/--force-with-lease(=\S+)?|--force-if-includes/g, ' ');
     if (/(^|\s)(--mirror|--all|--branches|--tags|--prune)(\s|$)/.test(args) || /push\.default=matching/.test(command)) return false;
@@ -52,6 +52,8 @@ function pushIsSafe(command, defaultBranch, branch) {
     const target = (t) => t.split(':').pop().replace(/^\+?(refs\/heads\/)?/, '').replace(/^(HEAD|@)$/, branch);
     if (refs.slice(1).some((t) => /^$|[*$`]/.test(target(t)) || [defaultBranch, 'main', 'master'].includes(target(t)))) return false;
     if (refs.length < 2 && branch === defaultBranch) return false;
+    // remote.<name>.push can send a refspec-less push anywhere.
+    if (refs.length < 2 && pushConfigured) return false;
   }
   return true;
 }
@@ -110,7 +112,8 @@ function decide(input, skillsDir) {
     if (ASK_TOOL.test(command) || PUBLISH.some((r) => r.test(command))) return false;
     const defaultBranch = git(cwd, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).replace(/^origin\//, '') || 'main';
     const branch = git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    return pushIsSafe(command, defaultBranch, branch) && rmIsSafe(command, cwd, writable) &&
+    const pushConfigured = git(cwd, ['config', '--get-regexp', '^remote\\..*\\.push$']) !== '';
+    return pushIsSafe(command, defaultBranch, branch, pushConfigured) && rmIsSafe(command, cwd, writable) &&
       mergeIsAuthorized(command, worktrees[0] ?? cwd);
   }
   return false;

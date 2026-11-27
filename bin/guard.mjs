@@ -44,6 +44,17 @@ const GIT_BUILTINS = new Set(['status', 'log', 'diff', 'show', 'add', 'commit', 
   'reset', 'clean', 'checkout', 'switch', 'restore', 'branch', 'stash']);
 const MAX_DEPTH = 8;
 
+class Unreadable extends Error {}
+// A fragment this guard cannot read passes; the rest of the line is still checked.
+const readable = (fn, fallback) => {
+  try {
+    return fn();
+  } catch (error) {
+    if (error instanceof Unreadable) return fallback;
+    throw error;
+  }
+};
+
 
 function git(cwd, args) {
   const r = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
@@ -269,7 +280,7 @@ function expandAll(word, dir, vars = new Map()) {
       const found = value(m);
       return found === null ? [text] : found.map((v) => text.slice(0, m.index) + v + text.slice(m.index + m[0].length));
     });
-    if (out.length > 32) throw new Error('too many values to check');
+    if (out.length > 32) throw new Unreadable('too many values to check');
   };
   for (let round = 0; round < 8; round++) {
     const before = out.join('\0');
@@ -318,7 +329,9 @@ function checkPush(args, cwd, config, vars) {
     else if (['--repo', '-o', '--push-option', '--receive-pack', '--exec'].includes(a)) { if (a === '--repo') repo = args[i + 1]; i++; }
     else if (!a.startsWith('-')) positional.push(a);
   }
-  const refs = repo === null ? positional.slice(1) : positional;
+  let refs = repo === null ? positional.slice(1) : positional;
+  // Without a refspec, git pushes what remote.<name>.push names, if anything.
+  if (!refs.length) refs = git(cwd, ['config', '--get-all', `remote.${positional[0] ?? 'origin'}.push`]).split('\n').filter(Boolean);
   const force = args.some((a) => a.startsWith('--force') || a === '--for') || short(args, 'f');
   const del = long(args, '--delete', 5) || short(args, 'd');
   const current = git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
@@ -380,14 +393,19 @@ function checkRm(w, dir, roots, vars, shellDir = dir) {
   const operands = [...head.filter((a) => !a.startsWith('-')), ...(end < 0 ? [] : args.slice(end + 1))];
   for (const raw of operands.flatMap(braces)) {
     const hits = expandAll(raw, shellDir, vars).map((expanded) => (expanded === '' ? null : protectedPath(expanded, dir, roots, home)));
-    if (hits.length && hits.every(Boolean)) return hits[0];
+    const hit = hits.find(Boolean);
+    if (hit) return hit;
   }
   return null;
 }
 
 // Whether one value of an rm operand reaches /, the home directory, a repository root, or .git.
 function protectedPath(expanded, dir, roots, home) {
-  if (expanded.includes('$')) return null;
+  // A variable with no value here expands to nothing in the shell too.
+  if (expanded.includes('$')) {
+    expanded = expanded.replace(/\$\{?\w+\}?/g, '');
+    if (expanded === '' || expanded.includes('$')) return null;
+  }
   const glob = /(^|\/)\*$/.test(expanded);
   const named = resolve(dir, expanded.replace(/(^|\/)\*$/, '$1'));
   for (const target of new Set([named, real(named)])) {
@@ -420,7 +438,7 @@ function stripPrefixes(w, chdir = []) {
 // certain only when it runs unconditionally, outside a subshell or a pipeline, into a
 // directory that exists. Otherwise its target joins the directories already possible.
 export function decide(command, cwd, roots = null, depth = 0, inherited = new Map()) {
-  if (depth > MAX_DEPTH) throw new Error('nested too deep');
+  if (depth > MAX_DEPTH) throw new Unreadable('nested too deep');
   const tops = new Set(roots ?? [git(cwd, ['rev-parse', '--show-toplevel'])].filter(Boolean));
   const vars = new Map(inherited);
   const commands = lex(String(command));
@@ -433,11 +451,8 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     if (top) tops.add(top);
   };
   const inner = (script, dir) => decide(script, dir, [...tops], depth + 1, vars);
-  // A refusal holds only when the command is refused in every directory the shell can be in.
-  const across = (places, check) => {
-    const found = places.map(check);
-    return found.every(Boolean) ? found[0] : null;
-  };
+  // A command is refused when it reaches a protected path in any directory the shell can be in.
+  const across = (places, check) => places.map((place) => readable(() => check(place), null)).find(Boolean) ?? null;
   const strongest = (found) => found.find(Boolean) ?? null;
   let dirs = new Set([cwd]);
   const seen = new Set([cwd]);
@@ -486,7 +501,9 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       const loop = open.findLast((item) => item.word === 'for');
       if (loop) Object.assign(loop, { name, previous: vars.get(name) ?? [process.env[name]] });
       // Inside the body the variable is one of the items, nothing else.
-      vars.set(name, here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))));
+      const items = readable(() => here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))), null);
+      if (items) vars.set(name, items);
+      else vars.delete(name);
       continue;
     }
     let declared = entry.words.slice(Math.max(lead, 0));
@@ -499,7 +516,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       // fail, and a readonly name keeps its value, so neither replaces what the name held.
       const values = declared.filter((item) => item.includes('=')).map((word) => {
         const [name, ...value] = word.split('=');
-        return [name, here.flatMap((dir) => expandAll(value.join('='), dir, vars))];
+        return [name, readable(() => here.flatMap((dir) => expandAll(value.join('='), dir, vars)), [`$${name}`])];
       });
       for (const [name, found] of values) {
         if (builtin || frozen.has(name)) vars.set(name, [...new Set([...(vars.get(name) ?? [process.env[name]]), ...found])]);
@@ -514,7 +531,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     const name = w[0]?.split('/').pop();
     // Pairs of the directory a command runs in and the one its words were expanded in.
     const at = here.flatMap((dir) => (chdir.length
-      ? chdir.flatMap((to) => expandAll(to, dir, vars)).map((to) => [resolve(dir, to), dir])
+      ? readable(() => chdir.flatMap((to) => expandAll(to, dir, vars)), [dir]).map((to) => [resolve(dir, to), dir])
       : [[dir, dir]]));
     // A shell later in the pipeline with no script of its own runs what this command prints.
     let piped = false;
@@ -545,7 +562,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       let operands = w.slice(1);
       while (operands.length && /^-[LPe@]+$/.test(operands[0])) operands = operands.slice(1);
       if (operands[0] === '--') operands = operands.slice(1);
-      const targets = here.flatMap((dir) => expandAll(operands[0] ?? '~', dir, vars).filter((to) => !to.includes('$')).map((to) => resolve(dir, to)));
+      const targets = here.flatMap((dir) => readable(() => expandAll(operands[0] ?? '~', dir, vars), []).filter((to) => !to.includes('$')).map((to) => resolve(dir, to)));
       if (!background && targets.length) {
         targets.forEach((target) => { seen.add(target); addTop(target); });
         if (entry.op === '&&') chain = new Set(targets);

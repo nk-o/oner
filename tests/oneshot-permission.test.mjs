@@ -75,6 +75,9 @@ test('an open run gets its local work approved and leaves the rest to the user',
     'git push --force origin "$(git branch --show-current)"', 'git -c push.default=matching push --force origin']) {
     assert.equal(bash(command), 'ask', command);
   }
+  assert.equal(bash('git push --force origin'), 'allow');
+  f.g('config', 'remote.origin.push', 'refs/heads/feature:refs/heads/main');
+  assert.equal(bash('git push --force origin'), 'ask', 'a configured push destination');
 });
 
 test('a lead session is approved only for the series it drives, never for a run log on its branch', () => {
