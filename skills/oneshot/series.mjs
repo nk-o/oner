@@ -164,7 +164,7 @@ function normalize(p, dir, root) {
   if (!['squash', 'merge', 'rebase'].includes(r.merge)) bad(`release.merge "${r.merge}" is not squash, merge, or rebase`);
   r.localGate ??= null;
   if (r.localGate !== null && (typeof r.localGate !== 'string' || !r.localGate.trim())) bad('release.localGate must be a command or null');
-  if (!strings(r.checks ?? [], 'release.checks').length && !r.localGate) {
+  if (!strings((r.checks ??= []), 'release.checks').length && !r.localGate) {
     bad('release.checks must name at least one check, or a head whose checks have not registered yet looks green. A repository with no CI on pull requests sets release.localGate instead');
   }
   strings((r.accept ??= []), 'release.accept');
