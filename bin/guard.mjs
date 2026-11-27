@@ -20,7 +20,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { resolve, sep } from 'node:path';
+import { dirname, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // Wrappers that run the command after them: the options of theirs that take a value, and how
@@ -100,24 +100,25 @@ const ANSI = { n: '\n', t: '\t', r: '\r', a: '\x07', b: '\b', e: '\x1b', E: '\x1
 // here-documents it reads.
 export function lex(src) {
   const commands = [];
-  let current = { words: [], op: null, depth: 0, nested: [], heredocs: [] };
+  let current = { words: [], op: null, depth: 0, nested: [], heredocs: [], truncations: [] };
   let word = null;
   let depth = 0;
   let pending = [];
-  let skipWord = false;
+  let redirect = null;
   const endWord = () => {
     if (word !== null) {
-      if (skipWord) skipWord = false;
-      else current.words.push(word);
+      if (redirect === null) current.words.push(word);
+      else if (redirect === '>' || redirect === '>|' || redirect === '&>') current.truncations.push(word);
+      redirect = null;
     }
     word = null;
   };
   const endCommand = (op) => {
     endWord();
-    skipWord = false;
+    redirect = null;
     current.op = op;
-    if (current.words.length || current.nested.length) commands.push(current);
-    current = { words: [], op: null, depth, nested: [], heredocs: [] };
+    if (current.words.length || current.nested.length || current.truncations.length) commands.push(current);
+    current = { words: [], op: null, depth, nested: [], heredocs: [], truncations: [] };
   };
   const add = (text) => { word = (word ?? '') + text; };
   for (let i = 0; i < src.length; i++) {
@@ -226,7 +227,13 @@ export function lex(src) {
     if (c === '&' && next === '&') { endCommand('&&'); i++; continue; }
     if (c === '|' && next === '|') { endCommand('||'); i++; continue; }
     if (c === '|') { endCommand('|'); if (next === '&') i++; continue; }
-    if (c === '&' && next === '>') { endWord(); i++; if (src[i + 1] === '>') i++; skipWord = true; continue; }
+    if (c === '&' && next === '>') {
+      endWord();
+      const start = i++;
+      if (src[i + 1] === '>') i++;
+      redirect = src.slice(start, i + 1);
+      continue;
+    }
     if (c === '&') { endCommand('&'); continue; }
     if (c === ';') { endCommand(';'); while (src[i + 1] === ';' || src[i + 1] === '&') i++; continue; }
     if (c === '(') {
@@ -237,9 +244,14 @@ export function lex(src) {
     }
     if (c === ')') { endCommand(')'); depth = Math.max(0, depth - 1); current.depth = depth; continue; }
     if (c === '<' || c === '>') {
+      if (redirect === null && word !== null && /^\d+$/.test(word)) {
+        const start = i - word.length;
+        if (src.slice(start, i) === word && (start === 0 || /[\s;|&()]/.test(src[start - 1]))) word = null;
+      }
       endWord();
+      const start = i;
       while (src[i + 1] === '>' || src[i + 1] === '&' || src[i + 1] === '|') i++;
-      skipWord = true;
+      redirect = src.slice(start, i + 1);
       continue;
     }
     if (/\s/.test(c)) { endWord(); continue; }
@@ -450,6 +462,21 @@ function stripPrefixes(w, chdir = []) {
   }
 }
 
+function checkTruncations(targets, dir, vars, shellDir = dir) {
+  for (const target of targets) {
+    for (const expanded of expandAll(target, shellDir, vars)) {
+      const path = resolve(dir, expanded);
+      try { if (!statSync(path).isFile()) continue; } catch { continue; }
+      const physical = real(path);
+      const parent = dirname(physical);
+      if (git(parent, ['rev-parse', '--is-inside-work-tree']) !== 'true') continue;
+      if (git(parent, ['check-ignore', '--', physical])) continue;
+      return ['ask', `this truncates ${path}, an existing file in a git working tree`];
+    }
+  }
+  return null;
+}
+
 // Walks the commands with every directory the shell can be in at each one. A cd counts for
 // certain only when it runs unconditionally, outside a subshell or a pipeline, into a
 // directory that exists. Otherwise its target joins the directories already possible.
@@ -508,6 +535,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     }
     const branches = open.filter((item) => item.skippable).length;
     take(across(here, (dir) => strongest(entry.nested.map((script) => inner(script, dir)))));
+    take(across(here, (dir) => checkTruncations(entry.truncations, dir, vars)));
     if (verdict?.[0] === 'deny') return verdict;
     // An assignment that surely runs replaces the value. One inside a compound command, a
     // subshell, or a pipeline, or after && or ||, can be skipped or confined, so it only joins
@@ -598,6 +626,16 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     } else if (name === 'eval') take(across(here, (dir) => inner(w.slice(1).join(' '), dir)));
     else if (name === 'git') take(across(at, ([dir]) => checkGit(w, dir, depth)));
     else if (name === 'rm') take(across(at, ([dir, shellDir]) => checkRm(w, dir, [...tops], vars, shellDir)));
+    else if (name === 'tee') {
+      const args = w.slice(1);
+      const end = args.indexOf('--');
+      const options = end === -1 ? args : args.slice(0, end);
+      if (!short(options, 'a') && !options.includes('--append')) {
+        const targets = options.filter((arg) => !arg.startsWith('-'));
+        if (end !== -1) targets.push(...args.slice(end + 1));
+        take(across(at, ([dir, shellDir]) => checkTruncations(targets, dir, vars, shellDir)));
+      }
+    }
     if (verdict?.[0] === 'deny') return verdict;
     if (chain && entry.op !== '&&') {
       dirs = new Set([...dirs, ...chain]);
