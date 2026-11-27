@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { afterEach, test } from 'node:test';
+import netModule from 'node:net';
 import { OLD } from '../skills/oneshot/migrate.mjs';
 
 const wt = resolve('skills/worktree/wt.sh');
@@ -1054,6 +1055,64 @@ test('the gate passes at warning pressure after stopping idle servers', async ()
   assert.equal(warning.status, 0, warning.stdout);
   assert.match(warning.stdout, /ok memory pressure warning/);
   assert.ok(await until(() => !alive(s.child.pid)));
+});
+
+const freePort = () => new Promise((resolvePromise) => {
+  const probe = netModule.createServer().listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolvePromise(port)); });
+});
+const listener = (port) => Number(spawnSync('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' }).stdout.trim().split('\n')[0]);
+const ageState = (f, seconds) => {
+  const states = join(f.root, 'devservers/servers');
+  for (const name of readdirSync(states)) {
+    const file = join(states, name); const state = JSON.parse(readFileSync(file, 'utf8'));
+    writeFileSync(file, JSON.stringify({ ...state, sampledAt: state.sampledAt - 2, activeAt: state.activeAt - seconds }));
+  }
+};
+
+test('a preview outlives the command that started it and stays up to an hour idle', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const port = await freePort(); f.launch(dir, port);
+  const serve = `require('http').createServer((q,s)=>s.end('preview')).listen(${port},'127.0.0.1')`;
+  const started = spawnSync(process.execPath, [devservers, 'preview', '--port', String(port), '--', process.execPath, '-e', serve], {
+    cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
+  assert.equal(started.status, 0, started.stderr);
+  assert.match(started.stdout, new RegExp(`http://127\\.0\\.0\\.1:${port}`));
+  const pid = listener(port); strays.push(pid);
+  assert.ok(pid && alive(pid), 'the preview is not listening after its starter exited');
+  const group = (p) => spawnSync('ps', ['-o', 'sess=', '-p', String(p)], { encoding: 'utf8' }).stdout.trim();
+  assert.notEqual(group(pid), group(process.pid), 'the preview shares the starter session, so ending the turn kills it');
+  assert.match(reaper(f, ['reap'], 'warning').stdout, /kept .*preview/);
+  ageState(f, 1800);
+  await new Promise(r => setTimeout(r, 2000));
+  assert.match(reaper(f, ['reap'], 'warning').stdout, /kept .*preview/);
+  assert.ok(alive(pid), 'a preview idle 30 minutes was stopped at warning pressure');
+  ageState(f, 3600);
+  await new Promise(r => setTimeout(r, 2000));
+  assert.match(reaper(f, ['reap'], 'warning').stdout, /stopped .*preview/);
+  assert.ok(await until(() => !alive(pid)));
+});
+
+test('a preview stops at its idle minute under critical pressure', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const port = await freePort(); f.launch(dir, port);
+  const serve = `require('http').createServer((q,s)=>s.end('preview')).listen(${port},'127.0.0.1')`;
+  const started = spawnSync(process.execPath, [devservers, 'preview', '--port', String(port), '--', process.execPath, '-e', serve], {
+    cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
+  assert.equal(started.status, 0, started.stderr);
+  const pid = listener(port); strays.push(pid);
+  reaper(f, ['reap'], 'critical');
+  ageState(f, 120);
+  await new Promise(r => setTimeout(r, 2000));
+  assert.match(reaper(f, ['reap'], 'critical').stdout, /stopped .*preview/);
+  assert.ok(await until(() => !alive(pid)));
+});
+
+test('a preview whose command exits before it listens fails with its log', () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const started = spawnSync(process.execPath, [devservers, 'preview', '--port', '1', '--wait', '10s', '--', process.execPath, '-e', "console.error('boom'); process.exit(3)"], {
+    cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
+  assert.equal(started.status, 1);
+  assert.match(started.stderr, /boom/);
 });
 
 test('a Next.js telemetry flush left behind by a stopped server is stopped', async () => {
