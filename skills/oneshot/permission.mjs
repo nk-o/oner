@@ -6,8 +6,8 @@
 // scratchpad, reads, and shell commands. It prints nothing, which leaves the
 // prompt to the user, for any other tool, and for a command that runs as
 // another user, opens a remote shell, deploys, changes infrastructure,
-// publishes, rewrites or deletes a shared branch, or deletes recursively
-// outside the repository.
+// publishes, pushes to the default branch or many refs at once, or deletes
+// recursively outside the repository by a literal path.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { isAbsolute, join, resolve, sep } from 'node:path';
@@ -44,10 +44,10 @@ function git(cwd, args) {
 function pushIsSafe(command, defaultBranch, branch) {
   for (const m of command.matchAll(/\bgit\b(?:\s+-[Cc]\s+\S+)*\s+push\b([^;&|\n]*)/g)) {
     const args = m[1].replace(/--force-with-lease(=\S+)?|--force-if-includes/g, ' ');
-    if (/(^|\s)(--force|--delete|--mirror|--all|--tags|--prune|-[a-zA-Z]*[fd][a-zA-Z]*)(\s|$)/.test(args)) return false;
+    if (/(^|\s)(--mirror|--all|--tags|--prune)(\s|$)/.test(args)) return false;
     const refs = args.trim().split(/\s+/).filter((t) => t && !t.startsWith('-')).map((t) => t.replace(/^['"]|['"]$/g, ''));
     // refs[0] is the remote. Without a refspec, git pushes the current branch.
-    if (refs.slice(1).some((t) => /^[+:]/.test(t) || t.split(':').pop().replace(/^refs\/heads\//, '') === defaultBranch)) return false;
+    if (refs.slice(1).some((t) => t.split(':').pop().replace(/^\+?(refs\/heads\/)?/, '') === defaultBranch)) return false;
     if (refs.length < 2 && branch === defaultBranch) return false;
   }
   return true;
@@ -74,7 +74,8 @@ function rmIsSafe(command, cwd, roots) {
     const args = m[2].trim().split(/\s+/).map((a) => a.replace(/^['"]|['"]$/g, ''));
     if (!args.some((a) => /^-[a-zA-Z]*[rR]/.test(a) || a === '--recursive')) continue;
     for (const target of args.filter((a) => a && !a.startsWith('-'))) {
-      if (/^[~$*]|^\.\.?\/?$|(^|\/)\.\.(\/|$)/.test(target)) return false;
+      if (target.startsWith('$')) continue;
+      if (/^[~*]|^\.\.?\/?$|(^|\/)\.\.(\/|$)/.test(target)) return false;
       if (!inside(resolve(cwd, target), roots)) return false;
     }
   }
