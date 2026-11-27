@@ -1074,7 +1074,7 @@ test('a preview outlives the command that started it and stays up to an hour idl
   const port = await freePort();
   writeFileSync(join(dir, 'serve.sh'), `"${process.execPath}" -e "require('http').createServer((q,s)=>s.end('preview')).listen(${port},'127.0.0.1')"\n`);
   const started = spawnSync(process.execPath, [devservers, 'preview', '--port', String(port), '--', 'bash', 'serve.sh'], {
-    cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
+    cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, TZ: 'UTC', DEVSERVERS_STATE: join(f.root, 'devservers') } });
   assert.equal(started.status, 0, started.stderr);
   assert.match(started.stdout, new RegExp(`http://localhost:${port}`));
   const pid = listener(port); if (pid > 0) strays.push(pid);
@@ -1082,6 +1082,9 @@ test('a preview outlives the command that started it and stays up to an hour idl
   assert.equal(await (await fetch(`http://localhost:${port}/`)).text(), 'preview');
   const group = (p) => spawnSync('ps', ['-o', 'pgid=', '-p', String(p)], { encoding: 'utf8' }).stdout.trim();
   assert.notEqual(group(pid), group(process.pid), 'the preview shares the starter process group, so ending the turn kills it');
+  const elsewhere = spawnSync(process.execPath, [devservers, 'status', '--root', f.root], {
+    encoding: 'utf8', env: { ...process.env, TZ: 'America/New_York', DEVSERVERS_STATE: join(f.root, 'devservers') } });
+  assert.match(elsewhere.stdout, /feature preview port/, 'a hook in another time zone lost the preview');
   assert.match(reaper(f, ['reap'], 'warning').stdout, /kept .*preview/);
   ageState(f, 1800);
   await new Promise(r => setTimeout(r, 2000));

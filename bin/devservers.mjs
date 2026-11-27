@@ -3,7 +3,7 @@
 // Agent hooks run `hook`, so a server nobody stopped still goes away.
 
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { connect } from 'node:net';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
@@ -23,6 +23,8 @@ Commands:
                     after an hour idle, or after the critical limit under critical pressure.
                     Any command counts, in any checkout, a shell script included. The command
                     stays in the foreground: one that backgrounds its server and exits fails.
+                    A server some other process holds the port for, such as a container, is no
+                    preview; it outlives the turn without one. A slow start needs a longer --wait.
                     Exits 1 when it does not listen within --wait (default 60)
 
 Idle limits: 30m at normal memory pressure, 5m at warning, 1m at critical. A server is active
@@ -46,7 +48,9 @@ const AGENTS = new Set(['claude', 'codex', 'cursor-agent', 't3']);
 
 const now = () => Date.now() / 1000;
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-const run = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' }, maxBuffer: 64 << 20 });
+// ps prints start times in UTC, because run() sets TZ for it.
+const startedAt = (text) => Date.parse(`${text} UTC`) / 1000 || 0;
+const run = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C', TZ: 'UTC' }, maxBuffer: 64 << 20 });
 
 function parseArgs(argv) {
   const opts = { command: argv[0], dryRun: false, quiet: false, idle: null, wait: argv[0] === 'preview' ? 60 : 120, roots: [], port: null, exec: [] };
@@ -193,17 +197,19 @@ function previews(table) {
   const found = [];
   for (const name of existsSync(dir) ? readdirSync(dir) : []) {
     if (!name.endsWith('.json')) continue;
-    let record = null;
+    let record;
     try {
       record = JSON.parse(readFileSync(join(dir, name), 'utf8'));
-    } catch {}
-    const p = record && table.get(record.pid);
+    } catch {
+      continue;
+    }
+    const p = table.get(record.pid);
     if (!p || p.started !== record.started) {
       rmSync(join(dir, name), { force: true });
       continue;
     }
-    const key = `preview-${p.pid}-${Date.parse(p.started) / 1000 || 0}`;
-    found.push({ key, checkout: record.cwd, gone: false, preview: true, root: p.pid, started: p.started, ports: new Set([record.port]), pids: descendants(table, p.pid) });
+    const key = `preview-${p.pid}-${startedAt(p.started)}`;
+    found.push({ key, checkout: record.checkout, gone: !existsSync(record.checkout), preview: true, root: p.pid, started: p.started, ports: new Set([record.port]), pids: descendants(table, p.pid) });
   }
   return found;
 }
@@ -245,7 +251,7 @@ export function discover(roots = []) {
     for (let p = listener; p; p = p.pid === root.pid ? null : table.get(p.ppid)) chain.push(p.command);
     const configured = [...ports].some((port) => launchPorts(checkout.root).has(port));
     if (!configured && !chain.some((c) => DEV_RE.test(c))) continue;
-    const key = `${root.pid}-${Date.parse(root.started) / 1000 || 0}`;
+    const key = `${root.pid}-${startedAt(root.started)}`;
     const known = servers.get(key);
     if (known) {
       for (const port of ports) known.ports.add(port);
@@ -256,7 +262,7 @@ export function discover(roots = []) {
 
   // A preview is found by the process `preview` started, whatever it runs and wherever it runs.
   for (const p of previews(table)) {
-    if (roots.length && !roots.some((r) => inside(p.checkout, r))) continue;
+    if (roots.length && !roots.some((r) => inside(real(p.checkout), r))) continue;
     for (const [key, s] of servers) if (s.pids.some((pid) => p.pids.includes(pid))) servers.delete(key);
     servers.set(p.key, p);
   }
@@ -343,7 +349,7 @@ function real(path) {
 function hungFlushes(table, roots, limit) {
   const t = now();
   return [...table.values()]
-    .filter((p) => p.ppid === 1 && FLUSH_RE.test(p.command) && t - Date.parse(p.started) / 1000 >= limit)
+    .filter((p) => p.ppid === 1 && FLUSH_RE.test(p.command) && t - startedAt(p.started) >= limit)
     .map((p) => ({ dir: FLUSH_RE.exec(p.command)[1], root: p.pid, pids: descendants(table, p.pid), rss: descendants(table, p.pid).reduce((sum, c) => sum + table.get(c).rss, 0) }))
     .filter((f) => !roots.length || roots.some((r) => inside(real(f.dir), r)));
 }
@@ -492,7 +498,12 @@ async function preview({ port, wait, exec }) {
   // Recorded before the wait, so the reaper still finds the server if this command is killed.
   const record = join(STATE, 'previews', `${child.pid}.json`);
   const started = child.pid && processTable().get(child.pid)?.started;
-  if (started) writeFileSync(record, JSON.stringify({ pid: child.pid, started, port, cwd: process.cwd() }));
+  const top = run('git', ['rev-parse', '--show-toplevel']);
+  const checkout = top.status === 0 ? top.stdout.trim() : process.cwd();
+  if (started) {
+    writeFileSync(`${record}.tmp`, JSON.stringify({ pid: child.pid, started, port, checkout }));
+    renameSync(`${record}.tmp`, record);
+  }
   const deadline = Date.now() + wait * 1000;
   while (exit === null && Date.now() < deadline && !(await listening(port))) await new Promise((r) => setTimeout(r, 250));
   const owner = () => {
