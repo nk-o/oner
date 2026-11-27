@@ -213,7 +213,7 @@
       }
     },
     "guard": {
-      "description": "Stops destructive commands in Claude Code and Codex. Refuses a force-push or delete of the default branch, a mirror push, and a recursive delete of /, the home directory, or a repository root. Asks before a hard reset, a forced clean, discarding every change, a forced branch delete, a stash drop, or any other force-push. Codex cannot ask, so it refuses those too.",
+      "description": "Stops destructive commands in Claude Code and Codex. Refuses a force-push or delete of the default branch, a mirror push, and a recursive delete of /, the home directory, or a repository root. Stops a hard reset, a forced clean, discarding every change, a forced branch delete, a stash drop, or any other force-push until the agent checks it and runs it again. Never asks the user.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
