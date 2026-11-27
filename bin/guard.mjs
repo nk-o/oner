@@ -342,20 +342,26 @@ function checkPush(args, cwd, config) {
 }
 
 // Whether deleting a local branch loses no work: a remote-tracking branch or the default
-// branch holds its commits, or merging it into the default branch changes no file, as after a
-// squash merge.
+// branch holds its commits, or every file the branch changed already reads the same on the
+// default branch, as after a squash merge.
 function keptElsewhere(dir, name) {
   const tip = git(dir, ['rev-parse', '--verify', '--quiet', `refs/heads/${name}^{commit}`]);
   if (!tip) return false;
   const bases = defaultBranches(dir).flatMap((b) => [`refs/remotes/origin/${b}`, `refs/heads/${b}`]).filter((ref) => ref !== `refs/heads/${name}`);
   if (git(dir, ['for-each-ref', '--count=1', '--contains', tip, '--format=x', 'refs/remotes/', ...bases])) return true;
   return bases.some((base) => {
-    const tree = git(dir, ['rev-parse', '--verify', '--quiet', `${base}^{tree}`]);
-    return tree && git(dir, ['merge-tree', '--write-tree', base, tip]).split('\n')[0] === tree;
+    const fork = git(dir, ['merge-base', base, tip]);
+    if (!fork) return false;
+    const changed = spawnSync('git', ['-C', dir, 'diff', '--name-only', '-z', '--no-renames', fork, tip], { encoding: 'utf8' });
+    if (changed.status !== 0) return false;
+    const paths = changed.stdout.split('\0').filter(Boolean).map((path) => `:(literal)${path}`);
+    const same = spawnSync('git', ['-C', dir, 'diff', '--quiet', '--no-ext-diff', '--no-textconv', base, tip, '--', ...paths]);
+    return same.status === 0;
   });
 }
 
-function checkGit(w, cwd, depth) {
+// `located` is true when GIT_DIR or a similar variable can point git at another repository.
+function checkGit(w, cwd, depth, located = false) {
   let i = 1;
   let dir = cwd;
   const config = {};
@@ -364,7 +370,10 @@ function checkGit(w, cwd, depth) {
     else if (w[i] === '-c') {
       const [key, ...value] = (w[++i] ?? '').split('=');
       config[key.toLowerCase()] = value.length ? value.join('=') : 'true';
-    } else if (['--git-dir', '--work-tree', '--namespace'].includes(w[i])) i++;
+    } else if (['--git-dir', '--work-tree', '--namespace'].includes(w[i])) {
+      located ||= w[i] !== '--namespace';
+      i++;
+    } else if (/^--(git-dir|work-tree)=/.test(w[i])) located = true;
     i++;
   }
   const sub = w[i];
@@ -374,7 +383,7 @@ function checkGit(w, cwd, depth) {
     if (alias) {
       if (alias.startsWith('!')) return decide(`${alias.slice(1)} ${args.join(' ')}`, dir, null, depth + 1);
       const words = lex(alias)[0]?.words ?? [];
-      return checkGit(['git', ...Object.entries(config).flatMap(([k, v]) => ['-c', `${k}=${v}`]), ...words, ...args], dir, depth + 1);
+      return checkGit(['git', ...Object.entries(config).flatMap(([k, v]) => ['-c', `${k}=${v}`]), ...words, ...args], dir, depth + 1, located);
     }
   }
   const wide = args.some((a) => a === '.' || a === ':/' || a === '*');
@@ -396,9 +405,13 @@ function checkGit(w, cwd, depth) {
       const del = long(args, '--delete', 5) || short(args, 'd') || short(args, 'D');
       const force = long(args, '--force', 4) || short(args, 'f') || short(args, 'D');
       if (!del || !force) return null;
-      const names = args.filter((a) => !a.startsWith('-'));
-      const remote = long(args, '--remotes', 4) || short(args, 'r');
-      if (!remote && names.length && names.every((name) => keptElsewhere(dir, name))) return null;
+      const end = args.indexOf('--');
+      const options = end < 0 ? args : args.slice(0, end);
+      const names = [...options.filter((a) => !a.startsWith('-')), ...(end < 0 ? [] : args.slice(end + 1))];
+      const remote = long(options, '--remotes', 4) || short(options, 'r');
+      // Each name costs several git calls, and the hook has 5 s in all.
+      const checkable = !remote && !located && names.length && names.length <= 10;
+      if (checkable && names.every((name) => keptElsewhere(dir, name))) return null;
       return ['ask', 'this deletes a branch that may hold unmerged commits'];
     }
     case 'stash':
@@ -614,7 +627,11 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       const flag = w.findIndex((a, n) => n > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
       if (flag > 0 && w[flag + 1] !== undefined) take(across(here, (dir) => inner(w[flag + 1], dir)));
     } else if (name === 'eval') take(across(here, (dir) => inner(w.slice(1).join(' '), dir)));
-    else if (name === 'git') take(across(at, ([dir]) => checkGit(w, dir, depth)));
+    else if (name === 'git') {
+      const located = entry.words.some((word) => /^GIT_\w+=/.test(word)) ||
+        ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].some((key) => (vars.get(key) ?? [process.env[key]]).some(Boolean));
+      take(across(at, ([dir]) => checkGit(w, dir, depth, located)));
+    }
     else if (name === 'rm') take(across(at, ([dir, shellDir]) => checkRm(w, dir, [...tops], vars, shellDir)));
     if (verdict?.[0] === 'deny') return verdict;
     if (chain && entry.op !== '&&') {
