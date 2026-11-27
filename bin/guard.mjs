@@ -1,22 +1,23 @@
 #!/usr/bin/env node
-// PreToolUse hook for Bash in Claude Code and, with `--host codex`, in Codex, written when
-// `guard.enabled` is on. It refuses what would destroy shared history or the machine (a
+// PreToolUse hook for Bash in Claude Code and Codex, written when `guard.enabled` is on. It
+// never asks the user. It refuses what would destroy shared history or the machine (a
 // force-push or delete of the default branch, a mirror push, a recursive delete of /, the home
-// directory, or a repository root or anything above it) and asks before what would lose local
-// work (a hard reset, a forced clean, discarding every change, a forced delete of a branch
-// whose commits are nowhere else, a stash drop, any other force-push).
+// directory, or a repository root or anything above it). It stops what would lose local work (a
+// hard reset, a forced clean, discarding every change, a forced delete of a branch whose commits
+// are nowhere else, a stash drop, any other force-push) until the agent has checked it and runs
+// it again with ONER_GUARD=checked in front.
 //
 // It catches an agent's mistake, not an attacker: a command written to a file and run by another
 // interpreter is out of its reach. Within the line it reads, it follows the shell: quotes and
 // $'...', $(...), backticks and <(...), here-documents fed to a shell, bash -c and eval, git
 // aliases, and every directory a cd can leave the shell in, counting a cd that may fail or that
 // runs in a subshell or a pipeline. Anything else passes untouched. A line it fails to read is
-// asked about, and input it cannot parse at all passes to the host's own check.
+// stopped the same way, and input it cannot parse at all passes to the host's own check.
 //
 // It refuses only what is certain: a command that reaches a protected path in every directory
 // and with every value the shell can have at that point. When only some of them reach it, it
-// asks. So the model of the shell can stay simple and over-cautious, since a case it cannot
-// settle becomes a question rather than a silent pass or a hard refusal.
+// stops. So the model of the shell can stay simple and over-cautious, since a case it cannot
+// settle becomes a check for the agent rather than a silent pass or a hard refusal.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -671,18 +672,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     } catch {
       verdict = ['ask', 'this command is too nested or unusual for it to read'];
     }
-    if (verdict) {
+    const checked = /(^|[\s;&|(])ONER_GUARD=checked(?=\s)/.test(input.tool_input?.command ?? '');
+    if (verdict && !(verdict[0] === 'ask' && checked)) {
       const [found, why] = verdict;
-      // Codex parses `ask` but does not act on it, so the command would run unasked.
-      const at = process.argv.indexOf('--host');
-      const askable = at < 0 || process.argv[at + 1] !== 'codex';
-      const decision = found === 'ask' && askable ? 'ask' : 'deny';
       const reason = found === 'deny'
-        ? `Blocked by the oner guard: ${why}. If it is intended, the user runs it themselves, or turns off guard in config.json.`
-        : askable ? `The oner guard asks first: ${why}.`
-          : `Stopped by the oner guard, since this agent cannot ask: ${why}. Ask the user, who runs it themselves if it is intended.`;
+        ? `Blocked by the oner guard: ${why}. Reach the goal another way.`
+        : `Stopped by the oner guard: ${why}. Check yourself that this loses no work, and do not ask the user. When it is safe, run the same command again with ONER_GUARD=checked in front of it.`;
       process.stdout.write(JSON.stringify({
-        hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason },
+        hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason },
       }));
     }
   }
