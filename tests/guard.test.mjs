@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { after, test } from 'node:test';
@@ -20,6 +20,24 @@ g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', 
 g(repo, 'remote', 'add', 'origin', remote);
 g(repo, 'push', '-q', '-u', 'origin', 'main');
 g(repo, 'remote', 'set-head', 'origin', 'main');
+const commit = (file) => {
+  writeFileSync(join(repo, file), `${file}\n`);
+  g(repo, 'add', file);
+  g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '-m', file);
+};
+// A branch squash-merged into main, a pushed branch, and a branch whose commit exists only here.
+g(repo, 'switch', '-q', '-c', 'squashed');
+commit('squashed.txt');
+g(repo, 'switch', '-q', 'main');
+g(repo, 'merge', '-q', '--squash', 'squashed');
+g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '-m', 'squashed (#1)');
+g(repo, 'push', '-q', 'origin', 'main');
+g(repo, 'switch', '-q', '-c', 'pushed');
+commit('pushed.txt');
+g(repo, 'push', '-q', 'origin', 'pushed');
+g(repo, 'switch', '-q', '-c', 'unpushed', 'main');
+commit('unpushed.txt');
+g(repo, 'switch', '-q', 'main');
 
 function verdict(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
   const r = spawnSync(process.execPath, [hook, ...args], { input: JSON.stringify({ tool_name, tool_input: { command }, cwd }), encoding: 'utf8' });
@@ -45,6 +63,11 @@ const rows = [
   ['git checkout -- .', 'ask'],
   ['git restore .', 'ask'],
   ['git branch -D old-work', 'ask'],
+  ['git branch -D squashed', 'pass'],
+  ['git branch -D pushed', 'pass'],
+  ['git branch -D unpushed', 'ask'],
+  ['git branch -D pushed unpushed', 'ask'],
+  ['git branch -D -r origin/pushed', 'ask'],
   ['git stash drop', 'ask'],
   ['git push --force-with-lease origin feature', 'ask'],
   ['git push -d origin feature', 'ask'],
