@@ -444,10 +444,18 @@ function checkRm(w, dir, roots, vars, shellDir = dir) {
     const hits = expandAll(raw, shellDir, vars).map((expanded) => (expanded === '' ? null : protectedPath(expanded, raw, dir, roots, home)));
     const found = hits.find((hit) => hit?.[0] === 'deny');
     if (found && hits.every((hit) => hit?.[0] === 'deny')) return found;
-    if (found) doubt ??= ['ask', `${found[1].replace(/^this /, 'this may ')}, depending on the value ${raw} takes`];
-    doubt ??= hits.find(Boolean) ?? null;
+    const may = found && ['ask', `${found[1].replace(/^this /, 'this may ')}, depending on the value ${raw} takes`];
+    doubt = [may, ...hits.filter((hit) => hit?.[0] !== 'deny')].reduce(combine, doubt);
   }
   return doubt;
+}
+
+// A refusal wins over a stop. Stops keep every reason, so the agent checks each one.
+function combine(a, b) {
+  if (!a || !b) return a ?? b ?? null;
+  if (a[0] === 'deny') return a;
+  if (b[0] === 'deny') return b;
+  return ['ask', [...new Set([...a[1].split('; '), ...b[1].split('; ')])].join('; ')];
 }
 
 // Whether one value of an rm operand reaches /, the home directory, a repository root, or .git.
@@ -501,11 +509,8 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
   const vars = new Map(inherited);
   const commands = lex(String(command));
   let verdict = null;
-  // A refusal wins. Every stop is kept in the reason, so the agent checks each one.
   const take = (found) => {
-    if (!found || verdict?.[0] === 'deny') return;
-    if (!verdict || found[0] === 'deny') verdict = found;
-    else if (!verdict[1].split('; ').includes(found[1])) verdict = ['ask', `${verdict[1]}; ${found[1]}`];
+    verdict = combine(verdict, found);
   };
   const addTop = (dir) => {
     const top = git(dir, ['rev-parse', '--show-toplevel']);
@@ -518,10 +523,10 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     const found = places.map(check);
     const refused = found.find((hit) => hit?.[0] === 'deny');
     if (refused && found.every((hit) => hit?.[0] === 'deny')) return refused;
-    if (refused) return ['ask', `${refused[1].replace(/^this /, 'this may ')}, depending on which directory the shell is in`];
-    return found.find(Boolean) ?? null;
+    const may = refused && ['ask', `${refused[1].replace(/^this /, 'this may ')}, depending on which directory the shell is in`];
+    return [may, ...found.filter((hit) => hit?.[0] !== 'deny')].reduce(combine, null);
   };
-  const strongest = (found) => found.find((hit) => hit?.[0] === 'deny') ?? found.find(Boolean) ?? null;
+  const strongest = (found) => found.reduce(combine, null);
   let dirs = new Set([cwd]);
   const seen = new Set([cwd]);
   let chain = null;

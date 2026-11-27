@@ -267,8 +267,12 @@ test('the agent clears a stop by checking and rerunning, on every host, and a re
   assert.equal(verdict('git commit -m "ONER_GUARD=checked here"; git reset --hard'), 'ask');
   const unreadable = 'for a in 1 2 3 4 5 6; do for b in 1 2 3 4 5 6; do rm -rf /tmp/x$a$b; done; done; git push --force origin main';
   assert.equal(verdict(`ONER_GUARD=checked; ${unreadable}`), 'split');
-  const both = output('git stash drop; git reset --hard').permissionDecisionReason;
-  assert.match(both, /stash/); assert.match(both, /hard reset/);
+  for (const line of ['git stash drop; git reset --hard', 'echo $(git stash drop) $(git reset --hard)', 'git stash drop; bash -c "git stash drop; git reset --hard"']) {
+    const why = output(line).permissionDecisionReason;
+    assert.match(why, /stash/, line); assert.match(why, /hard reset/, line);
+    assert.equal(why.split('stashed changes').length, 2, `${line} repeats a stop`);
+  }
+  assert.match(output('rm -rf "$A" ~/"$B"').permissionDecisionReason, /~\/\$B/);
   assert.match(output('git stash drop').permissionDecisionReason, /stash/);
   assert.doesNotMatch(output('git push --force origin main').permissionDecisionReason, /user/);
 });
