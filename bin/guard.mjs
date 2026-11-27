@@ -366,6 +366,9 @@ function keptElsewhere(dir, name, deleting) {
   });
 }
 
+// Variables that point git at a repository other than the one in its directory.
+const LOCATORS = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
+
 // `located` is true when GIT_DIR or a similar variable can point git at another repository.
 function checkGit(w, cwd, depth, located = false) {
   let i = 1;
@@ -387,7 +390,7 @@ function checkGit(w, cwd, depth, located = false) {
   if (sub && !GIT_BUILTINS.has(sub) && !['push', 'reset', 'clean', 'checkout', 'switch', 'restore', 'branch', 'stash'].includes(sub)) {
     const alias = config[`alias.${sub.toLowerCase()}`] ?? git(dir, ['config', '--get', `alias.${sub}`]);
     if (alias) {
-      if (alias.startsWith('!')) return decide(`${alias.slice(1)} ${args.join(' ')}`, dir, null, depth + 1);
+      if (alias.startsWith('!')) return decide(`${alias.slice(1)} ${args.join(' ')}`, dir, null, depth + 1, located ? new Map([['GIT_DIR', [dir]]]) : undefined);
       const words = lex(alias)[0]?.words ?? [];
       return checkGit(['git', ...Object.entries(config).flatMap(([k, v]) => ['-c', `${k}=${v}`]), ...words, ...args], dir, depth + 1, located);
     }
@@ -586,6 +589,12 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     }
     const chdir = [];
     const w = stripPrefixes(entry.words, chdir);
+    // A prefix such as GIT_DIR=... reaches git, a shell, or an eval after it, so it joins the
+    // values the name can have from here on.
+    for (const word of entry.words) {
+      const key = LOCATORS.find((name) => word.startsWith(`${name}=`));
+      if (key) vars.set(key, [...(vars.get(key) ?? [process.env[key]]), word.slice(key.length + 1) || '.']);
+    }
     const name = w[0]?.split('/').pop();
     // Pairs of the directory a command runs in and the one its words were expanded in.
     const at = here.flatMap((dir) => (chdir.length
@@ -634,8 +643,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       if (flag > 0 && w[flag + 1] !== undefined) take(across(here, (dir) => inner(w[flag + 1], dir)));
     } else if (name === 'eval') take(across(here, (dir) => inner(w.slice(1).join(' '), dir)));
     else if (name === 'git') {
-      const located = entry.words.some((word) => /^GIT_\w+=/.test(word)) ||
-        ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].some((key) => (vars.get(key) ?? [process.env[key]]).some(Boolean));
+      const located = LOCATORS.some((key) => (vars.get(key) ?? [process.env[key]]).some(Boolean));
       take(across(at, ([dir]) => checkGit(w, dir, depth, located)));
     }
     else if (name === 'rm') take(across(at, ([dir, shellDir]) => checkRm(w, dir, [...tops], vars, shellDir)));
