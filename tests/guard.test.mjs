@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { after, test } from 'node:test';
@@ -20,24 +20,6 @@ g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', 
 g(repo, 'remote', 'add', 'origin', remote);
 g(repo, 'push', '-q', '-u', 'origin', 'main');
 g(repo, 'remote', 'set-head', 'origin', 'main');
-const commit = (file) => {
-  writeFileSync(join(repo, file), `${file}\n`);
-  g(repo, 'add', file);
-  g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '-m', file);
-};
-// A branch squash-merged into main, a branch pushed but not merged, and one that exists only here.
-g(repo, 'switch', '-q', '-c', 'squashed');
-commit('squashed.txt');
-g(repo, 'switch', '-q', 'main');
-g(repo, 'merge', '-q', '--squash', 'squashed');
-g(repo, '-c', 'user.email=f@example.test', '-c', 'user.name=F', 'commit', '-q', '-m', 'squashed (#1)');
-g(repo, 'push', '-q', 'origin', 'main');
-g(repo, 'switch', '-q', '-c', 'pushed');
-commit('pushed.txt');
-g(repo, 'push', '-q', 'origin', 'pushed');
-g(repo, 'switch', '-q', '-c', 'unpushed', 'main');
-commit('unpushed.txt');
-g(repo, 'switch', '-q', 'main');
 
 function output(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
   const r = spawnSync(process.execPath, [hook, ...args], { input: JSON.stringify({ tool_name, tool_input: { command }, cwd }), encoding: 'utf8' });
@@ -45,17 +27,49 @@ function output(command, { tool_name = 'Bash', cwd = repo, args = [] } = {}) {
   return r.stdout ? JSON.parse(r.stdout).hookSpecificOutput : null;
 }
 
-// 'ask' names a stop the agent clears by checking and rerunning, 'split' one it clears by
-// splitting the line; the host is never asked.
 function verdict(command, options) {
-  const out = output(command, options);
-  if (!out) return 'pass';
-  assert.equal(out.permissionDecision, 'deny', `${command} asks the user`);
-  const why = out.permissionDecisionReason;
-  return why.includes('ONER_GUARD=checked') ? 'ask' : why.includes('simpler commands') ? 'split' : 'deny';
+  return output(command, options)?.permissionDecision ?? 'pass';
 }
 
 const rows = [
+  ['git push -f origin @', 'deny'],
+  ['B=main; git push --force origin "$B"', 'deny'],
+  ['git push --force origin "$(git branch --show-current)"', 'deny'],
+  ["git -c 'alias.x=!rm -rf $GIT_DIR' x", 'deny'],
+  ["git -c 'alias.reset=push --force origin main' reset", 'pass'],
+  // A protected path in any directory or value the shell can have, a loop item included, is refused.
+  ['cd /definitely-missing-dir; rm -rf *', 'deny'],
+  ['false && cd /tmp; rm -rf *', 'deny'],
+  ['cd /dev/null || rm -rf *', 'deny'],
+  ['cd /tmp && rm -rf *; rm -rf *', 'deny'],
+  ['cd /tmp; cd -; rm -rf *', 'deny'],
+  ['pushd /tmp; popd; rm -rf *', 'deny'],
+  ['if false; then cd /tmp; fi; rm -rf *', 'deny'],
+  ['for d in /tmp; do cd "$d"; done; rm -rf *', 'deny'],
+  ['rm -rf "$HOME/$UNSET_IN_THIS_TEST"', 'pass'],
+  ['TARGET="$PWD"; false && TARGET=dist; rm -rf "$TARGET"', 'deny'],
+  ['TARGET="$PWD"; (TARGET=dist); rm -rf "$TARGET"', 'deny'],
+  ['OUT=dist; export OUT="$PWD"; rm -rf "$OUT"', 'deny'],
+  ['cd /dev/null && (true); rm -rf *', 'deny'],
+  ['DIR="$PWD" git status; rm -rf "$DIR"', 'pass'],
+  ['cd /tmp && (true); rm -rf *', 'deny'],
+  ['if false; then UNSET_IN_THIS_TEST=dist; fi; rm -rf "${UNSET_IN_THIS_TEST:-$HOME}"', 'deny'],
+  ['false && cd /tmp && (true); rm -rf *', 'deny'],
+  ['TARGET="$HOME"; (for TARGET in dist; do :; done); rm -rf "$TARGET"', 'deny'],
+  ['TARGET="$HOME"; false && { :; TARGET=dist; }; rm -rf "$TARGET"', 'deny'],
+  ['if false; then OUT=/; fi; rm -rf "$OUT"', 'deny'],
+  ['local HOME=/tmp/safe; rm -rf "$HOME"', 'deny'],
+  ['readonly HOME; HOME=/tmp/safe; rm -rf "$HOME"', 'deny'],
+  ['d="$HOME"; export d=dist e="$d"; rm -rf "$e"', 'deny'],
+  ['false && { cd /tmp; }; rm -rf *', 'deny'],
+  ['for d in / tmp; do rm -rf "$d"; done', 'deny'],
+  ['rm -rf "$UNSET_IN_THIS_TEST/"', 'pass'],
+  ['export OUT=dist; rm -rf "$OUT"/*', 'pass'],
+  ['f() { rm -rf "$1"/*; }; f dist', 'pass'],
+  ['cd /tmp || exit 1; rm -rf *', 'pass'],
+  ['git -c push.default=matching push --force origin', 'deny'],
+  [`bash -c '${'eval '.repeat(12)}true'; git push --force origin main`, 'deny'],
+  ['rm -rf "$UNSET_IN_THIS_TEST"', 'pass'],
   ['git push --force origin main', 'deny'],
   ['git push -f', 'deny'],
   ['git push -f origin HEAD', 'deny'],
@@ -68,33 +82,8 @@ const rows = [
   ['rm -fr ~/*', 'deny'],
   [`rm -rf ${repo}`, 'deny'],
   ['rm -rf .git', 'deny'],
-  ['git reset --hard origin/main', 'ask'],
-  ['git clean -fdx', 'ask'],
-  ['git checkout -- .', 'ask'],
-  ['git restore .', 'ask'],
-  ['git branch -D old-work', 'ask'],
-  ['git branch -D squashed', 'pass'],
   ['2>&1 git push --force origin main', 'deny'],
   ['git 2>/dev/null push --force origin main', 'deny'],
-  ['2>/dev/null git reset --hard', 'ask'],
-  ['git branch -D pushed', 'ask'],
-  ['git branch -D unpushed', 'ask'],
-  ['git branch -D pushed unpushed', 'ask'],
-  ['git branch -D -r origin/pushed', 'ask'],
-  ['git branch -D -- squashed', 'pass'],
-  ['git branch -D -- squashed -other', 'ask'],
-  ['git --git-dir=.git branch -D squashed', 'ask'],
-  ['GIT_DIR=.git git branch -D squashed', 'ask'],
-  ['env GIT_DIR=.git git branch -D squashed', 'ask'],
-  ["GIT_DIR=.git bash -c 'git branch -D squashed'", 'ask'],
-  ['GIT_PAGER=cat git branch -D squashed', 'pass'],
-  ["git -c 'alias.zap=!git branch -D' zap squashed", 'pass'],
-  ["git -c 'alias.zap=!git branch -D' --git-dir=.git zap squashed", 'ask'],
-  [`git branch -D ${Array(11).fill('squashed').join(' ')}`, 'ask'],
-  ['git stash drop', 'ask'],
-  ['git push --force-with-lease origin feature', 'ask'],
-  ['git push -d origin feature', 'ask'],
-  ['rm -rf "$DIR/"', 'ask'],
   ['git push', 'pass'],
   ['git push -u origin feature', 'pass'],
   ['git -C . push origin HEAD:feature', 'pass'],
@@ -129,14 +118,8 @@ const rows = [
   ['git push --force origin :', 'deny'],
   ["git push origin '+refs/heads/*:refs/heads/*'", 'deny'],
   ['git push origin :', 'pass'],
-  ['git checkout -qf main', 'ask'],
-  ['git switch -f main', 'ask'],
-  ['git switch --discard-changes main', 'ask'],
-  ['git branch -d --force old-work', 'ask'],
-  ['git branch -df old-work', 'ask'],
   ['git branch -d merged-work', 'pass'],
   ['git restore -S .', 'pass'],
-  ['git restore -SW .', 'ask'],
   ['git clean -fn', 'pass'],
   // Second review round: what a here-document feeds, where a cd really leaves the shell.
   ["bash <<'EOF'\ngit push --force origin main\nEOF", 'deny'],
@@ -148,22 +131,15 @@ const rows = [
   ['(cd /tmp && rm -rf *)', 'pass'],
   ['cd /tmp | cat; rm -rf *', 'deny'],
   ['cd -- .; rm -rf *', 'deny'],
-  ['cd /definitely-missing-dir; rm -rf *', 'ask'],
-  ['false && cd /tmp; rm -rf *', 'ask'],
-  ['cd /dev/null || rm -rf *', 'ask'],
-  ['cd /tmp && rm -rf *; rm -rf *', 'ask'],
   [`cd -P .. && rm -rf ${repo.split('/').pop()}`, 'deny'],
   ['cd /tmp && echo "$(rm -rf *)"', 'pass'],
   // Spellings the shell and git accept.
   ['git push --force-with-l origin main', 'deny'],
-  ["git push --force origin '+refs/tags/*:refs/tags/*'", 'ask'],
-  ["git push origin '+refs/heads/feature/*:refs/heads/feature/*'", 'ask'],
   ['rm -rf ~ --', 'deny'],
   ["bash -c $'rm -rf ~'", 'deny'],
   ['rm -rf "${HOME:0}"', 'deny'],
   ['rm -rf "${PATH:+$HOME}"', 'deny'],
   ['rm -rf "${PATH:+/}"', 'deny'],
-  ['rm -rf "${DIR%/*}"', 'ask'],
   ['echo <(rm -rf ~)', 'deny'],
   ["git -c alias.p='push --force origin main' p", 'deny'],
   ['git -c remote.origin.mirror=true push origin', 'deny'],
@@ -175,29 +151,17 @@ const rows = [
   ['env -u FOO rm -rf ~', 'deny'],
   ['nice -n 5 rm -rf ~', 'deny'],
   ['time -p git push --force origin main', 'deny'],
-  [`${"bash -c '".repeat(1)}${'eval '.repeat(12)}rm -rf ~'`, 'split'],
   // Third review round: directories created on the way, returns, conditions, local variables.
   [`mkdir -p ${root}/fresh && cd ${root}/fresh && rm -rf /`, 'deny'],
   [`git clone ${remote} ${root}/fresh2 && cd ${root}/fresh2 && git push --force origin main`, 'deny'],
-  ['cd /tmp; cd -; rm -rf *', 'ask'],
-  ['pushd /tmp; popd; rm -rf *', 'ask'],
-  ['if false; then cd /tmp; fi; rm -rf *', 'ask'],
-  ['for d in /tmp; do cd "$d"; done; rm -rf *', 'ask'],
   ['TARGET="$PWD"; rm -rf "$TARGET"', 'deny'],
-  ['rm -rf "$UNSET_IN_THIS_TEST"', 'ask'],
   ['for d in build dist; do rm -rf "$d"; done', 'pass'],
   ['OUT=dist; rm -rf "$OUT"', 'pass'],
   ['timeout 30 git push --force origin main', 'deny'],
   ['timeout -s KILL 10 rm -rf /', 'deny'],
   // Fourth review round: values a skipped assignment leaves, and what a pipe hands a shell.
-  ['rm -rf "$HOME/$UNSET_IN_THIS_TEST"', 'ask'],
-  ['TARGET="$PWD"; false && TARGET=dist; rm -rf "$TARGET"', 'ask'],
-  ['TARGET="$PWD"; (TARGET=dist); rm -rf "$TARGET"', 'ask'],
-  ['OUT=dist; export OUT="$PWD"; rm -rf "$OUT"', 'ask'],
   ['for d in $(git push --force origin main); do echo "$d"; done', 'deny'],
   ["cat <<'EOF' | bash\nrm -rf ~\nEOF", 'deny'],
-  ['cd /dev/null && (true); rm -rf *', 'ask'],
-  [`for d in ${Array.from({ length: 40 }, (_, n) => `d${n}`).join(' ')} "$HOME"; do rm -rf "$d"; done`, 'split'],
   ['export OUT=dist; rm -rf "$OUT"', 'pass'],
   [`env -C .. rm -rf ${repo.split('/').pop()}`, 'deny'],
   // Fifth review round: where env -C expands words, which assignments replace a value.
@@ -205,24 +169,17 @@ const rows = [
   ['env -C /tmp rm -rf "$(pwd)"', 'deny'],
   ['dir="$PWD"; dir="$dir/dist"; rm -rf "$dir"', 'pass'],
   ['HOME=/tmp/guard-empty-home; rm -rf "$HOME"', 'pass'],
-  ['DIR="$PWD" git status; rm -rf "$DIR"', 'ask'],
-  ['cd /tmp && (true); rm -rf *', 'ask'],
   ["cat <<'EOF' | bash -c 'cat >/dev/null'\nrm -rf ~\nEOF", 'pass'],
-  ['if false; then UNSET_IN_THIS_TEST=dist; fi; rm -rf "${UNSET_IN_THIS_TEST:-$HOME}"', 'ask'],
   ['echo UNSET_IN_THIS_TEST=dist; rm -rf "${UNSET_IN_THIS_TEST:-$HOME}"', 'deny'],
   ['if true; then OUT=dist; fi; rm -rf "$OUT"', 'pass'],
   // Sixth review round: a command certain to hit a protected path is refused, one that hits it
   // only in some directory or value the shell may have is asked about.
-  ['false && cd /tmp && (true); rm -rf *', 'ask'],
-  ['TARGET="$HOME"; (for TARGET in dist; do :; done); rm -rf "$TARGET"', 'ask'],
-  ['TARGET="$HOME"; false && { :; TARGET=dist; }; rm -rf "$TARGET"', 'ask'],
   ["cat <<'EOF' | bash -s -- arg\nrm -rf ~\nEOF", 'deny'],
   ["cat <<'EOF' | bash -o pipefail\nrm -rf ~\nEOF", 'deny'],
   // Seventh review round: an assignment that surely runs replaces, empty values are harmless.
   ['d="$PWD"; for d in dist build; do rm -rf "$d"; done', 'pass'],
   ['d=dist; d=$d/a; d=$d/b; d=$d/c; d=$d/e; d=$d/f; rm -rf "$d"', 'pass'],
   ['dir="$PWD"; dir=""; rm -rf "$dir"', 'pass'],
-  ['if false; then OUT=/; fi; rm -rf "$OUT"', 'ask'],
   ['OUT=dist; OUT=; rm -rf "${OUT:+$HOME}"', 'pass'],
   ["cat <<'EOF' | bash /dev/null\nrm -rf ~\nEOF", 'pass'],
   ['d="$HOME"; for d in; do :; done; rm -rf "$d"', 'deny'],
@@ -231,11 +188,7 @@ const rows = [
   ["cat <<'EOF' | bash /dev/stdin\nrm -rf ~\nEOF", 'deny'],
   ["cat <<'EOF' | bash -- ./run.sh\nrm -rf ~\nEOF", 'pass'],
   ["cat <<'EOF' | bash -sc 'cat >/dev/null'\nrm -rf ~\nEOF", 'pass'],
-  ['local HOME=/tmp/safe; rm -rf "$HOME"', 'ask'],
-  ['readonly HOME; HOME=/tmp/safe; rm -rf "$HOME"', 'ask'],
-  ['d="$HOME"; export d=dist e="$d"; rm -rf "$e"', 'ask'],
   ['{ cd /tmp; rm -rf *; }', 'pass'],
-  ['false && { cd /tmp; }; rm -rf *', 'ask'],
 ];
 
 test('a logical path to the repository counts the same as git\'s physical one', (t) => {
@@ -254,25 +207,11 @@ test('a tool other than Bash, and input the hook cannot read, pass untouched', (
   assert.deepEqual([r.status, r.stdout], [0, '']);
 });
 
-test('the agent clears a stop by checking and rerunning, on every host, and a refusal stays', () => {
+test('a refusal reaches the agent alone, on every host', () => {
   for (const args of [[], ['--host', 'codex']]) {
-    assert.equal(verdict('git reset --hard origin/main', { args }), 'ask');
-    assert.equal(verdict('ONER_GUARD=checked git reset --hard origin/main', { args }), 'pass');
-    assert.equal(verdict('ONER_GUARD=checked; for a in 1; do git stash drop; done', { args }), 'pass');
-    assert.equal(verdict('cd . && ONER_GUARD=checked git stash drop', { args }), 'ask');
-    assert.equal(verdict('ONER_GUARD=checked git push --force origin main', { args }), 'deny');
-    assert.equal(verdict('git push -u origin feature', { args }), 'pass');
+    const out = output('git push --force origin main', { args });
+    assert.equal(out.permissionDecision, 'deny');
+    assert.match(out.permissionDecisionReason, /main, the default branch/);
+    assert.doesNotMatch(out.permissionDecisionReason, /user/);
   }
-  assert.equal(verdict('ONER_GUARD=checkedx git stash drop'), 'ask');
-  assert.equal(verdict('git commit -m "ONER_GUARD=checked here"; git reset --hard'), 'ask');
-  const unreadable = 'for a in 1 2 3 4 5 6; do for b in 1 2 3 4 5 6; do rm -rf /tmp/x$a$b; done; done; git push --force origin main';
-  assert.equal(verdict(`ONER_GUARD=checked; ${unreadable}`), 'split');
-  for (const line of ['git stash drop; git reset --hard', 'echo $(git stash drop) $(git reset --hard)', 'git stash drop; bash -c "git stash drop; git reset --hard"']) {
-    const why = output(line).permissionDecisionReason;
-    assert.match(why, /stash/, line); assert.match(why, /hard reset/, line);
-    assert.equal(why.split('stashed changes').length, 2, `${line} repeats a stop`);
-  }
-  assert.match(output('rm -rf "$A" ~/"$B"').permissionDecisionReason, /~\/\$B/);
-  assert.match(output('git stash drop').permissionDecisionReason, /stash/);
-  assert.doesNotMatch(output('git push --force origin main').permissionDecisionReason, /user/);
 });

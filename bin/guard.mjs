@@ -1,24 +1,19 @@
 #!/usr/bin/env node
 // PreToolUse hook for Bash in Claude Code and Codex, written when `guard.enabled` is on. It
-// never asks the user. It refuses what would destroy shared history or the machine (a
-// force-push or delete of the default branch, a mirror push, a recursive delete of /, the home
-// directory, or a repository root or anything above it). It stops what would lose local work (a
-// hard reset, a forced clean, discarding every change, a forced delete of a branch whose commits
-// are nowhere else, a stash drop, any other force-push) until the agent has checked it and runs
-// the line again with `ONER_GUARD=checked;` at its start.
+// refuses only what would destroy shared history or the machine: a force-push or delete of the
+// default branch, a mirror push, a recursive delete of /, the home directory, or a repository
+// root or anything above it. Everything else, local work included, is the agent's call and the
+// host's own permission mode. It never asks the user.
 //
 // It catches an agent's mistake, not an attacker: a command written to a file and run by another
 // interpreter is out of its reach. Within the line it reads, it follows the shell: quotes and
 // $'...', $(...), backticks and <(...), here-documents fed to a shell, bash -c and eval, git
 // aliases, and every directory a cd can leave the shell in, counting a cd that may fail or that
-// runs in a subshell or a pipeline. Anything else passes untouched. A line it fails to read is
-// stopped until the agent splits it, and input it cannot parse at all passes to the host's own
-// check.
+// runs in a subshell or a pipeline. Anything else, a line it fails to read included, passes.
 //
-// It refuses only what is certain: a command that reaches a protected path in every directory
-// and with every value the shell can have at that point. When only some of them reach it, it
-// stops. So the model of the shell can stay simple and over-cautious, since a case it cannot
-// settle becomes a check for the agent rather than a silent pass or a hard refusal.
+// It refuses a command that reaches a protected path in any directory the shell can be in, or
+// with any value a variable is known to have, since a loop runs every item. A name with no known
+// value and a fragment it cannot read count as unknown, and pass.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -46,10 +41,21 @@ const JOINS = new Set(['then', 'else', 'elif', 'do', '!', '{', '}']);
 const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
 const GIT_BUILTINS = new Set(['status', 'log', 'diff', 'show', 'add', 'commit', 'fetch', 'pull', 'merge', 'rebase', 'rev-parse',
   'remote', 'config', 'tag', 'worktree', 'ls-files', 'grep', 'blame', 'init', 'clone', 'cherry-pick', 'revert', 'mv', 'rm', 'apply',
-  'describe', 'symbolic-ref', 'for-each-ref', 'rev-list', 'shortlog', 'reflog', 'notes', 'submodule', 'archive', 'bisect', 'gc']);
+  'describe', 'symbolic-ref', 'for-each-ref', 'rev-list', 'shortlog', 'reflog', 'notes', 'submodule', 'archive', 'bisect', 'gc',
+  'reset', 'clean', 'checkout', 'switch', 'restore', 'branch', 'stash']);
 const MAX_DEPTH = 8;
 
 class Unreadable extends Error {}
+// A fragment this guard cannot read passes; the rest of the line is still checked.
+const readable = (fn, fallback) => {
+  try {
+    return fn();
+  } catch (error) {
+    if (error instanceof Unreadable) return fallback;
+    throw error;
+  }
+};
+
 
 function git(cwd, args) {
   const r = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
@@ -313,7 +319,7 @@ function reaches(dst, branch) {
   return pattern.test(`refs/heads/${branch}`);
 }
 
-function checkPush(args, cwd, config) {
+function checkPush(args, cwd, config, vars) {
   const mirrorRemote = Object.entries(config).some(([k, v]) => /^remote\..+\.mirror$/.test(k) && v !== 'false');
   if (long(args, '--mirror', 4) || mirrorRemote) return ['deny', 'a mirror push overwrites every ref on the remote'];
   const positional = [];
@@ -324,7 +330,12 @@ function checkPush(args, cwd, config) {
     else if (['--repo', '-o', '--push-option', '--receive-pack', '--exec'].includes(a)) { if (a === '--repo') repo = args[i + 1]; i++; }
     else if (!a.startsWith('-')) positional.push(a);
   }
-  const refs = repo === null ? positional.slice(1) : positional;
+  let refs = repo === null ? positional.slice(1) : positional;
+  // Without a refspec, git pushes what remote.<name>.push names, else what push.default picks.
+  if (!refs.length) refs = git(cwd, ['config', '--get-all', `remote.${positional[0] ?? 'origin'}.push`]).split('\n').filter(Boolean);
+  const mode = refs.length ? '' : config['push.default'] ?? git(cwd, ['config', '--get', 'push.default']);
+  if (mode === 'matching') refs = [':'];
+  if (mode === 'upstream' || mode === 'tracking') refs = [git(cwd, ['rev-parse', '--abbrev-ref', '@{upstream}']).replace(/^[^/]+\//, '')].filter(Boolean);
   const force = args.some((a) => a.startsWith('--force') || a === '--for') || short(args, 'f');
   const del = long(args, '--delete', 5) || short(args, 'd');
   const current = git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
@@ -338,41 +349,20 @@ function checkPush(args, cwd, config) {
     plus ||= ref.startsWith('+');
     if (body === ':') { all = true; continue; }
     colon ||= body.startsWith(':');
-    const dst = body.split(':').pop().replace(/^HEAD$/, current);
-    hit ??= main.find((b) => reaches(dst, b)) ?? null;
+    for (const value of expandAll(body.split(':').pop(), cwd, vars)) {
+      const dst = value.replace(/^(HEAD|@)$/, current);
+      // A target this guard cannot work out can be the branch the shell is on.
+      if (/[$`]/.test(dst)) hit ??= main.includes(current) ? current : null;
+      else hit ??= main.find((b) => reaches(dst, b)) ?? null;
+    }
   }
   if (!refs.length && !all) hit = main.includes(current) ? current : null;
   if (all) hit ??= main[0];
   if (!force && !del && !plus && !colon) return null;
-  if (hit) return ['deny', `this rewrites or deletes ${hit}, the default branch`];
-  return ['ask', del || colon ? 'this deletes a remote branch' : 'this force-pushes, which replaces commits on the remote'];
+  return hit ? ['deny', `this rewrites or deletes ${hit}, the default branch`] : null;
 }
 
-// Whether deleting a local branch loses no work: a default branch that stays holds its
-// commits, or every file the branch changed already reads the same there, as after a squash
-// merge. Another remote-tracking branch is no proof, since the remote may have dropped it.
-function keptElsewhere(dir, name, deleting) {
-  const tip = git(dir, ['rev-parse', '--verify', '--quiet', `refs/heads/${name}^{commit}`]);
-  if (!tip) return false;
-  const bases = defaultBranches(dir).flatMap((b) => [`refs/remotes/origin/${b}`, `refs/heads/${b}`])
-    .filter((ref) => !deleting.some((other) => ref === `refs/heads/${other}`));
-  if (git(dir, ['for-each-ref', '--count=1', '--contains', tip, '--format=x', ...bases])) return true;
-  return bases.some((base) => {
-    const fork = git(dir, ['merge-base', base, tip]);
-    if (!fork) return false;
-    const changed = spawnSync('git', ['-C', dir, 'diff', '--name-only', '-z', '--no-renames', fork, tip], { encoding: 'utf8' });
-    if (changed.status !== 0) return false;
-    const paths = changed.stdout.split('\0').filter(Boolean).map((path) => `:(literal)${path}`);
-    const same = spawnSync('git', ['-C', dir, 'diff', '--quiet', '--no-ext-diff', '--no-textconv', base, tip, '--', ...paths]);
-    return same.status === 0;
-  });
-}
-
-// Variables that point git at a repository other than the one in its directory.
-const LOCATORS = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
-
-// `located` is true when GIT_DIR or a similar variable can point git at another repository.
-function checkGit(w, cwd, depth, located = false) {
+function checkGit(w, cwd, depth, vars) {
   let i = 1;
   let dir = cwd;
   const config = {};
@@ -381,54 +371,21 @@ function checkGit(w, cwd, depth, located = false) {
     else if (w[i] === '-c') {
       const [key, ...value] = (w[++i] ?? '').split('=');
       config[key.toLowerCase()] = value.length ? value.join('=') : 'true';
-    } else if (['--git-dir', '--work-tree', '--namespace'].includes(w[i])) {
-      located ||= w[i] !== '--namespace';
-      i++;
-    } else if (/^--(git-dir|work-tree)=/.test(w[i])) located = true;
+    } else if (['--git-dir', '--work-tree', '--namespace'].includes(w[i])) i++;
     i++;
   }
   const sub = w[i];
   const args = w.slice(i + 1);
-  if (sub && !GIT_BUILTINS.has(sub) && !['push', 'reset', 'clean', 'checkout', 'switch', 'restore', 'branch', 'stash'].includes(sub)) {
+  if (sub && !GIT_BUILTINS.has(sub) && sub !== 'push') {
     const alias = config[`alias.${sub.toLowerCase()}`] ?? git(dir, ['config', '--get', `alias.${sub}`]);
     if (alias) {
-      if (alias.startsWith('!')) return decide(`${alias.slice(1)} ${args.join(' ')}`, dir, null, depth + 1, located ? new Map([['GIT_DIR', [dir]]]) : undefined);
+      if (alias.startsWith('!')) return decide(`${alias.slice(1)} ${args.join(' ')}`, dir, null, depth + 1,
+        new Map([...vars, ['GIT_DIR', [git(dir, ['rev-parse', '--absolute-git-dir'])]]]));
       const words = lex(alias)[0]?.words ?? [];
-      return checkGit(['git', ...Object.entries(config).flatMap(([k, v]) => ['-c', `${k}=${v}`]), ...words, ...args], dir, depth + 1, located);
+      return checkGit(['git', ...Object.entries(config).flatMap(([k, v]) => ['-c', `${k}=${v}`]), ...words, ...args], dir, depth + 1, vars);
     }
   }
-  const wide = args.some((a) => a === '.' || a === ':/' || a === '*');
-  const discard = ['ask', 'this discards changes in the working tree'];
-  switch (sub) {
-    case 'push': return checkPush(args, dir, config);
-    case 'reset': return long(args, '--hard', 4) ? ['ask', 'a hard reset discards uncommitted changes'] : null;
-    case 'clean':
-      return (long(args, '--force', 4) || short(args, 'f')) && !(long(args, '--dry-run', 4) || short(args, 'n'))
-        ? ['ask', 'a forced clean deletes untracked files'] : null;
-    case 'checkout': return wide || long(args, '--force', 4) || short(args, 'f') ? discard : null;
-    case 'switch': return long(args, '--force', 4) || long(args, '--discard-changes', 4) || short(args, 'f') ? discard : null;
-    case 'restore': {
-      const staged = long(args, '--staged', 4) || short(args, 'S');
-      const worktree = long(args, '--worktree', 4) || short(args, 'W');
-      return wide && (!staged || worktree) ? discard : null;
-    }
-    case 'branch': {
-      const del = long(args, '--delete', 5) || short(args, 'd') || short(args, 'D');
-      const force = long(args, '--force', 4) || short(args, 'f') || short(args, 'D');
-      if (!del || !force) return null;
-      const end = args.indexOf('--');
-      const options = end < 0 ? args : args.slice(0, end);
-      const names = [...options.filter((a) => !a.startsWith('-')), ...(end < 0 ? [] : args.slice(end + 1))];
-      const remote = long(options, '--remotes', 4) || short(options, 'r');
-      // Each name costs several git calls, and the hook has 5 s in all.
-      const checkable = !remote && !located && names.length && names.length <= 10;
-      if (checkable && names.every((name) => keptElsewhere(dir, name, names))) return null;
-      return ['ask', 'this deletes a branch that may hold unmerged commits'];
-    }
-    case 'stash':
-      return args[0] === 'drop' || args[0] === 'clear' ? ['ask', 'this deletes stashed changes, and other sessions share the stash'] : null;
-    default: return null;
-  }
+  return sub === 'push' ? checkPush(args, dir, config, vars) : null;
 }
 
 function checkRm(w, dir, roots, vars, shellDir = dir) {
@@ -438,40 +395,17 @@ function checkRm(w, dir, roots, vars, shellDir = dir) {
   if (!head.some((a) => a === '--recursive' || /^-[a-zA-Z]*[rR]/.test(a))) return null;
   const home = homedir();
   const operands = [...head.filter((a) => !a.startsWith('-')), ...(end < 0 ? [] : args.slice(end + 1))];
-  let doubt = null;
   for (const raw of operands.flatMap(braces)) {
-    // An empty value deletes nothing, so it counts as a harmless alternative.
-    const hits = expandAll(raw, shellDir, vars).map((expanded) => (expanded === '' ? null : protectedPath(expanded, raw, dir, roots, home)));
-    const found = hits.find((hit) => hit?.[0] === 'deny');
-    if (found && hits.every((hit) => hit?.[0] === 'deny')) return found;
-    const may = found && ['ask', `${found[1].replace(/^this /, 'this may ')}, depending on the value ${raw} takes`];
-    doubt = [may, ...hits.filter((hit) => hit?.[0] !== 'deny')].reduce(combine, doubt);
+    const hits = expandAll(raw, shellDir, vars).map((expanded) => (expanded === '' ? null : protectedPath(expanded, dir, roots, home)));
+    const hit = hits.find(Boolean);
+    if (hit) return hit;
   }
-  return doubt;
-}
-
-// A refusal wins over a stop. Stops keep every reason, so the agent checks each one.
-function combine(a, b) {
-  if (!a || !b) return a ?? b ?? null;
-  if (a[0] === 'deny') return a;
-  if (b[0] === 'deny') return b;
-  return ['ask', [...new Set([...a[1].split('; '), ...b[1].split('; ')])].join('; ')];
+  return null;
 }
 
 // Whether one value of an rm operand reaches /, the home directory, a repository root, or .git.
-function protectedPath(expanded, raw, dir, roots, home) {
-  // A path that is only a variable or a substitution can be anything, / included.
-  if (/^(\$\{?\w+\}?|\$\(.*\))\/?\*?$/.test(expanded)) return ['ask', `${raw} can be any path, / included`];
-  if (/\$\{[^}]*[^\w}]/.test(expanded)) return ['ask', `${raw} is a path this guard cannot work out`];
-  if (expanded.includes('$')) {
-    const empty = expanded.replace(/\$\{?\w+\}?/g, '');
-    if (!empty.includes('$') && empty !== expanded) {
-      const blank = resolve(dir, empty.replace(/(^|\/)\*$/, '$1'));
-      const under = (path) => path === blank || path.startsWith(blank === '/' ? '/' : blank + sep);
-      if (blank === '/' || under(home) || roots.some(under)) return ['ask', `${raw} deletes ${blank} when a variable in it is empty`];
-    }
-    return null;
-  }
+function protectedPath(expanded, dir, roots, home) {
+  if (expanded.includes('$')) return null;
   const glob = /(^|\/)\*$/.test(expanded);
   const named = resolve(dir, expanded.replace(/(^|\/)\*$/, '$1'));
   for (const target of new Set([named, real(named)])) {
@@ -510,23 +444,16 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
   const commands = lex(String(command));
   let verdict = null;
   const take = (found) => {
-    verdict = combine(verdict, found);
+    verdict ??= found;
   };
   const addTop = (dir) => {
     const top = git(dir, ['rev-parse', '--show-toplevel']);
     if (top) tops.add(top);
   };
   const inner = (script, dir) => decide(script, dir, [...tops], depth + 1, vars);
-  // A refusal holds only when the command is refused in every directory the shell can be in.
-  // Refused in some of them, it is asked about.
-  const across = (places, check) => {
-    const found = places.map(check);
-    const refused = found.find((hit) => hit?.[0] === 'deny');
-    if (refused && found.every((hit) => hit?.[0] === 'deny')) return refused;
-    const may = refused && ['ask', `${refused[1].replace(/^this /, 'this may ')}, depending on which directory the shell is in`];
-    return [may, ...found.filter((hit) => hit?.[0] !== 'deny')].reduce(combine, null);
-  };
-  const strongest = (found) => found.reduce(combine, null);
+  // A command is refused when it reaches a protected path in any directory the shell can be in.
+  const across = (places, check) => places.map((place) => readable(() => check(place), null)).find(Boolean) ?? null;
+  const strongest = (found) => found.find(Boolean) ?? null;
   let dirs = new Set([cwd]);
   const seen = new Set([cwd]);
   let chain = null;
@@ -558,7 +485,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     }
     const branches = open.filter((item) => item.skippable).length;
     take(across(here, (dir) => strongest(entry.nested.map((script) => inner(script, dir)))));
-    if (verdict?.[0] === 'deny') return verdict;
+    if (verdict) return verdict;
     // An assignment that surely runs replaces the value. One inside a compound command, a
     // subshell, or a pipeline, or after && or ||, can be skipped or confined, so it only joins
     // the values the name already had, unset included.
@@ -574,7 +501,9 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       const loop = open.findLast((item) => item.word === 'for');
       if (loop) Object.assign(loop, { name, previous: vars.get(name) ?? [process.env[name]] });
       // Inside the body the variable is one of the items, nothing else.
-      vars.set(name, here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))));
+      const items = readable(() => here.flatMap((dir) => list.flatMap((item) => expandAll(item, dir, vars))), null);
+      if (items) vars.set(name, items);
+      else vars.delete(name);
       continue;
     }
     let declared = entry.words.slice(Math.max(lead, 0));
@@ -587,10 +516,10 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       // fail, and a readonly name keeps its value, so neither replaces what the name held.
       const values = declared.filter((item) => item.includes('=')).map((word) => {
         const [name, ...value] = word.split('=');
-        return [name, here.flatMap((dir) => expandAll(value.join('='), dir, vars))];
+        return [name, readable(() => here.flatMap((dir) => expandAll(value.join('='), dir, vars)), [`$${name}`])];
       });
       for (const [name, found] of values) {
-        if (builtin || frozen.has(name)) vars.set(name, [...new Set([...(vars.get(name) ?? [process.env[name]]), ...found])]);
+        if (entry.words[lead] === 'local' || frozen.has(name)) vars.set(name, [...new Set([...(vars.get(name) ?? [process.env[name]]), ...found])]);
         else bind(name, found);
       }
       if (declared[0] && (entry.words[lead] === 'readonly' || flags.some((flag) => flag.includes('r')))) {
@@ -599,16 +528,10 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
     }
     const chdir = [];
     const w = stripPrefixes(entry.words, chdir);
-    // A prefix such as GIT_DIR=... reaches git, a shell, or an eval after it, so it joins the
-    // values the name can have from here on.
-    for (const word of entry.words) {
-      const key = LOCATORS.find((name) => word.startsWith(`${name}=`));
-      if (key) vars.set(key, [...(vars.get(key) ?? [process.env[key]]), word.slice(key.length + 1) || '.']);
-    }
     const name = w[0]?.split('/').pop();
     // Pairs of the directory a command runs in and the one its words were expanded in.
     const at = here.flatMap((dir) => (chdir.length
-      ? chdir.flatMap((to) => expandAll(to, dir, vars)).map((to) => [resolve(dir, to), dir])
+      ? readable(() => chdir.flatMap((to) => expandAll(to, dir, vars)), [dir]).map((to) => [resolve(dir, to), dir])
       : [[dir, dir]]));
     // A shell later in the pipeline with no script of its own runs what this command prints.
     let piped = false;
@@ -631,7 +554,7 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       const scripts = SHELLS.has(name) || name === 'eval' || piped ? [heredoc.body] : heredoc.quoted ? [] : substitutions(heredoc.body);
       take(across(here, (dir) => strongest(scripts.map((script) => inner(script, dir)))));
     }
-    if (verdict?.[0] === 'deny') return verdict;
+    if (verdict) return verdict;
     const background = entry.op === '|' || before === '|' || entry.op === '&';
     if ((name === 'cd' && w[1] === '-') || name === 'popd') {
       if (!background) dirs = new Set(seen);
@@ -639,12 +562,13 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       let operands = w.slice(1);
       while (operands.length && /^-[LPe@]+$/.test(operands[0])) operands = operands.slice(1);
       if (operands[0] === '--') operands = operands.slice(1);
-      const targets = here.flatMap((dir) => expandAll(operands[0] ?? '~', dir, vars).filter((to) => !to.includes('$')).map((to) => resolve(dir, to)));
+      const targets = here.flatMap((dir) => readable(() => expandAll(operands[0] ?? '~', dir, vars), []).filter((to) => !to.includes('$')).map((to) => resolve(dir, to)));
       if (!background && targets.length) {
         targets.forEach((target) => { seen.add(target); addTop(target); });
         if (entry.op === '&&') chain = new Set(targets);
         else {
-          const certain = !branches && before !== '&&' && before !== '||' && entry.op !== '||' && targets.every(isDir);
+          const bails = entry.op === '||' && ['exit', 'return'].includes(commands[k + 1]?.words[0]);
+          const certain = !branches && before !== '&&' && before !== '||' && (entry.op !== '||' || bails) && targets.every(isDir);
           dirs = certain ? new Set(targets) : new Set([...dirs, ...targets]);
         }
       }
@@ -652,12 +576,9 @@ export function decide(command, cwd, roots = null, depth = 0, inherited = new Ma
       const flag = w.findIndex((a, n) => n > 0 && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a));
       if (flag > 0 && w[flag + 1] !== undefined) take(across(here, (dir) => inner(w[flag + 1], dir)));
     } else if (name === 'eval') take(across(here, (dir) => inner(w.slice(1).join(' '), dir)));
-    else if (name === 'git') {
-      const located = LOCATORS.some((key) => (vars.get(key) ?? [process.env[key]]).some(Boolean));
-      take(across(at, ([dir]) => checkGit(w, dir, depth, located)));
-    }
+    else if (name === 'git') take(across(at, ([dir]) => checkGit(w, dir, depth, vars)));
     else if (name === 'rm') take(across(at, ([dir, shellDir]) => checkRm(w, dir, [...tops], vars, shellDir)));
-    if (verdict?.[0] === 'deny') return verdict;
+    if (verdict) return verdict;
     if (chain && entry.op !== '&&') {
       dirs = new Set([...dirs, ...chain]);
       chain = null;
@@ -674,23 +595,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // Input this hook cannot parse passes to the host's own permission check.
   }
   if (input?.tool_name === 'Bash') {
-    let verdict;
+    let verdict = null;
     try {
       const cwd = input.cwd && existsSync(input.cwd) ? input.cwd : process.cwd();
       verdict = decide(input.tool_input?.command ?? '', cwd);
-    } catch {
-      verdict = ['split', 'this command is too nested or unusual for it to read'];
-    }
-    const checked = /^\s*ONER_GUARD=checked[;\s]/.test(input.tool_input?.command ?? '');
-    if (verdict && !(verdict[0] === 'ask' && checked)) {
-      const [found, why] = verdict;
-      const reason = {
-        deny: `Blocked by the oner guard: ${why}. Reach the goal another way.`,
-        split: `Stopped by the oner guard: ${why}. Run it as several simpler commands.`,
-        ask: `Stopped by the oner guard: ${why}. Check yourself that this loses no work, and do not ask the user. When it is safe, run the same line again with \`ONER_GUARD=checked;\` at its start.`,
-      }[found];
+    } catch {}
+    if (verdict) {
       process.stdout.write(JSON.stringify({
-        hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason },
+        hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: `Blocked by the oner guard: ${verdict[1]}. Reach the goal another way.` },
       }));
     }
   }

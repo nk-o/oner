@@ -6,8 +6,8 @@
 // scratchpad, reads, and shell commands. It prints nothing, which leaves the
 // prompt to the user, for any other tool, and for a command that runs as
 // another user, opens a remote shell, deploys, changes infrastructure,
-// publishes, rewrites or deletes a shared branch, or deletes recursively
-// outside the repository.
+// publishes, pushes to the default branch or many refs at once, or deletes
+// recursively outside the repository by a literal path.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { isAbsolute, join, resolve, sep } from 'node:path';
@@ -41,14 +41,22 @@ function git(cwd, args) {
   return r.status === 0 ? r.stdout.trim() : '';
 }
 
-function pushIsSafe(command, defaultBranch, branch) {
+function pushIsSafe(command, defaultBranch, branch, pushConfigured, pushDefault) {
   for (const m of command.matchAll(/\bgit\b(?:\s+-[Cc]\s+\S+)*\s+push\b([^;&|\n]*)/g)) {
     const args = m[1].replace(/--force-with-lease(=\S+)?|--force-if-includes/g, ' ');
-    if (/(^|\s)(--force|--delete|--mirror|--all|--tags|--prune|-[a-zA-Z]*[fd][a-zA-Z]*)(\s|$)/.test(args)) return false;
-    const refs = args.trim().split(/\s+/).filter((t) => t && !t.startsWith('-')).map((t) => t.replace(/^['"]|['"]$/g, ''));
-    // refs[0] is the remote. Without a refspec, git pushes the current branch.
-    if (refs.slice(1).some((t) => /^[+:]/.test(t) || t.split(':').pop().replace(/^refs\/heads\//, '') === defaultBranch)) return false;
+    if (/(^|\s)(--mirror|--all|--branches|--tags|--prune)(\s|$)/.test(args)) return false;
+    const words = args.trim().split(/\s+/).filter((t) => t && !t.startsWith('-')).map((t) => t.replace(/^['"]|['"]$/g, ''));
+    // --repo names the remote, so every positional word is a refspec.
+    const refs = /--repo[=\s]/.test(args) ? ['', ...words] : words;
+    // refs[0] is the remote. Without a refspec, git pushes the current branch. An empty, pattern,
+    // or computed destination can reach the default branch, and so can master or main when
+    // origin/HEAD is unknown.
+    const target = (t) => t.split(':').pop().replace(/^\+?(refs\/heads\/)?/, '').replace(/^(HEAD|@)$/, branch);
+    if (refs.slice(1).some((t) => /^$|[*$`]/.test(target(t)) || [defaultBranch, 'main', 'master'].includes(target(t)))) return false;
     if (refs.length < 2 && branch === defaultBranch) return false;
+    // remote.<name>.push can send a refspec-less push anywhere.
+    if (refs.length < 2 && pushConfigured) return false;
+    if (refs.length < 2 && /^(matching|upstream|tracking)$/.test(pushDefault)) return false;
   }
   return true;
 }
@@ -74,7 +82,8 @@ function rmIsSafe(command, cwd, roots) {
     const args = m[2].trim().split(/\s+/).map((a) => a.replace(/^['"]|['"]$/g, ''));
     if (!args.some((a) => /^-[a-zA-Z]*[rR]/.test(a) || a === '--recursive')) continue;
     for (const target of args.filter((a) => a && !a.startsWith('-'))) {
-      if (/^[~$*]|^\.\.?\/?$|(^|\/)\.\.(\/|$)/.test(target)) return false;
+      if (target.startsWith('$')) continue;
+      if (/^[~*]|^\.\.?\/?$|(^|\/)\.\.(\/|$)/.test(target)) return false;
       if (!inside(resolve(cwd, target), roots)) return false;
     }
   }
@@ -106,7 +115,9 @@ function decide(input, skillsDir) {
     if (ASK_TOOL.test(command) || PUBLISH.some((r) => r.test(command))) return false;
     const defaultBranch = git(cwd, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).replace(/^origin\//, '') || 'main';
     const branch = git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    return pushIsSafe(command, defaultBranch, branch) && rmIsSafe(command, cwd, writable) &&
+    const pushConfigured = git(cwd, ['config', '--get-regexp', '^remote\\..*\\.push$']) !== '';
+    const pushDefault = command.match(/push\.default=(\w+)/)?.[1] ?? git(cwd, ['config', '--get', 'push.default']);
+    return pushIsSafe(command, defaultBranch, branch, pushConfigured, pushDefault) && rmIsSafe(command, cwd, writable) &&
       mergeIsAuthorized(command, worktrees[0] ?? cwd);
   }
   return false;
