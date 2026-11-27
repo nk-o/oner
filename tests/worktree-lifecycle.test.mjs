@@ -1077,7 +1077,7 @@ test('a preview outlives the command that started it and stays up to an hour idl
     cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
   assert.equal(started.status, 0, started.stderr);
   assert.match(started.stdout, new RegExp(`http://localhost:${port}`));
-  const pid = listener(port); strays.push(pid);
+  const pid = listener(port); if (pid > 0) strays.push(pid);
   assert.ok(pid && alive(pid), 'the preview is not listening after its starter exited');
   assert.equal(await (await fetch(`http://localhost:${port}/`)).text(), 'preview');
   const group = (p) => spawnSync('ps', ['-o', 'pgid=', '-p', String(p)], { encoding: 'utf8' }).stdout.trim();
@@ -1100,12 +1100,36 @@ test('a preview stops at its idle minute under critical pressure', async () => {
   const started = spawnSync(process.execPath, [devservers, 'preview', '--port', String(port), '--', process.execPath, '-e', serve], {
     cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
   assert.equal(started.status, 0, started.stderr);
-  const pid = listener(port); strays.push(pid);
+  const pid = listener(port); if (pid > 0) strays.push(pid);
   reaper(f, ['reap'], 'critical');
   ageState(f, 120);
   await new Promise(r => setTimeout(r, 2000));
   assert.match(reaper(f, ['reap'], 'critical').stdout, /stopped .*preview/);
   assert.ok(await until(() => !alive(pid)));
+});
+
+test('an explicit idle limit applies to a preview', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const port = await freePort();
+  const serve = `require('http').createServer((q,s)=>s.end('preview')).listen(${port},'127.0.0.1')`;
+  const started = spawnSync(process.execPath, [devservers, 'preview', '--port', String(port), '--', process.execPath, '-e', serve], {
+    cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
+  assert.equal(started.status, 0, started.stderr);
+  const pid = listener(port); if (pid > 0) strays.push(pid);
+  assert.match(reaper(f, ['reap', '--idle', '0s']).stdout, /stopped .*preview/);
+  assert.ok(await until(() => !alive(pid)));
+});
+
+test('a preview that backgrounds its server and exits fails and leaves nothing running', async () => {
+  const f = fixture(); const dir = f.worktree('feature');
+  const pidFile = join(f.root, 'background.pid');
+  const keep = `require('fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(()=>{},1e9)`;
+  const started = spawnSync(process.execPath, [devservers, 'preview', '--port', String(await freePort()), '--wait', '5s', '--', 'sh', '-c', `"${process.execPath}" -e "${keep.replace(/"/g, '\\"')}" & sleep 1`], {
+    cwd: dir, encoding: 'utf8', timeout: 60000, env: { ...process.env, DEVSERVERS_STATE: join(f.root, 'devservers') } });
+  assert.equal(started.status, 1, started.stdout);
+  assert.match(started.stderr, /its command exited/);
+  const pid = Number(readFileSync(pidFile, 'utf8')); if (pid > 0) strays.push(pid);
+  assert.ok(await until(() => !alive(pid), 8000), 'the backgrounded server still runs');
 });
 
 test('a preview whose command exits before it listens fails with its log', () => {

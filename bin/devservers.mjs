@@ -21,7 +21,8 @@ Commands:
                     start a server whose URL the user opens: in its own session, so it outlives
                     the agent's turn and background task, with its output in a log file. It stops
                     after an hour idle, or after the critical limit under critical pressure.
-                    Any command counts, in any checkout, a shell script included.
+                    Any command counts, in any checkout, a shell script included. The command
+                    stays in the foreground: one that backgrounds its server and exits fails.
                     Exits 1 when it does not listen within --wait (default 60)
 
 Idle limits: 30m at normal memory pressure, 5m at warning, 1m at critical. A server is active
@@ -353,7 +354,7 @@ function reap({ idle, dryRun, quiet, roots }, level = pressure()) {
   sample(servers, !roots.length);
   let stopped = 0;
   for (const s of servers) {
-    const own = s.preview && level !== 'critical' ? Math.max(limit, PREVIEW_LIMIT) : limit;
+    const own = s.preview && idle == null && level !== 'critical' ? Math.max(limit, PREVIEW_LIMIT) : limit;
     if (s.clients > 0 || s.idle < own) {
       if (!quiet) console.log(`kept     ${describe(s)} ${s.clients ? `${s.clients} client(s)` : `idle ${minutes(s.idle)}`}`);
       continue;
@@ -457,6 +458,23 @@ const listening = (port) => Promise.all(['127.0.0.1', '::1'].map((host) => new P
   socket.once('error', () => done(false));
 }))).then((hits) => hits.some(Boolean));
 
+// The command runs as its own process group, so this reaches what it started in the
+// background too, even after the command itself exited.
+async function stopGroup(group) {
+  const signal = (name) => {
+    try {
+      process.kill(-group, name);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (!signal('SIGTERM')) return;
+  const deadline = Date.now() + 5000;
+  while (signal(0) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 200));
+  signal('SIGKILL');
+}
+
 async function preview({ port, wait, exec }) {
   if (!(port > 0) || !exec.length) throw new Error(`preview needs --port and a command after --\n\n${USAGE}`);
   if (await listening(port)) {
@@ -477,10 +495,16 @@ async function preview({ port, wait, exec }) {
   if (started) writeFileSync(record, JSON.stringify({ pid: child.pid, started, port, cwd: process.cwd() }));
   const deadline = Date.now() + wait * 1000;
   while (exit === null && Date.now() < deadline && !(await listening(port))) await new Promise((r) => setTimeout(r, 250));
-  if (exit !== null || !(await listening(port))) {
-    if (exit === null) stop({ pids: descendants(processTable(), child.pid) }, processTable());
+  const owner = () => {
+    const tree = new Set(descendants(processTable(), child.pid));
+    return lsofPairs(['-nP', '-a', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpn']).some(([pid]) => tree.has(pid));
+  };
+  const up = exit === null && (await listening(port));
+  if (!up || !owner()) {
+    await stopGroup(child.pid);
     rmSync(record, { force: true });
-    console.error(`the preview did not listen on port ${port}: ${exit === null ? `nothing after ${wait}s` : `its command exited, ${exit}`}. The end of ${logFile}:`);
+    const why = up ? 'another process took the port' : exit === null ? `nothing after ${wait}s` : `its command exited, ${exit}`;
+    console.error(`the preview did not listen on port ${port}: ${why}. The end of ${logFile}:`);
     console.error(readFileSync(logFile, 'utf8').trimEnd().split('\n').slice(-20).join('\n'));
     return 1;
   }
